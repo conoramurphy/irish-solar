@@ -1,0 +1,44 @@
+[
+  {
+    "supplier": "Electric Ireland",
+    "product": "Business Standard 24hr",
+    "history": [
+      {
+        "effectiveDate": "2020-01-01",
+        "standingCharge": 0.65,
+        "unitRate": 0.185,
+        "psoLevy": 0.0345
+      },
+      {
+        "effectiveDate": "2021-01-01",
+        "standingCharge": 0.7,
+        "unitRate": 0.205,
+        "psoLevy": 0.0298
+      },
+      {
+        "effectiveDate": "2022-01-01",
+        "standingCharge": 0.75,
+        "unitRate": 0.245,
+        "psoLevy": 0.0234
+      },
+      {
+        "effectiveDate": "2022-08-01",
+        "standingCharge": 0.85,
+        "unitRate": 0.425,
+        "psoLevy": 0.0234
+      },
+      {
+        "effectiveDate": "2023-01-01",
+        "standingCharge": 0.85,
+        "unitRate": 0.385,
+        "psoLevy": 0.0234
+      },
+      {
+        "effectiveDate": "2024-01-01",
+        "standingCharge": 0.9,
+        "unitRate": 0.295,
+        "psoLevy": 0.0234
+      }
+    ]
+  }
+]

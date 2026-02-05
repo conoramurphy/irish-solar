@@ -1,0 +1,54 @@
+{
+  "Dublin": {
+    "location": "Dublin",
+    "lat": 53.35,
+    "lon": -6.26,
+    "source": "PVGIS-SARAH2",
+    "period": "2015-2024",
+    "monthlyAverages": {
+      "Jan": { "irradiance": 12.5, "pvYield": 25 },
+      "Feb": { "irradiance": 28.3, "pvYield": 45 },
+      "Mar": { "irradiance": 58.2, "pvYield": 88 },
+      "Apr": { "irradiance": 95.5, "pvYield": 125 },
+      "May": { "irradiance": 125.8, "pvYield": 155 },
+      "Jun": { "irradiance": 135.2, "pvYield": 160 },
+      "Jul": { "irradiance": 128.4, "pvYield": 152 },
+      "Aug": { "irradiance": 108.6, "pvYield": 130 },
+      "Sep": { "irradiance": 75.8, "pvYield": 95 },
+      "Oct": { "irradiance": 42.3, "pvYield": 58 },
+      "Nov": { "irradiance": 18.5, "pvYield": 30 },
+      "Dec": { "irradiance": 9.8, "pvYield": 20 }
+    },
+    "yearlyTotals": [
+      { "year": 2015, "totalKwhKwp": 950 },
+      { "year": 2016, "totalKwhKwp": 1020 },
+      { "year": 2017, "totalKwhKwp": 985 },
+      { "year": 2018, "totalKwhKwp": 1050 },
+      { "year": 2019, "totalKwhKwp": 975 },
+      { "year": 2020, "totalKwhKwp": 1100 },
+      { "year": 2021, "totalKwhKwp": 995 },
+      { "year": 2022, "totalKwhKwp": 920 },
+      { "year": 2023, "totalKwhKwp": 1030 },
+      { "year": 2024, "totalKwhKwp": 1015 }
+    ]
+  },
+  "Cork": {
+    "location": "Cork",
+    "lat": 51.9,
+    "lon": -8.47,
+    "source": "PVGIS-SARAH2",
+    "period": "2015-2024",
+    "yearlyTotals": [
+      { "year": 2015, "totalKwhKwp": 980 },
+      { "year": 2016, "totalKwhKwp": 1045 },
+      { "year": 2017, "totalKwhKwp": 1010 },
+      { "year": 2018, "totalKwhKwp": 1075 },
+      { "year": 2019, "totalKwhKwp": 1000 },
+      { "year": 2020, "totalKwhKwp": 1120 },
+      { "year": 2021, "totalKwhKwp": 1020 },
+      { "year": 2022, "totalKwhKwp": 945 },
+      { "year": 2023, "totalKwhKwp": 1055 },
+      { "year": 2024, "totalKwhKwp": 1040 }
+    ]
+  }
+}

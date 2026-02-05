@@ -1,0 +1,27 @@
+[
+  {
+    "id": "ei-business-standard",
+    "supplier": "Electric Ireland",
+    "product": "Business Standard 24hr",
+    "type": "24-hour",
+    "standingCharge": 0.9,
+    "rates": [{ "period": "all-day", "rate": 0.295 }],
+    "exportRate": 0.21,
+    "psoLevy": 0.0234
+  },
+  {
+    "id": "energia-smart",
+    "supplier": "Energia",
+    "product": "Smart Business",
+    "type": "time-of-use",
+    "standingCharge": 0.95,
+    "rates": [
+      { "period": "night", "hours": "23:00-08:00", "rate": 0.185 },
+      { "period": "day", "hours": "09:00-17:00", "rate": 0.32 },
+      { "period": "peak", "hours": "17:00-19:00,07:00-09:00", "rate": 0.42 },
+      { "period": "other", "rate": 0.28 }
+    ],
+    "exportRate": 0.21,
+    "psoLevy": 0.0234
+  }
+]

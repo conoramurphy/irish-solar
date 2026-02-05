@@ -1,0 +1,29 @@
+[
+  {
+    "id": "seai-solar-sme",
+    "name": "SEAI Solar PV Grant - SME",
+    "type": "SEAI",
+    "percentage": 30,
+    "maxAmount": 150000,
+    "eligibleFor": ["hotel", "commercial", "other"],
+    "description": "Support for solar PV installations for SMEs"
+  },
+  {
+    "id": "tams-solar",
+    "name": "TAMS Solar Panel Grant",
+    "type": "TAMS",
+    "percentage": 40,
+    "maxAmount": 90000,
+    "eligibleFor": ["farm"],
+    "description": "Targeted Agricultural Modernisation Scheme for solar"
+  },
+  {
+    "id": "tams-battery",
+    "name": "TAMS Battery Storage Grant",
+    "type": "TAMS",
+    "percentage": 40,
+    "maxAmount": 30000,
+    "eligibleFor": ["farm"],
+    "description": "Battery storage for farm installations"
+  }
+]

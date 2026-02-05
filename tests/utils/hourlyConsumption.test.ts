@@ -1,0 +1,305 @@
+import { describe, it, expect } from 'vitest';
+import {
+  parseTimeRanges,
+  getTariffBucketForHour,
+  generateDailyConsumptionCurve,
+  distributeMonthlyConsumptionToHourly,
+  generateHourlyConsumption,
+  aggregateHourlyToMonthly
+} from '../../src/utils/hourlyConsumption';
+import type { Tariff, ConsumptionProfile } from '../../src/types';
+
+describe('hourlyConsumption', () => {
+  describe('parseTimeRanges', () => {
+    it('should parse single time range', () => {
+      const result = parseTimeRanges('09:00-17:00');
+      expect(result).toEqual([[9, 17]]);
+    });
+
+    it('should parse multiple time ranges', () => {
+      const result = parseTimeRanges('17:00-19:00,07:00-09:00');
+      expect(result).toEqual([[17, 19], [7, 9]]);
+    });
+
+    it('should parse time range crossing midnight', () => {
+      const result = parseTimeRanges('23:00-08:00');
+      expect(result).toEqual([[23, 8]]);
+    });
+
+    it('should handle invalid input', () => {
+      expect(parseTimeRanges('')).toEqual([]);
+      expect(parseTimeRanges('invalid')).toEqual([]);
+      expect(parseTimeRanges('12:00')).toEqual([]);
+    });
+  });
+
+  describe('getTariffBucketForHour', () => {
+    const testTariff: Tariff = {
+      id: 'test',
+      supplier: 'Test',
+      product: 'Test',
+      type: 'time-of-use',
+      standingCharge: 1.0,
+      rates: [
+        { period: 'night', hours: '23:00-08:00', rate: 0.15 },
+        { period: 'day', hours: '09:00-17:00', rate: 0.30 },
+        { period: 'peak', hours: '17:00-19:00,07:00-09:00', rate: 0.40 },
+        { period: 'other', rate: 0.25 }
+      ],
+      exportRate: 0.20,
+      psoLevy: 0.02
+    };
+
+    it('should identify night hours', () => {
+      expect(getTariffBucketForHour(0, testTariff)).toBe('night');
+      expect(getTariffBucketForHour(5, testTariff)).toBe('night');
+      expect(getTariffBucketForHour(23, testTariff)).toBe('night');
+    });
+
+    it('should identify day hours', () => {
+      expect(getTariffBucketForHour(10, testTariff)).toBe('day');
+      expect(getTariffBucketForHour(14, testTariff)).toBe('day');
+      expect(getTariffBucketForHour(16, testTariff)).toBe('day');
+    });
+
+    it('should identify peak hours', () => {
+      expect(getTariffBucketForHour(7, testTariff)).toBe('peak');
+      expect(getTariffBucketForHour(8, testTariff)).toBe('peak');
+      expect(getTariffBucketForHour(17, testTariff)).toBe('peak');
+      expect(getTariffBucketForHour(18, testTariff)).toBe('peak');
+    });
+
+    it('should identify other hours', () => {
+      expect(getTariffBucketForHour(19, testTariff)).toBe('other');
+      expect(getTariffBucketForHour(20, testTariff)).toBe('other');
+      expect(getTariffBucketForHour(21, testTariff)).toBe('other');
+    });
+
+    it('should handle flat tariff', () => {
+      const flatTariff: Tariff = {
+        id: 'flat',
+        supplier: 'Test',
+        product: 'Flat',
+        type: '24-hour',
+        standingCharge: 1.0,
+        rates: [{ period: 'all-day', rate: 0.25 }],
+        exportRate: 0.20
+      };
+
+      expect(getTariffBucketForHour(0, flatTariff)).toBe('all-day');
+      expect(getTariffBucketForHour(12, flatTariff)).toBe('all-day');
+      expect(getTariffBucketForHour(23, flatTariff)).toBe('all-day');
+    });
+  });
+
+  describe('generateDailyConsumptionCurve', () => {
+    it('should generate 24 hourly values', () => {
+      const curve = generateDailyConsumptionCurve();
+      expect(curve).toHaveLength(24);
+    });
+
+    it('should sum to 1 (normalized)', () => {
+      const curve = generateDailyConsumptionCurve();
+      const sum = curve.reduce((a, b) => a + b, 0);
+      expect(sum).toBeCloseTo(1, 10);
+    });
+
+    it('should have lower values at night', () => {
+      const curve = generateDailyConsumptionCurve();
+      const nightAvg = (curve[0] + curve[1] + curve[2] + curve[3]) / 4;
+      const dayAvg = (curve[10] + curve[11] + curve[12] + curve[13]) / 4;
+      expect(nightAvg).toBeLessThan(dayAvg);
+    });
+
+    it('should have all positive values', () => {
+      const curve = generateDailyConsumptionCurve();
+      curve.forEach(val => {
+        expect(val).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  describe('distributeMonthlyConsumptionToHourly', () => {
+    const testTariff: Tariff = {
+      id: 'test',
+      supplier: 'Test',
+      product: 'Test',
+      type: 'time-of-use',
+      standingCharge: 1.0,
+      rates: [
+        { period: 'night', hours: '23:00-08:00', rate: 0.15 },
+        { period: 'day', hours: '09:00-17:00', rate: 0.30 },
+        { period: 'other', rate: 0.25 }
+      ],
+      exportRate: 0.20
+    };
+
+    it('should generate correct number of hours', () => {
+      const monthlyKwh = 10000;
+      const bucketShares = { night: 0.3, day: 0.5, other: 0.2 };
+      const daysInMonth = 31;
+
+      const result = distributeMonthlyConsumptionToHourly(
+        monthlyKwh,
+        bucketShares,
+        daysInMonth,
+        testTariff
+      );
+
+      expect(result).toHaveLength(31 * 24);
+    });
+
+    it('should preserve monthly total', () => {
+      const monthlyKwh = 10000;
+      const bucketShares = { night: 0.3, day: 0.5, other: 0.2 };
+      const daysInMonth = 31;
+
+      const result = distributeMonthlyConsumptionToHourly(
+        monthlyKwh,
+        bucketShares,
+        daysInMonth,
+        testTariff
+      );
+
+      const total = result.reduce((a, b) => a + b, 0);
+      expect(total).toBeCloseTo(monthlyKwh, 1);
+    });
+
+    it('should handle zero consumption', () => {
+      const result = distributeMonthlyConsumptionToHourly(
+        0,
+        { night: 0.3, day: 0.7 },
+        30,
+        testTariff
+      );
+
+      expect(result).toHaveLength(30 * 24);
+      expect(result.every(v => v === 0)).toBe(true);
+    });
+  });
+
+  describe('generateHourlyConsumption', () => {
+    const testTariff: Tariff = {
+      id: 'test',
+      supplier: 'Test',
+      product: 'Test',
+      type: 'time-of-use',
+      standingCharge: 1.0,
+      rates: [
+        { period: 'night', hours: '23:00-08:00', rate: 0.15 },
+        { period: 'day', hours: '09:00-17:00', rate: 0.30 },
+        { period: 'other', rate: 0.25 }
+      ],
+      exportRate: 0.20
+    };
+
+    it('should generate 8760 hours for full year', () => {
+      const profile: ConsumptionProfile = {
+        months: Array.from({ length: 12 }, (_, i) => ({
+          monthIndex: i,
+          totalKwh: 10000,
+          bucketShares: { night: 0.3, day: 0.5, other: 0.2 }
+        }))
+      };
+
+      const result = generateHourlyConsumption(profile, testTariff);
+      expect(result).toHaveLength(8760);
+
+      const leap = generateHourlyConsumption(profile, testTariff, 8784);
+      expect(leap).toHaveLength(8784);
+    });
+
+    it('should preserve annual total', () => {
+      const monthlyKwh = 10000;
+      const annualKwh = monthlyKwh * 12;
+
+      const profile: ConsumptionProfile = {
+        months: Array.from({ length: 12 }, (_, i) => ({
+          monthIndex: i,
+          totalKwh: monthlyKwh,
+          bucketShares: { night: 0.3, day: 0.5, other: 0.2 }
+        }))
+      };
+
+      const result = generateHourlyConsumption(profile, testTariff);
+      const total = result.reduce((a, b) => a + b, 0);
+      expect(total).toBeCloseTo(annualKwh, 1);
+    });
+
+    it('should handle varying monthly consumption', () => {
+      const profile: ConsumptionProfile = {
+        months: [
+          { monthIndex: 0, totalKwh: 15000, bucketShares: { night: 0.4, day: 0.4, other: 0.2 } },
+          { monthIndex: 1, totalKwh: 14000, bucketShares: { night: 0.4, day: 0.4, other: 0.2 } },
+          { monthIndex: 2, totalKwh: 12000, bucketShares: { night: 0.35, day: 0.45, other: 0.2 } },
+          { monthIndex: 3, totalKwh: 10000, bucketShares: { night: 0.3, day: 0.5, other: 0.2 } },
+          { monthIndex: 4, totalKwh: 8000, bucketShares: { night: 0.3, day: 0.5, other: 0.2 } },
+          { monthIndex: 5, totalKwh: 7000, bucketShares: { night: 0.25, day: 0.55, other: 0.2 } },
+          { monthIndex: 6, totalKwh: 7000, bucketShares: { night: 0.25, day: 0.55, other: 0.2 } },
+          { monthIndex: 7, totalKwh: 8000, bucketShares: { night: 0.3, day: 0.5, other: 0.2 } },
+          { monthIndex: 8, totalKwh: 9000, bucketShares: { night: 0.3, day: 0.5, other: 0.2 } },
+          { monthIndex: 9, totalKwh: 11000, bucketShares: { night: 0.35, day: 0.45, other: 0.2 } },
+          { monthIndex: 10, totalKwh: 13000, bucketShares: { night: 0.35, day: 0.45, other: 0.2 } },
+          { monthIndex: 11, totalKwh: 14000, bucketShares: { night: 0.4, day: 0.4, other: 0.2 } }
+        ]
+      };
+
+      const result = generateHourlyConsumption(profile, testTariff);
+      expect(result).toHaveLength(8760);
+
+      const expectedAnnual = profile.months.reduce((sum, m) => sum + m.totalKwh, 0);
+      const actualAnnual = result.reduce((a, b) => a + b, 0);
+      expect(actualAnnual).toBeCloseTo(expectedAnnual, 1);
+    });
+  });
+
+  describe('aggregateHourlyToMonthly', () => {
+    it('should aggregate back to 12 months', () => {
+      const hourly = Array(8760).fill(1);
+      const monthly = aggregateHourlyToMonthly(hourly);
+      expect(monthly).toHaveLength(12);
+
+      const hourlyLeap = Array(8784).fill(1);
+      const monthlyLeap = aggregateHourlyToMonthly(hourlyLeap);
+      expect(monthlyLeap).toHaveLength(12);
+    });
+
+    it('should preserve total when aggregating', () => {
+      const hourly = Array(8760).fill(10);
+      const hourlyTotal = hourly.reduce((a, b) => a + b, 0);
+
+      const monthly = aggregateHourlyToMonthly(hourly);
+      const monthlyTotal = monthly.reduce((a, b) => a + b, 0);
+
+      expect(monthlyTotal).toBeCloseTo(hourlyTotal, 1);
+    });
+
+    it('should match original monthly values after round-trip', () => {
+      const testTariff: Tariff = {
+        id: 'test',
+        supplier: 'Test',
+        product: 'Test',
+        type: '24-hour',
+        standingCharge: 1.0,
+        rates: [{ period: 'all-day', rate: 0.25 }],
+        exportRate: 0.20
+      };
+
+      const originalMonthly = [10000, 9000, 8000, 7000, 6000, 5500, 5500, 6000, 7000, 8000, 9000, 10000];
+      const profile: ConsumptionProfile = {
+        months: originalMonthly.map((kwh, i) => ({
+          monthIndex: i,
+          totalKwh: kwh,
+          bucketShares: { 'all-day': 1.0 }
+        }))
+      };
+
+      const hourly = generateHourlyConsumption(profile, testTariff);
+      const aggregated = aggregateHourlyToMonthly(hourly);
+
+      aggregated.forEach((monthlyKwh, i) => {
+        expect(monthlyKwh).toBeCloseTo(originalMonthly[i], 1);
+      });
+    });
+  });
+});
