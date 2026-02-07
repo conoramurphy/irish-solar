@@ -56,25 +56,21 @@ export async function loadSolarData(
 }
 
 /**
- * Pre-warm the cache by loading data in the background
- * Useful for common locations to provide instant UX
+ * Pre-warm the cache by loading data in the background.
+ * Individual failures are swallowed so one bad location doesn't block the rest.
  * 
  * @param locations Array of {location, year} to pre-load
  */
 export async function preloadSolarData(
   locations: Array<{ location: string; year: number }>
 ): Promise<void> {
-  // Load in parallel but don't wait for completion
   const promises = locations.map(({ location, year }) =>
     loadSolarData(location, year).catch((err) => {
       console.warn(`Failed to preload ${location} ${year}:`, err);
     })
   );
 
-  // Fire and forget - don't block on completion
-  Promise.all(promises).catch(() => {
-    // Silently fail - preloading is optimization, not critical
-  });
+  await Promise.all(promises);
 }
 
 /**
