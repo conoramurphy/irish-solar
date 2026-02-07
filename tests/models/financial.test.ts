@@ -38,6 +38,43 @@ describe('financial model', () => {
     expect(Number.isFinite(irr) || Number.isNaN(irr)).toBe(true);
   });
 
+  it('returns NaN when all cash flows are negative', () => {
+    // Project that loses money every year - no IRR solution
+    const irr = calculateIRR(50_000, [-5_000, -5_000, -5_000, -5_000, -5_000]);
+    expect(Number.isNaN(irr)).toBe(true);
+  });
+
+  it('returns NaN for zero or negative initial investment', () => {
+    const cashFlows = [10_000, 10_000, 10_000];
+    
+    const irrZero = calculateIRR(0, cashFlows);
+    expect(Number.isNaN(irrZero)).toBe(true);
+    
+    const irrNeg = calculateIRR(-10_000, cashFlows);
+    expect(Number.isNaN(irrNeg)).toBe(true);
+  });
+
+  it('handles very high IRR scenarios correctly', () => {
+    // Small investment, large returns => very high IRR
+    const irr = calculateIRR(1_000, [10_000, 10_000, 10_000]);
+    expect(irr).toBeGreaterThan(1); // > 100% return
+    expect(Number.isFinite(irr)).toBe(true);
+  });
+
+  it('handles break-even scenario (IRR ~ 0)', () => {
+    // Returns exactly match investment spread over time
+    const irr = calculateIRR(10_000, [2_500, 2_500, 2_500, 2_500]);
+    expect(irr).toBeGreaterThanOrEqual(-0.1);
+    expect(irr).toBeLessThanOrEqual(0.1);
+  });
+
+  it('handles mixed positive and negative cash flows', () => {
+    // Some years profit, some years loss
+    const irr = calculateIRR(50_000, [20_000, -5_000, 20_000, -5_000, 30_000]);
+    // Should find a solution if NPV crosses zero
+    expect(Number.isFinite(irr) || Number.isNaN(irr)).toBe(true);
+  });
+
   it('calculates annual loan payment and decreasing balance', () => {
     const payment = calculateLoanPayment(100_000, 0.05, 10);
     expect(payment).toBeGreaterThan(10_000);
@@ -55,5 +92,66 @@ describe('financial model', () => {
     expect(calculateLoanPayment(0, 0.05, 10)).toBe(0);
     expect(calculateLoanPayment(1000, 0.05, 0)).toBe(0);
     expect(calculateLoanBalance(0, 0.05, 10, 1)).toBe(0);
+  });
+
+  describe('financial edge cases', () => {
+    it('handles zero interest rate correctly', () => {
+      const payment = calculateLoanPayment(100_000, 0, 10);
+      expect(payment).toBeCloseTo(10_000, 1); // 100k / 10 years
+    });
+
+    it('handles loan balance with yearsPaid > term', () => {
+      const balance = calculateLoanBalance(100_000, 0.05, 10, 15);
+      expect(balance).toBe(0); // Loan fully paid off
+    });
+
+    it('handles negative yearsPaid', () => {
+      const balance = calculateLoanBalance(100_000, 0.05, 10, -5);
+      expect(balance).toBe(100_000); // Full principal
+    });
+
+    it('calculates NPV with negative discount rate', () => {
+      const cashFlows = [10_000, 10_000, 10_000];
+      const npv = calculateNPV(20_000, cashFlows, -0.05);
+      // Negative discount rate makes future cash flows worth more
+      expect(npv).toBeGreaterThan(calculateNPV(20_000, cashFlows, 0.05));
+    });
+
+    it('calculates NPV with zero discount rate', () => {
+      const cashFlows = [10_000, 10_000, 10_000];
+      const npv = calculateNPV(20_000, cashFlows, 0);
+      // With 0% discount, NPV = sum of cash flows - investment
+      expect(npv).toBeCloseTo(10_000, 1);
+    });
+
+    it('calculates simple payback with zero savings', () => {
+      const payback = calculateSimplePayback(100_000, 0);
+      expect(payback).toBe(Infinity);
+    });
+
+    it('calculates simple payback with zero investment', () => {
+      const payback = calculateSimplePayback(0, 10_000);
+      expect(payback).toBe(0);
+    });
+
+    it('calculates simple payback with negative investment', () => {
+      const payback = calculateSimplePayback(-10_000, 5_000);
+      expect(payback).toBe(0);
+    });
+
+    it('calculates simple payback with negative savings', () => {
+      const payback = calculateSimplePayback(100_000, -5_000);
+      expect(payback).toBe(Infinity);
+    });
+
+    it('handles very long loan terms', () => {
+      const payment = calculateLoanPayment(100_000, 0.05, 50); // 50 year loan
+      expect(payment).toBeGreaterThan(0);
+      expect(payment).toBeLessThan(10_000); // Should be less than 10-year payment
+
+      const bal25 = calculateLoanBalance(100_000, 0.05, 50, 25);
+      expect(bal25).toBeGreaterThan(0);
+      expect(bal25).toBeLessThan(100_000);
+    });
   });
 });

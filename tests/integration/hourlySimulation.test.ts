@@ -193,6 +193,75 @@ describe('Hourly Simulation Integration Tests', () => {
     expect(result.annualSelfConsumption).toBe(0);
   });
 
+  it('should handle leap year with 8784 hours', () => {
+    // Create mock leap year solar data (2020)
+    const timesteps = [];
+    const year = 2020; // Leap year
+
+    const start = Date.UTC(year, 0, 1, 0, 0, 0);
+
+    for (let hour = 0; hour < 8784; hour++) {
+      const t = new Date(start + hour * 60 * 60 * 1000);
+      const hourOfDay = t.getUTCHours();
+      const monthIndex = t.getUTCMonth();
+      const day = t.getUTCDate();
+
+      const irradiance = hourOfDay >= 8 && hourOfDay < 18
+        ? Math.max(0, 500 * Math.sin(((hourOfDay - 8) / 10) * Math.PI))
+        : 0;
+
+      timesteps.push({
+        timestamp: t,
+        stamp: { year, monthIndex, day, hour: hourOfDay },
+        hourKey: `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hourOfDay).padStart(2, '0')}`,
+        irradianceWm2: irradiance,
+        sourceIndex: hour
+      });
+    }
+
+    const totalIrradiance = timesteps.reduce((sum, ts) => sum + ts.irradianceWm2, 0);
+    const leapYearData = {
+      location: 'Test',
+      latitude: 53.0,
+      longitude: -6.0,
+      elevation: 100,
+      year,
+      timesteps,
+      totalIrradiance
+    };
+
+    const result = runCalculation(
+      {
+        annualProductionKwh: 22500,
+        batterySizeKwh: 10,
+        installationCost: 35000,
+        location: 'Test',
+        businessType: 'hotel'
+      },
+      [],
+      { equity: 15000, interestRate: 0.05, termYears: 10 },
+      testTariff,
+      { enabled: false },
+      {} as any,
+      [] as any,
+      25,
+      testConsumptionProfile,
+      leapYearData
+    );
+
+    // Should handle leap year successfully
+    expect(result.annualGeneration).toBe(22500);
+    expect(result.audit).toBeDefined();
+    expect(result.audit?.totalHours).toBe(8784);
+    expect(result.audit?.year).toBe(2020);
+
+    // Verify Feb 29 is included in hourly data
+    const feb29Hours = result.audit?.hourly.filter(h => 
+      h.monthIndex === 1 && h.hourKey?.includes('-02-29')
+    );
+    expect(feb29Hours?.length).toBe(24); // 24 hours for Feb 29
+  });
+
   it('should handle edge case: no solar generation', () => {
     const solarData = createMockSolarData();
 

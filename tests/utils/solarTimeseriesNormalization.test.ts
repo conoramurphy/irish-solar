@@ -78,4 +78,81 @@ describe('normalizeSolarTimeseriesYear', () => {
     expect(corrections.rowsOutsideYearDropped).toBe(1);
     expect(normalized.timesteps[0].irradianceWm2).toBe(10);
   });
+
+  describe('DST / timezone edge cases', () => {
+    it('handles data with 8759 hours (DST spring forward)', () => {
+      const year = 2021;
+      const timesteps: SolarTimestep[] = [];
+      
+      // Simulate missing one hour due to DST spring forward
+      let hourCount = 0;
+      for (let m = 0; m < 12; m++) {
+        const daysInMonth = m === 1 ? 28 : [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m];
+        for (let d = 1; d <= (daysInMonth || 30); d++) {
+          const hoursInDay = (m === 2 && d === 14) ? 23 : 24; // Skip hour 2 on March 14
+          for (let h = 0; h < hoursInDay; h++) {
+            const actualHour = (m === 2 && d === 14 && h >= 2) ? h + 1 : h;
+            timesteps.push(makeTs({ year, monthIndex: m, day: d, hour: actualHour }, 100, hourCount++));
+          }
+        }
+      }
+
+      const parsed = makeParsed(year, timesteps);
+      const { normalized, corrections } = normalizeSolarTimeseriesYear(parsed, year);
+
+      // Should fill the missing hour with 0
+      expect(normalized.timesteps).toHaveLength(expectedHoursInYear(year));
+      expect(corrections.hoursMissingFilled).toBe(1);
+      expect(corrections.warnings.length).toBeGreaterThan(0);
+    });
+
+    it('handles data with 8761 hours (DST fall back)', () => {
+      const year = 2021;
+      const timesteps: SolarTimestep[] = [];
+      
+      // Simulate duplicate hour due to DST fall back
+      let hourCount = 0;
+      for (let m = 0; m < 12; m++) {
+        const daysInMonth = m === 1 ? 28 : [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m];
+        for (let d = 1; d <= (daysInMonth || 30); d++) {
+          const hoursInDay = (m === 10 && d === 7) ? 25 : 24; // Duplicate hour 2 on Nov 7
+          for (let h = 0; h < hoursInDay; h++) {
+            const actualHour = (m === 10 && d === 7 && h > 2 && h < 25) ? h - 1 : (h === 25 ? 3 : h);
+            timesteps.push(makeTs({ year, monthIndex: m, day: d, hour: actualHour }, 100 + h, hourCount++));
+          }
+        }
+      }
+
+      const parsed = makeParsed(year, timesteps);
+      const { normalized, corrections } = normalizeSolarTimeseriesYear(parsed, year);
+
+      // Should drop the duplicate hour
+      expect(normalized.timesteps).toHaveLength(expectedHoursInYear(year));
+      expect(corrections.duplicatesDropped).toBeGreaterThan(0);
+      expect(corrections.warnings.length).toBeGreaterThan(0);
+    });
+
+    it('handles data with both missing and duplicate hours', () => {
+      const year = 2021;
+      const timesteps: SolarTimestep[] = [];
+      
+      // Add hours in order but skip some and duplicate others
+      for (let h = 0; h < 8755; h++) {
+        const d = Math.floor(h / 24) + 1;
+        const hourOfDay = h % 24;
+        timesteps.push(makeTs({ year, monthIndex: 0, day: Math.min(d, 31), hour: hourOfDay }, 100, h));
+      }
+      
+      // Add duplicates
+      timesteps.push(makeTs({ year, monthIndex: 0, day: 5, hour: 10 }, 200, 8755));
+      timesteps.push(makeTs({ year, monthIndex: 0, day: 5, hour: 10 }, 150, 8756));
+
+      const parsed = makeParsed(year, timesteps);
+      const { normalized, corrections } = normalizeSolarTimeseriesYear(parsed, year);
+
+      expect(normalized.timesteps).toHaveLength(expectedHoursInYear(year));
+      expect(corrections.hoursMissingFilled).toBeGreaterThan(0);
+      expect(corrections.duplicatesDropped).toBeGreaterThan(0);
+    });
+  });
 });

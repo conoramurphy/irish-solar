@@ -146,4 +146,126 @@ describe('runCalculation', () => {
 
     expect(withBattery.annualSelfConsumption).toBeGreaterThan(base.annualSelfConsumption);
   });
+
+  describe('empty/zero consumption edge cases', () => {
+    it('handles completely zero consumption profile', () => {
+      const zeroConsumption = {
+        months: Array.from({ length: 12 }, (_, monthIndex) => ({
+          monthIndex,
+          totalKwh: 0,
+          bucketShares: { 'all-day': 1.0 }
+        }))
+      };
+
+      const result = runCalculation(
+        {
+          annualProductionKwh: 20_000,
+          batterySizeKwh: 0,
+          installationCost: 30_000,
+          location: 'Test',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 30_000, interestRate: 0, termYears: 0 },
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        zeroConsumption as any,
+        makeSolar()
+      );
+
+      // With zero consumption, all generation should be exported
+      expect(result.annualSelfConsumption).toBe(0);
+      expect(result.annualExport).toBeCloseTo(20_000, 0);
+      expect(result.annualSavings).toBeGreaterThan(0); // From exports
+    });
+
+    it('handles undefined consumption profile', () => {
+      const result = runCalculation(
+        {
+          annualProductionKwh: 20_000,
+          batterySizeKwh: 0,
+          installationCost: 30_000,
+          location: 'Test',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 30_000, interestRate: 0, termYears: 0 },
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        undefined,
+        makeSolar()
+      );
+
+      // Should default to zero consumption and export all generation
+      expect(result.annualSelfConsumption).toBe(0);
+      expect(result.annualExport).toBeCloseTo(20_000, 0);
+    });
+
+    it('handles empty months array in consumption profile', () => {
+      const emptyProfile = { months: [] };
+
+      const result = runCalculation(
+        {
+          annualProductionKwh: 20_000,
+          batterySizeKwh: 0,
+          installationCost: 30_000,
+          location: 'Test',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 30_000, interestRate: 0, termYears: 0 },
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        emptyProfile as any,
+        makeSolar()
+      );
+
+      // Should normalize to 12 months of zero consumption
+      expect(result.annualSelfConsumption).toBe(0);
+      expect(result.annualExport).toBeCloseTo(20_000, 0);
+    });
+
+    it('handles consumption profile with some zero months', () => {
+      const mixedProfile = {
+        months: Array.from({ length: 12 }, (_, monthIndex) => ({
+          monthIndex,
+          totalKwh: monthIndex < 6 ? 1000 : 0, // First half has consumption, second half zero
+          bucketShares: { 'all-day': 1.0 }
+        }))
+      };
+
+      const result = runCalculation(
+        {
+          annualProductionKwh: 20_000,
+          batterySizeKwh: 0,
+          installationCost: 30_000,
+          location: 'Test',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 30_000, interestRate: 0, termYears: 0 },
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        mixedProfile as any,
+        makeSolar()
+      );
+
+      // Should handle mixed consumption gracefully
+      expect(result.annualSelfConsumption).toBeGreaterThan(0);
+      expect(result.annualExport).toBeGreaterThan(0);
+      expect(result.annualSelfConsumption + result.annualExport).toBeCloseTo(20_000, 0);
+    });
+  });
 });

@@ -135,8 +135,12 @@ export function ResultsSection({ result }: ResultsSectionProps) {
 
                 <MetricRow
                   label="IRR"
-                  value={Number.isFinite(result.irr) ? `${(result.irr * 100).toFixed(2)}%` : '—'}
-                  hint="Internal rate of return over the full analysis period (annualized)."
+                  value={Number.isFinite(result.irr) ? `${(result.irr * 100).toFixed(2)}%` : (
+                    <span className="text-slate-400 text-sm">Not calculable</span>
+                  )}
+                  hint={Number.isFinite(result.irr) 
+                    ? "Internal rate of return over the full analysis period (annualized)." 
+                    : "IRR cannot be calculated for this cash flow scenario (no solution exists)."}
                 />
 
                 <MetricRow
