@@ -6,12 +6,12 @@ import {
   expectedHoursInYear,
   listSolarTimeseriesYears,
   normalizeSolarTimeseriesYear,
-  parseSolarTimeseriesCSV,
   distributeAnnualProductionTimeseries,
   aggregateToMonthly,
   type ParsedSolarData,
   type SolarNormalizationCorrections
 } from '../../utils/solarTimeseriesParser';
+import { loadSolarData } from '../../utils/solarDataLoader';
 
 interface Step2SolarInstallationProps {
   config: SystemConfiguration;
@@ -47,14 +47,15 @@ export function Step2SolarInstallation({
     
     setLoading(true);
 
-    logInfo('solar', 'Loading solar timeseries CSV', { location: config.location });
+    logInfo('solar', 'Loading solar timeseries data via fetch', { location: config.location });
     
-    // Dynamically import the CSV file
-    import(`../../data/timeseries_solar_${config.location}.csv?raw`)
-      .then((module) => {
-        const csvContent = module.default;
-        const parsed = parseSolarTimeseriesCSV(csvContent, config.location);
-        logInfo('solar', 'Parsed solar timeseries CSV', { totalRows: parsed.timesteps.length, firstYear: parsed.year });
+    // Fetch CSV from static assets (year 2020 for now)
+    // TODO: Add year selection UI when multiple years are available
+    const year = 2020;
+    
+    loadSolarData(config.location, year)
+      .then((parsed) => {
+        logInfo('solar', 'Loaded solar timeseries data', { totalRows: parsed.timesteps.length, year: parsed.year });
 
         const years = listSolarTimeseriesYears(parsed);
         setAvailableYears(years);
@@ -198,13 +199,12 @@ export function Step2SolarInstallation({
 
                         logInfo('solar', 'Year selected for solar timeseries', { year: y });
 
-                        // Re-parse and slice to avoid keeping multi-year data in state.
+                        // Load data for selected year
                         setLoading(true);
-                        import(`../../data/timeseries_solar_${config.location}.csv?raw`)
-                          .then((module) => {
+                        loadSolarData(config.location, y)
+                          .then((parsed) => {
                             const spanId = startSpan('solar', 'Solar normalization', { year: y, location: config.location });
                             try {
-                              const parsed = parseSolarTimeseriesCSV(module.default, config.location);
                               const norm = normalizeSolarTimeseriesYear(parsed, y);
                               logInfo('solar', 'Normalized solar timeseries to canonical year grid', norm.corrections, { spanId });
                               if (norm.corrections.warnings.length) {
