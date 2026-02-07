@@ -1,0 +1,265 @@
+import { describe, expect, it } from 'vitest';
+import {
+  calculateImpliedRate,
+  curveConsumption,
+  calculateMonthlyBill,
+  calculateAverageFlatRate,
+  deriveCustomTariffRates,
+  estimateAnnualBills
+} from '../../src/utils/billingCalculations';
+import type { ExampleMonth, TariffConfiguration, TariffSlot } from '../../src/types/billing';
+
+// --- Helpers ---
+function makeExampleMonth(overrides: Partial<ExampleMonth> & Pick<ExampleMonth, 'monthIndex'>): ExampleMonth {
+  return {
+    monthName: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][overrides.monthIndex],
+    totalKwh: 1000,
+    totalBillEur: 200,
+    tariffSlotUsage: {},
+    ...overrides
+  };
+}
+
+// --- calculateImpliedRate ---
+describe('calculateImpliedRate', () => {
+  it('returns bill / kWh for normal inputs', () => {
+    expect(calculateImpliedRate(1000, 200)).toBeCloseTo(0.2);
+  });
+
+  it('returns 0 when kWh is 0', () => {
+    expect(calculateImpliedRate(0, 200)).toBe(0);
+  });
+
+  it('returns 0 when kWh is negative', () => {
+    expect(calculateImpliedRate(-500, 200)).toBe(0);
+  });
+
+  it('handles zero bill', () => {
+    expect(calculateImpliedRate(1000, 0)).toBe(0);
+  });
+});
+
+// --- curveConsumption ---
+describe('curveConsumption', () => {
+  it('returns 12 months with sinusoidal curve between two example months', () => {
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0, totalKwh: 2000 }), // Jan (winter)
+      makeExampleMonth({ monthIndex: 6, totalKwh: 800 }),   // Jul (summer)
+    ];
+
+    const curved = curveConsumption(examples);
+    expect(curved).toHaveLength(12);
+
+    // Winter peak should be higher than summer trough
+    const maxKwh = Math.max(...curved);
+    const minKwh = Math.min(...curved);
+    expect(maxKwh).toBeGreaterThan(minKwh);
+    // Range should be within the input bounds
+    expect(minKwh).toBeGreaterThanOrEqual(800);
+    expect(maxKwh).toBeLessThanOrEqual(2000);
+  });
+
+  it('returns flat array when only one example month (fallback)', () => {
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 3, totalKwh: 1500 })
+    ];
+
+    const curved = curveConsumption(examples);
+    expect(curved).toHaveLength(12);
+    curved.forEach(v => expect(v).toBe(1500));
+  });
+
+  it('returns 12 zeros when single example has 0 kWh', () => {
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0, totalKwh: 0 })
+    ];
+
+    const curved = curveConsumption(examples);
+    expect(curved).toHaveLength(12);
+    curved.forEach(v => expect(v).toBe(0));
+  });
+
+  it('returns flat line when both example months have equal kWh', () => {
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0, totalKwh: 1000 }),
+      makeExampleMonth({ monthIndex: 6, totalKwh: 1000 }),
+    ];
+
+    const curved = curveConsumption(examples);
+    expect(curved).toHaveLength(12);
+    // All months should be the same (cosine amplitude = 0)
+    curved.forEach(v => expect(v).toBeCloseTo(1000, 0));
+  });
+
+  it('handles reversed order (summer month before winter)', () => {
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 6, totalKwh: 800 }),   // Jul first
+      makeExampleMonth({ monthIndex: 0, totalKwh: 2000 }),  // Jan second
+    ];
+
+    const curved = curveConsumption(examples);
+    expect(curved).toHaveLength(12);
+    // Should still produce a valid curve
+    expect(Math.max(...curved)).toBeGreaterThan(Math.min(...curved));
+  });
+});
+
+// --- calculateMonthlyBill ---
+describe('calculateMonthlyBill', () => {
+  it('calculates bill with flat tariff', () => {
+    const config: TariffConfiguration = { type: 'flat', flatRate: 0.25 };
+    expect(calculateMonthlyBill(1000, config)).toBeCloseTo(250);
+  });
+
+  it('returns 0 for flat tariff with no flatRate', () => {
+    const config: TariffConfiguration = { type: 'flat' };
+    expect(calculateMonthlyBill(1000, config)).toBe(0);
+  });
+
+  it('calculates bill with custom tariff slots', () => {
+    const slots: TariffSlot[] = [
+      { id: 'day', name: 'Day', startHour: 8, endHour: 23, ratePerKwh: 0.30 },
+      { id: 'night', name: 'Night', startHour: 23, endHour: 8, ratePerKwh: 0.15 },
+    ];
+    const config: TariffConfiguration = { type: 'custom', customSlots: slots };
+    const usage = { day: 0.6, night: 0.4 };
+
+    const bill = calculateMonthlyBill(1000, config, usage);
+    // 1000*0.6*0.30 + 1000*0.4*0.15 = 180 + 60 = 240
+    expect(bill).toBeCloseTo(240);
+  });
+
+  it('returns 0 for custom tariff without slot usage', () => {
+    const slots: TariffSlot[] = [
+      { id: 'day', name: 'Day', startHour: 8, endHour: 23, ratePerKwh: 0.30 },
+    ];
+    const config: TariffConfiguration = { type: 'custom', customSlots: slots };
+    // No tariffSlotUsage provided
+    expect(calculateMonthlyBill(1000, config)).toBe(0);
+  });
+
+  it('returns 0 for unknown tariff type', () => {
+    const config = { type: 'unknown' } as unknown as TariffConfiguration;
+    expect(calculateMonthlyBill(1000, config)).toBe(0);
+  });
+});
+
+// --- calculateAverageFlatRate ---
+describe('calculateAverageFlatRate', () => {
+  it('returns weighted average rate across example months', () => {
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0, totalKwh: 2000, totalBillEur: 500 }),
+      makeExampleMonth({ monthIndex: 6, totalKwh: 1000, totalBillEur: 200 }),
+    ];
+
+    // Total kWh = 3000, total bill = 700 => rate = 700/3000 ≈ 0.2333
+    const rate = calculateAverageFlatRate(examples);
+    expect(rate).toBeCloseTo(700 / 3000, 4);
+  });
+
+  it('returns 0 for empty array', () => {
+    expect(calculateAverageFlatRate([])).toBe(0);
+  });
+
+  it('returns 0 when total kWh is 0', () => {
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0, totalKwh: 0, totalBillEur: 50 }),
+    ];
+    expect(calculateAverageFlatRate(examples)).toBe(0);
+  });
+});
+
+// --- deriveCustomTariffRates ---
+describe('deriveCustomTariffRates', () => {
+  it('derives rates from example months with slot usage', () => {
+    const slots: TariffSlot[] = [
+      { id: 'day', name: 'Day', startHour: 8, endHour: 23, ratePerKwh: 0.20 },
+      { id: 'night', name: 'Night', startHour: 23, endHour: 8, ratePerKwh: 0.10 },
+    ];
+
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({
+        monthIndex: 0,
+        totalKwh: 1000,
+        totalBillEur: 250,
+        tariffSlotUsage: { day: 0.6, night: 0.4 }
+      }),
+    ];
+
+    const derived = deriveCustomTariffRates(examples, slots);
+    expect(derived).toHaveLength(2);
+    // Each derived slot should have a ratePerKwh
+    derived.forEach(s => {
+      expect(s.ratePerKwh).toBeGreaterThan(0);
+      expect(Number.isFinite(s.ratePerKwh)).toBe(true);
+    });
+  });
+
+  it('keeps original rate when no slot usage data', () => {
+    const slots: TariffSlot[] = [
+      { id: 'day', name: 'Day', startHour: 8, endHour: 23, ratePerKwh: 0.25 },
+    ];
+
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0, tariffSlotUsage: {} }),
+    ];
+
+    const derived = deriveCustomTariffRates(examples, slots);
+    // No usage data => totalWeight = 0 => keeps original rate
+    expect(derived[0].ratePerKwh).toBe(0.25);
+  });
+});
+
+// --- estimateAnnualBills ---
+describe('estimateAnnualBills', () => {
+  it('estimates 12 monthly bills using flat tariff', () => {
+    const curvedKwh = Array(12).fill(1000);
+    const config: TariffConfiguration = { type: 'flat', flatRate: 0.25 };
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0 }),
+      makeExampleMonth({ monthIndex: 6 }),
+    ];
+
+    const bills = estimateAnnualBills(curvedKwh, config, examples);
+    expect(bills).toHaveLength(12);
+    bills.forEach(b => expect(b).toBeCloseTo(250));
+  });
+
+  it('uses closest example month tariff distribution for each month', () => {
+    const curvedKwh = Array(12).fill(1000);
+    const slots: TariffSlot[] = [
+      { id: 'day', name: 'Day', startHour: 8, endHour: 23, ratePerKwh: 0.30 },
+      { id: 'night', name: 'Night', startHour: 23, endHour: 8, ratePerKwh: 0.15 },
+    ];
+    const config: TariffConfiguration = { type: 'custom', customSlots: slots };
+
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0, tariffSlotUsage: { day: 0.7, night: 0.3 } }),  // winter
+      makeExampleMonth({ monthIndex: 6, tariffSlotUsage: { day: 0.5, night: 0.5 } }),  // summer
+    ];
+
+    const bills = estimateAnnualBills(curvedKwh, config, examples);
+    expect(bills).toHaveLength(12);
+
+    // Jan (month 0) should use winter example (day=0.7)
+    // Bill = 1000*0.7*0.30 + 1000*0.3*0.15 = 210 + 45 = 255
+    expect(bills[0]).toBeCloseTo(255);
+
+    // Jul (month 6) should use summer example (day=0.5)
+    // Bill = 1000*0.5*0.30 + 1000*0.5*0.15 = 150 + 75 = 225
+    expect(bills[6]).toBeCloseTo(225);
+  });
+
+  it('handles variable monthly consumption', () => {
+    const curvedKwh = [2000, 1800, 1500, 1200, 1000, 800, 700, 800, 1000, 1200, 1500, 1800];
+    const config: TariffConfiguration = { type: 'flat', flatRate: 0.20 };
+    const examples: ExampleMonth[] = [
+      makeExampleMonth({ monthIndex: 0 }),
+    ];
+
+    const bills = estimateAnnualBills(curvedKwh, config, examples);
+    expect(bills).toHaveLength(12);
+    expect(bills[0]).toBeCloseTo(400); // 2000 * 0.20
+    expect(bills[6]).toBeCloseTo(140); // 700 * 0.20
+  });
+});

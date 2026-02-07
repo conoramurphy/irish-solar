@@ -7,9 +7,9 @@ The solar ROI calculator now uses **CSV timeseries files** containing hourly sol
 ## Data Format
 
 ### File Naming
-- Pattern: `timeseries_solar_{Location}.csv`
-- Example: `timeseries_solar_Cavan.csv`
-- Location: Place files in `src/data/`
+- Pattern: `{Location}_{Year}.csv`
+- Example: `Cavan_2020.csv`
+- Location: Place files in `public/data/solar/`
 
 ### CSV Structure
 
@@ -91,11 +91,8 @@ User provides:
 
 ### 2. Processing
 ```typescript
-// Load CSV
-const csvContent = await import(`../../data/timeseries_solar_${location}.csv?raw`);
-
-// Parse
-const solarData = parseSolarTimeseriesCSV(csvContent.default, location);
+// Load CSV (fetched from public/data/solar/ at runtime)
+const solarData = await loadSolarData(location, year);
 
 // Distribute
 const hourlyProduction = distributeAnnualProductionTimeseries(
@@ -131,9 +128,9 @@ const monthlyProduction = aggregateToMonthly(hourlyProduction, solarData);
 ## Adding New Locations
 
 1. Obtain PVGIS CSV file for location (horizontal plane, tilt=0°)
-2. Save as `timeseries_solar_{LocationName}.csv` in `src/data/`
+2. Save as `{LocationName}_{Year}.csv` in `public/data/solar/`
 3. Add location name to `availableLocations` array in `Step2SolarInstallation.tsx`
-4. The system will automatically load and process the file
+4. The system will automatically load and process the file via `loadSolarData()`
 
 ## Data Source
 

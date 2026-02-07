@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseSolarTimeseriesCSV } from '../../src/utils/solarTimeseriesParser';
+import {
+  parseSolarTimeseriesCSV,
+  listSolarTimeseriesYears,
+  sliceSolarTimeseriesYear,
+  aggregateToDaily,
+  toHourKey
+} from '../../src/utils/solarTimeseriesParser';
+import type { ParsedSolarData, SolarTimestep } from '../../src/utils/solarTimeseriesParser';
 
 describe('parseSolarTimeseriesCSV - CSV format validation', () => {
   const validCSV = `Latitude (decimal degrees):\t53.835
@@ -166,6 +173,18 @@ time,G(i),H_sun,T2m,WS10m,Int
     expect(result.timesteps).toHaveLength(2); // Blank lines are filtered
   });
 
+  it('should correctly set sourceIndex on parsed timesteps', () => {
+    const csv = `time,G(i),H_sun
+20200101:0011,10.0,0.0
+20200101:0111,20.0,0.0
+20200101:0211,30.0,0.0
+`;
+    const result = parseSolarTimeseriesCSV(csv, 'Test');
+    expect(result.timesteps[0].sourceIndex).toBe(0);
+    expect(result.timesteps[1].sourceIndex).toBe(1);
+    expect(result.timesteps[2].sourceIndex).toBe(2);
+  });
+
   it('should handle dates with invalid month (> 12)', () => {
     const invalidMonth = `time,G(i),H_sun
 20201301:0011,10.0,0.0
@@ -213,5 +232,125 @@ time,G(i),H_sun,T2m,WS10m,Int
     expect(years.size).toBe(2); // Both years present
     expect(years.has(2020)).toBe(true);
     expect(years.has(2021)).toBe(true);
+  });
+});
+
+// --- Helper to build a minimal ParsedSolarData ---
+function makeParsedData(timesteps: SolarTimestep[]): ParsedSolarData {
+  const totalIrradiance = timesteps.reduce((s, t) => s + t.irradianceWm2, 0);
+  return {
+    location: 'Test',
+    latitude: 53,
+    longitude: -7,
+    elevation: 100,
+    year: timesteps[0]?.stamp.year ?? 2020,
+    timesteps,
+    totalIrradiance
+  };
+}
+
+function makeTimestep(year: number, monthIndex: number, day: number, hour: number, irradiance: number): SolarTimestep {
+  const stamp = { year, monthIndex, day, hour };
+  return {
+    timestamp: new Date(Date.UTC(year, monthIndex, day, hour, 0, 0)),
+    stamp,
+    hourKey: toHourKey(stamp),
+    irradianceWm2: irradiance,
+    sourceIndex: 0
+  };
+}
+
+// --- listSolarTimeseriesYears ---
+describe('listSolarTimeseriesYears', () => {
+  it('returns sorted unique years from timesteps', () => {
+    const ts = [
+      makeTimestep(2021, 0, 1, 0, 10),
+      makeTimestep(2020, 5, 15, 12, 100),
+      makeTimestep(2021, 11, 31, 23, 5),
+    ];
+    const years = listSolarTimeseriesYears(makeParsedData(ts));
+    expect(years).toEqual([2020, 2021]);
+  });
+
+  it('returns single year when all timesteps are same year', () => {
+    const ts = [
+      makeTimestep(2020, 0, 1, 0, 10),
+      makeTimestep(2020, 6, 1, 12, 100),
+    ];
+    expect(listSolarTimeseriesYears(makeParsedData(ts))).toEqual([2020]);
+  });
+
+  it('returns empty array for no timesteps', () => {
+    expect(listSolarTimeseriesYears(makeParsedData([]))).toEqual([]);
+  });
+});
+
+// --- sliceSolarTimeseriesYear ---
+describe('sliceSolarTimeseriesYear', () => {
+  it('filters to only the selected year', () => {
+    const ts = [
+      makeTimestep(2020, 0, 1, 0, 10),
+      makeTimestep(2020, 6, 1, 12, 100),
+      makeTimestep(2021, 0, 1, 0, 50),
+    ];
+    const sliced = sliceSolarTimeseriesYear(makeParsedData(ts), 2020);
+    expect(sliced.timesteps).toHaveLength(2);
+    expect(sliced.year).toBe(2020);
+    expect(sliced.totalIrradiance).toBe(110);
+  });
+
+  it('returns empty timesteps for a year with no data', () => {
+    const ts = [makeTimestep(2020, 0, 1, 0, 10)];
+    const sliced = sliceSolarTimeseriesYear(makeParsedData(ts), 2025);
+    expect(sliced.timesteps).toHaveLength(0);
+    expect(sliced.totalIrradiance).toBe(0);
+    expect(sliced.year).toBe(2025);
+  });
+
+  it('preserves location metadata', () => {
+    const ts = [makeTimestep(2020, 0, 1, 0, 10)];
+    const data = makeParsedData(ts);
+    data.location = 'Cavan';
+    const sliced = sliceSolarTimeseriesYear(data, 2020);
+    expect(sliced.location).toBe('Cavan');
+    expect(sliced.latitude).toBe(53);
+  });
+});
+
+// --- aggregateToDaily ---
+describe('aggregateToDaily', () => {
+  it('aggregates 24 hours into a single day', () => {
+    const ts: SolarTimestep[] = [];
+    for (let h = 0; h < 24; h++) {
+      ts.push(makeTimestep(2020, 0, 1, h, h < 6 || h > 18 ? 0 : 100));
+    }
+    const hourlyProd = ts.map((_, i) => (i >= 6 && i <= 18 ? 1.0 : 0));
+    const daily = aggregateToDaily(hourlyProd, makeParsedData(ts));
+
+    expect(daily).toHaveLength(1);
+    expect(daily[0].date).toBe('2020-01-01');
+    expect(daily[0].productionKwh).toBeCloseTo(13); // 13 hours * 1.0
+  });
+
+  it('produces sorted output across multiple days', () => {
+    const ts = [
+      makeTimestep(2020, 0, 2, 10, 100),
+      makeTimestep(2020, 0, 1, 10, 100),
+      makeTimestep(2020, 0, 3, 10, 100),
+    ];
+    const hourlyProd = [5, 3, 7];
+    const daily = aggregateToDaily(hourlyProd, makeParsedData(ts));
+
+    expect(daily).toHaveLength(3);
+    expect(daily[0].date).toBe('2020-01-01');
+    expect(daily[0].productionKwh).toBe(3);
+    expect(daily[1].date).toBe('2020-01-02');
+    expect(daily[1].productionKwh).toBe(5);
+    expect(daily[2].date).toBe('2020-01-03');
+    expect(daily[2].productionKwh).toBe(7);
+  });
+
+  it('returns empty array for empty data', () => {
+    expect(aggregateToDaily([], makeParsedData([]))).toEqual([]);
   });
 });

@@ -94,6 +94,25 @@ describe('financial model', () => {
     expect(calculateLoanBalance(0, 0.05, 10, 1)).toBe(0);
   });
 
+  it('falls back to bisection when Newton-Raphson diverges', () => {
+    // Craft cash flows that make Newton-Raphson unstable:
+    // Large negative early, then large positive later makes derivative near-zero
+    // at certain points. Bisection should still find the root.
+    const cashFlows = [-50_000, -50_000, 200_000, 200_000, 200_000];
+    const irr = calculateIRR(100_000, cashFlows, -0.5); // bad initial guess to destabilize Newton
+    // The function should still converge via bisection to a finite IRR
+    expect(Number.isFinite(irr)).toBe(true);
+    // Verify the IRR is actually correct by checking NPV ≈ 0
+    const npv = calculateNPV(100_000, cashFlows, irr);
+    expect(Math.abs(npv)).toBeLessThan(1); // NPV should be near 0
+  });
+
+  it('handles loan balance at zero interest rate', () => {
+    const balance = calculateLoanBalance(120_000, 0, 10, 3);
+    // 3 years paid of 10 => 7/10 remaining
+    expect(balance).toBeCloseTo(84_000, 0);
+  });
+
   describe('financial edge cases', () => {
     it('handles zero interest rate correctly', () => {
       const payment = calculateLoanPayment(100_000, 0, 10);
