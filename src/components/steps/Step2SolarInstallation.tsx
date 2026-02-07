@@ -1,15 +1,16 @@
 import { useMemo, useState, useEffect } from 'react';
+import { endSpan, logError, logInfo, logWarn, startSpan } from '../../utils/logger';
 import { Field } from '../Field';
 import type { SystemConfiguration } from '../../types';
-import { MONTH_LABELS } from '../../utils/consumption';
 import {
   expectedHoursInYear,
   listSolarTimeseriesYears,
+  normalizeSolarTimeseriesYear,
   parseSolarTimeseriesCSV,
-  sliceSolarTimeseriesYear,
   distributeAnnualProductionTimeseries,
   aggregateToMonthly,
-  type ParsedSolarData
+  type ParsedSolarData,
+  type SolarNormalizationCorrections
 } from '../../utils/solarTimeseriesParser';
 
 interface Step2SolarInstallationProps {
@@ -35,6 +36,7 @@ export function Step2SolarInstallation({
   const [loading, setLoading] = useState(false);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [corrections, setCorrections] = useState<SolarNormalizationCorrections | null>(null);
   
   // Load the CSV file for the selected location
   useEffect(() => {
@@ -44,31 +46,53 @@ export function Step2SolarInstallation({
     }
     
     setLoading(true);
+
+    logInfo('solar', 'Loading solar timeseries CSV', { location: config.location });
     
     // Dynamically import the CSV file
     import(`../../data/timeseries_solar_${config.location}.csv?raw`)
       .then((module) => {
         const csvContent = module.default;
         const parsed = parseSolarTimeseriesCSV(csvContent, config.location);
+        logInfo('solar', 'Parsed solar timeseries CSV', { totalRows: parsed.timesteps.length, firstYear: parsed.year });
 
         const years = listSolarTimeseriesYears(parsed);
         setAvailableYears(years);
 
         // Force explicit selection if multiple years exist.
         if (years.length > 1) {
+          logInfo('solar', 'Multi-year solar CSV detected; requiring explicit year selection', { years });
           setSelectedYear(null);
           setSolarData(null);
+          setCorrections(null);
         } else {
           const y = years[0] ?? parsed.year;
-          setSelectedYear(y);
-          setSolarData(sliceSolarTimeseriesYear(parsed, y));
+          const spanId = startSpan('solar', 'Solar normalization', { year: y, location: config.location });
+          try {
+            const norm = normalizeSolarTimeseriesYear(parsed, y);
+            logInfo('solar', 'Normalized solar timeseries to canonical year grid', norm.corrections, { spanId });
+            if (norm.corrections.warnings.length) {
+              logWarn('solar', 'Solar timeseries normalization warnings', norm.corrections, { spanId });
+            }
+            setSelectedYear(y);
+            setSolarData(norm.normalized);
+            setCorrections(norm.corrections);
+            endSpan(spanId, 'success');
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : 'Solar normalization failed.';
+            logError('solar', 'Solar normalization failed', { message: msg }, { spanId });
+            endSpan(spanId, 'error', { message: msg });
+            setSolarData(null);
+            setCorrections(null);
+          }
         }
 
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to load solar data:', err);
+        logError('solar', 'Failed to load solar data', { error: String(err) });
         setSolarData(null);
+        setCorrections(null);
         setLoading(false);
       });
   }, [config.location]);
@@ -172,17 +196,37 @@ export function Step2SolarInstallation({
                         if (!Number.isFinite(y)) return;
                         setSelectedYear(y);
 
+                        logInfo('solar', 'Year selected for solar timeseries', { year: y });
+
                         // Re-parse and slice to avoid keeping multi-year data in state.
                         setLoading(true);
                         import(`../../data/timeseries_solar_${config.location}.csv?raw`)
                           .then((module) => {
-                            const parsed = parseSolarTimeseriesCSV(module.default, config.location);
-                            setSolarData(sliceSolarTimeseriesYear(parsed, y));
-                            setLoading(false);
+                            const spanId = startSpan('solar', 'Solar normalization', { year: y, location: config.location });
+                            try {
+                              const parsed = parseSolarTimeseriesCSV(module.default, config.location);
+                              const norm = normalizeSolarTimeseriesYear(parsed, y);
+                              logInfo('solar', 'Normalized solar timeseries to canonical year grid', norm.corrections, { spanId });
+                              if (norm.corrections.warnings.length) {
+                                logWarn('solar', 'Solar timeseries normalization warnings', norm.corrections, { spanId });
+                              }
+                              setSolarData(norm.normalized);
+                              setCorrections(norm.corrections);
+                              endSpan(spanId, 'success');
+                              setLoading(false);
+                            } catch (e) {
+                              const msg = e instanceof Error ? e.message : 'Solar normalization failed.';
+                              logError('solar', 'Solar normalization failed', { message: msg }, { spanId });
+                              endSpan(spanId, 'error', { message: msg });
+                              setSolarData(null);
+                              setCorrections(null);
+                              setLoading(false);
+                            }
                           })
                           .catch((err) => {
-                            console.error('Failed to load solar data:', err);
+                            logError('solar', 'Failed to load solar data for selected year', { error: String(err), year: y });
                             setSolarData(null);
+                            setCorrections(null);
                             setLoading(false);
                           });
                       }}
@@ -209,6 +253,17 @@ export function Step2SolarInstallation({
                   {solarData.timesteps.length.toLocaleString()} hourly timesteps loaded for {solarData.year} (expected {expectedHoursInYear(solarData.year)})
                 </p>
               )}
+
+              {corrections && corrections.warnings.length > 0 && (
+                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  <div className="font-semibold mb-1">Timeseries normalized</div>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {corrections.warnings.map((w, idx) => (
+                      <li key={idx}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </Field>
 
             <Field label="Business Type">
@@ -226,37 +281,9 @@ export function Step2SolarInstallation({
             </Field>
           </div>
 
-          {/* Monthly Production Breakdown */}
           {monthlyProduction && (
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-6 border border-amber-200">
-              <div className="mb-4">
-                <h4 className="font-semibold text-amber-900 mb-1 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-amber-600">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-                  </svg>
-                  Monthly Production Distribution
-                </h4>
-                <p className="text-xs text-amber-700">
-                  Based on {solarData ? `${solarData.timesteps.length.toLocaleString()} hourly timesteps from ${solarData.year}` : 'typical'} solar irradiance data for {config.location}
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 text-xs">
-                {monthlyProduction.map((month) => (
-                  <div key={month.monthIndex} className="text-center p-2 rounded bg-white/70 border border-amber-100">
-                    <div className="text-amber-700 font-medium mb-1">{MONTH_LABELS[month.monthIndex]}</div>
-                    <div className="font-bold text-amber-900">{Math.round(month.productionKwh).toLocaleString()}</div>
-                    <div className="text-amber-600 text-xs">kWh</div>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-amber-200 flex items-center justify-between">
-                <span className="text-sm text-amber-800">Peak Month (June)</span>
-                <span className="text-sm font-bold text-amber-900">
-                  {monthlyProduction[5] ? Math.round(monthlyProduction[5].productionKwh).toLocaleString() : 0} kWh
-                </span>
-              </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              Monthly solar generation is shown in the <span className="font-semibold">Annual Calendar</span> on the right.
             </div>
           )}
         </div>

@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { LogViewer } from './components/LogViewer';
+import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
 import rawTariffsData from './data/tariffs.json';
 import rawHistoricalSolarData from './data/historical/solar-irradiance.json';
@@ -6,6 +8,7 @@ import rawHistoricalTariffData from './data/historical/tariff-history.json';
 import { getEligibleGrants } from './models/grants';
 import { runCalculation } from './utils/calculations';
 import { getTariffBucketKeys, normalizeSharesToOne } from './utils/consumption';
+import { aggregateToMonthly, distributeAnnualProductionTimeseries } from './utils/solarTimeseriesParser';
 import type {
   // BusinessType, // Removed unused import
   CalculationResult,
@@ -20,6 +23,7 @@ import type {
 } from './types';
 import type { ParsedSolarData } from './utils/solarTimeseriesParser';
 
+import { CalendarSidebar } from './components/CalendarSidebar';
 import { Hero } from './components/Hero';
 import { StepIndicator } from './components/StepIndicator';
 import { Step1ConsumptionBilling } from './components/steps/Step1ConsumptionBilling';
@@ -61,9 +65,18 @@ function App() {
   const [, setTariffConfig] = useState<TariffConfiguration | null>(null);
   const [curvedMonthlyKwh, setCurvedMonthlyKwh] = useState<number[]>([]);
   const [estimatedMonthlyBills, setEstimatedMonthlyBills] = useState<number[]>([]);
-  
+
   // Solar timeseries data from Step 2
   const [solarTimeseriesData, setSolarTimeseriesData] = useState<ParsedSolarData | null>(null);
+
+  const monthlySolarGeneration = useMemo(() => {
+    if (!solarTimeseriesData) return null;
+    if (!config.annualProductionKwh || config.annualProductionKwh <= 0) return null;
+
+    const hourly = distributeAnnualProductionTimeseries(config.annualProductionKwh, solarTimeseriesData);
+    const months = aggregateToMonthly(hourly, solarTimeseriesData);
+    return months.map((m) => m.productionKwh);
+  }, [config.annualProductionKwh, solarTimeseriesData]);
 
   const bucketKeys = useMemo(() => (tariff ? getTariffBucketKeys(tariff) : []), [tariff]);
 
@@ -93,6 +106,7 @@ function App() {
   }, [curvedMonthlyKwh, bucketKeys]);
 
   const [result, setResult] = useState<CalculationResult | null>(null);
+  const [logOpen, setLogOpen] = useState(false);
 
   // Step management
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -112,12 +126,37 @@ function App() {
   const handleCalculate = () => {
     setResult(null);
 
+    logInfo('ui', 'Generate report clicked', {
+      currentStep,
+      hasSolarTimeseries: !!solarTimeseriesData,
+      hasConsumptionProfile: curvedMonthlyKwh.length === 12
+    });
+
     if (!tariff) {
-      console.error('Please select a tariff.');
+      logError('ui', 'Tariff missing when generating report');
+      setLogOpen(true);
       return;
     }
 
+    const spanId = startSpan('engine', 'Run calculation', {
+      analysisYears: 25,
+      location: config.location
+    });
+
     try {
+      logInfo(
+        'engine',
+        'runCalculation start',
+        {
+          annualProductionKwh: config.annualProductionKwh,
+          batterySizeKwh: config.batterySizeKwh,
+          installationCost: config.installationCost,
+          location: config.location,
+          analysisYears: 25
+        },
+        { spanId }
+      );
+
       const r = runCalculation(
         config,
         selectedGrants,
@@ -131,12 +170,33 @@ function App() {
         solarTimeseriesData || undefined
       );
       setResult(r);
+      logInfo(
+        'engine',
+        'runCalculation success',
+        {
+          annualGeneration: r.annualGeneration,
+          annualSavings: r.annualSavings,
+          audit: r.audit ? { mode: r.audit.mode, totalHours: r.audit.totalHours } : null
+        },
+        { spanId }
+      );
+
+      if (r.audit?.corrections?.warnings?.length) {
+        logInfo('engine', 'Solar timeseries normalization warnings', r.audit.corrections, { spanId });
+      }
+
+      endSpan(spanId, 'success');
     } catch (e) {
-      console.error(e instanceof Error ? e.message : 'Calculation failed.');
+      const msg = e instanceof Error ? e.message : 'Calculation failed.';
+      logError('engine', 'runCalculation failed', { message: msg }, { spanId });
+      endSpan(spanId, 'error', { message: msg });
+      setLogOpen(true);
     }
   };
 
   const handleNextStep = (step: number, data?: any) => {
+    logInfo('ui', `Step ${step} completed`, { step });
+
     if (step === 1 && data) {
       // Store billing data from Step 1
       setExampleMonths(data.exampleMonths);
@@ -147,6 +207,10 @@ function App() {
     if (step === 2 && data?.solarData) {
       // Store solar timeseries data from Step 2
       setSolarTimeseriesData(data.solarData);
+      logInfo('solar', 'Solar timeseries stored from Step 2', {
+        year: data.solarData.year,
+        timesteps: data.solarData.timesteps?.length
+      });
     }
     setCompletedSteps(prev => new Set(prev).add(step));
     setCurrentStep(step + 1);
@@ -160,125 +224,79 @@ function App() {
     <div className="min-h-screen bg-tines-light font-sans text-slate-600">
       <Hero />
 
-      <main className="mx-auto max-w-7xl px-6 py-12 -mt-20 relative z-20">
-        {/* Step Indicator */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-8 mb-8">
-          <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
-        </div>
+      {/* Always-available logging UI */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
+          type="button"
+          className="rounded-full bg-slate-900 text-white px-4 py-3 shadow-lg hover:bg-slate-800 text-sm font-semibold"
+          onClick={() => setLogOpen(true)}
+        >
+          Logs
+        </button>
+      </div>
+      <LogViewer open={logOpen} onClose={() => setLogOpen(false)} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Step Content */}
-          <div className="lg:col-span-7">
-            {currentStep === 1 && (
-              <Step1ConsumptionBilling
-                onNext={(data) => handleNextStep(1, data)}
-              />
-            )}
-
-            {currentStep === 2 && (
-              <Step2SolarInstallation
-                config={config}
-                setConfig={setConfig}
-                onNext={() => handleNextStep(2)}
-                onBack={handleBackStep}
-              />
-            )}
-
-            {currentStep === 3 && (
-              <Step3CostsAndFinancing
-                config={config}
-                setConfig={setConfig}
-                eligibleGrants={eligibleGrants}
-                selectedGrantIds={selectedGrantIds}
-                setSelectedGrantIds={setSelectedGrantIds}
-                financing={financing}
-                setFinancing={setFinancing}
-                onGenerateReport={handleCalculate}
-                onBack={handleBackStep}
-              />
-            )}
+      <main className="mx-auto max-w-7xl px-6 py-10 -mt-10 relative z-20">
+        {/* Step Indicator (hide once report is generated) */}
+        {!result && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
+            <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
           </div>
+        )}
 
-          {/* Right Column: Context (Sticky) */}
-          <div className="lg:col-span-5">
-            <div className="lg:sticky lg:top-8">
-              {/* Show consumption & billing chart after step 1 is completed */}
-              {completedSteps.has(1) && !result && curvedMonthlyKwh.length === 12 && (
-                <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-8">
-                  <div className="mb-6">
-                    <h3 className="text-2xl font-serif font-bold text-tines-dark mb-2">Building Your Report</h3>
-                    <p className="text-sm text-slate-500">Annual consumption & billing profile</p>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {curvedMonthlyKwh.map((kwh, monthIndex) => {
-                      const maxKwh = Math.max(...curvedMonthlyKwh);
-                      const heightPercent = (kwh / maxKwh) * 100;
-                      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                      
-                      return (
-                        <div key={monthIndex} className="flex items-center gap-4">
-                          <div className="w-12 text-xs font-medium text-slate-500 text-right">
-                            {monthNames[monthIndex]}
-                          </div>
-                          
-                          <div className="flex-1 bg-slate-100 rounded-full h-8 relative overflow-hidden">
-                            <div
-                              className="absolute inset-y-0 left-0 bg-gradient-to-r from-tines-purple to-indigo-500 rounded-full transition-all duration-700 ease-out flex items-center justify-end pr-3"
-                              style={{ width: `${heightPercent}%` }}
-                            >
-                              {heightPercent > 30 && (
-                                <span className="text-xs font-semibold text-white">
-                                  {Math.round(kwh).toLocaleString()}
-                                </span>
-                              )}
-                            </div>
-                            {heightPercent <= 30 && (
-                              <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-xs font-semibold text-slate-700">
-                                {Math.round(kwh).toLocaleString()}
-                              </span>
-                            )}
-                          </div>
-                          
-                          <div className="w-20 text-xs text-right">
-                            <div className="font-bold text-emerald-600">€{Math.round(estimatedMonthlyBills[monthIndex]).toLocaleString()}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+        {/* Full-page report */}
+        {result ? (
+          <div className="max-w-5xl mx-auto">
+            <ResultsSection result={result} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Left Column: Step Content */}
+            <div className="lg:col-span-7">
+              {currentStep === 1 && <Step1ConsumptionBilling onNext={(data) => handleNextStep(1, data)} />}
 
-                  <div className="mt-6 pt-6 border-t border-slate-100">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600 font-medium">Annual Total</span>
-                      <div className="text-right">
-                        <div className="text-xl font-bold text-tines-purple">
-                          €{Math.round(estimatedMonthlyBills.reduce((a, b) => a + b, 0)).toLocaleString()}
-                        </div>
-                        <div className="text-sm text-slate-400">
-                          {Math.round(curvedMonthlyKwh.reduce((a, b) => a + b, 0)).toLocaleString()} kWh
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              {currentStep === 2 && (
+                <Step2SolarInstallation
+                  config={config}
+                  setConfig={setConfig}
+                  onNext={(data) => handleNextStep(2, data)}
+                  onBack={handleBackStep}
+                />
               )}
-              
-              {/* Show results after calculation */}
-              {result && <ResultsSection result={result} />}
 
-              {/* Show placeholder before step 1 is complete */}
-              {!completedSteps.has(1) && !result && (
-                <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 p-12 text-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16 mx-auto mb-4 text-slate-300">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
-                  </svg>
-                  <p className="text-slate-400">Your report will build as you progress through the steps</p>
-                </div>
+              {currentStep === 3 && (
+                <Step3CostsAndFinancing
+                  config={config}
+                  setConfig={setConfig}
+                  eligibleGrants={eligibleGrants}
+                  selectedGrantIds={selectedGrantIds}
+                  setSelectedGrantIds={setSelectedGrantIds}
+                  financing={financing}
+                  setFinancing={setFinancing}
+                  onGenerateReport={handleCalculate}
+                  onBack={handleBackStep}
+                />
               )}
             </div>
+
+            {/* Right Column: Permanent month-by-month calendar */}
+            <div className="lg:col-span-5">
+              <div className="lg:sticky lg:top-8">
+                <CalendarSidebar
+                  months={Array.from({ length: 12 }, (_, monthIndex) => ({
+                    monthIndex,
+                    consumptionKwh: curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh[monthIndex] : undefined,
+                    estimatedBillEur: estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills[monthIndex] : undefined,
+                    solarGenerationKwh: monthlySolarGeneration?.length === 12 ? monthlySolarGeneration[monthIndex] : undefined
+                  }))}
+                  annualTotalBillEur={estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills.reduce((a, b) => a + b, 0) : undefined}
+                  annualTotalConsumptionKwh={curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined}
+                  annualTotalSolarKwh={monthlySolarGeneration?.length === 12 ? monthlySolarGeneration.reduce((a, b) => a + b, 0) : undefined}
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-12 mt-20">

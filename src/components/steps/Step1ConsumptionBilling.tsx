@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { logInfo } from '../../utils/logger';
 import { Field } from '../Field';
 import { MONTH_LABELS } from '../../utils/consumption';
 import { curveConsumption, calculateAverageFlatRate, estimateAnnualBills } from '../../utils/billingCalculations';
@@ -86,6 +87,12 @@ export function Step1ConsumptionBilling({ onNext }: Step1ConsumptionBillingProps
   };
 
   const handleContinue = () => {
+    logInfo('ui', 'Step 1 continue clicked', {
+      exampleMonths,
+      tariffType,
+      curvedMonthlyKwhTotal: curvedMonthlyKwh.reduce((a, b) => a + b, 0)
+    });
+
     onNext({
       exampleMonths,
       tariffConfig,
@@ -338,40 +345,6 @@ export function Step1ConsumptionBilling({ onNext }: Step1ConsumptionBillingProps
           </div>
         )}
       </div>
-
-      {/* Preview of curved consumption */}
-      {curvedMonthlyKwh.length === 12 && (
-        <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-8 mb-8">
-          <h3 className="text-xl font-serif font-semibold text-tines-dark mb-4">Projected Annual Profile</h3>
-          <p className="text-sm text-slate-500 mb-6">
-            Based on your example months, here's the estimated consumption and bills for all 12 months:
-          </p>
-
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 text-xs">
-            {curvedMonthlyKwh.map((kwh, idx) => (
-              <div key={idx} className="text-center p-3 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200">
-                <div className="text-slate-500 mb-2 font-medium">{MONTH_LABELS[idx]}</div>
-                <div className="font-bold text-slate-900 text-sm">{Math.round(kwh).toLocaleString()} kWh</div>
-                <div className="text-tines-purple font-semibold mt-1">
-                  €{Math.round(estimatedMonthlyBills[idx]).toLocaleString()}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-slate-600 font-medium">Annual Total</span>
-            <div className="text-right">
-              <div className="text-xl font-bold text-tines-purple">
-                €{Math.round(estimatedMonthlyBills.reduce((a, b) => a + b, 0)).toLocaleString()}
-              </div>
-              <div className="text-sm text-slate-500">
-                {Math.round(curvedMonthlyKwh.reduce((a, b) => a + b, 0)).toLocaleString()} kWh
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Navigation */}
       <div className="flex justify-end">

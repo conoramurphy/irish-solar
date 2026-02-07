@@ -1,5 +1,6 @@
 import { Field } from '../Field';
 import type { SystemConfiguration, Grant, Financing } from '../../types';
+import { logInfo } from '../../utils/logger';
 
 interface Step3CostsAndFinancingProps {
   config: SystemConfiguration;
@@ -37,6 +38,13 @@ export function Step3CostsAndFinancing({
   const loanAmount = Math.max(0, netCost - financing.equity);
 
   const handleGenerateReport = () => {
+    logInfo('ui', 'Step 3 generate report clicked', {
+      installationCost: config.installationCost,
+      equity: financing.equity,
+      interestRate: financing.interestRate,
+      termYears: financing.termYears
+    });
+
     if (config.installationCost > 0 && financing.equity >= 0) {
       onGenerateReport();
     }

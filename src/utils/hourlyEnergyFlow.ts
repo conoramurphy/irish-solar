@@ -1,6 +1,7 @@
 import type { HourlyEnergyFlow, HourlySimulationResult, Tariff } from '../types';
 import { getTariffBucketForHour } from './hourlyConsumption';
 import { normalizeBucketKey } from './consumption';
+import type { HourStamp } from './solarTimeseriesParser';
 
 const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
@@ -24,9 +25,7 @@ export interface BatteryConfig {
 /**
  * Get the tariff rate for a specific hour and bucket
  */
-function getTariffRateForHour(hour: number, tariff: Tariff): number {
-  // Determine the hour of day (0-23)
-  const hourOfDay = hour % 24;
+function getTariffRateForHour(hourOfDay: number, tariff: Tariff): number {
   const bucket = getTariffBucketForHour(hourOfDay, tariff);
   
   // Find the rate for this bucket
@@ -39,10 +38,10 @@ function getTariffRateForHour(hour: number, tariff: Tariff): number {
  */
 function calculateBaselineCost(
   consumption: number,
-  hour: number,
+  hourOfDay: number,
   tariff: Tariff
 ): number {
-  const unitRate = getTariffRateForHour(hour, tariff);
+  const unitRate = getTariffRateForHour(hourOfDay, tariff);
   const pso = tariff.psoLevy || 0;
   
   // Standing charge is per day, so divide by 24 for hourly cost
@@ -65,7 +64,8 @@ export function simulateHourlyEnergyFlow(
   hourlyConsumption: number[],
   tariff: Tariff,
   batteryConfig?: BatteryConfig,
-  includeHourlyDetail = false
+  includeHourlyDetail = false,
+  timeStamps?: HourStamp[]
 ): HourlySimulationResult {
   if (hourlyGeneration.length !== hourlyConsumption.length) {
     throw new Error('Generation and consumption arrays must have the same number of hours');
@@ -91,12 +91,18 @@ export function simulateHourlyEnergyFlow(
 
   const totalHours = hourlyGeneration.length;
 
+  if (timeStamps && timeStamps.length !== totalHours) {
+    throw new Error('timeStamps length must match hourly arrays length');
+  }
+
   for (let hour = 0; hour < totalHours; hour++) {
     const generation = Math.max(0, hourlyGeneration[hour] || 0);
     const consumption = Math.max(0, hourlyConsumption[hour] || 0);
-    
+
+    const hourOfDay = timeStamps ? timeStamps[hour]!.hour : hour % 24;
+
     // Calculate baseline cost (no solar, for comparison)
-    const baselineCost = calculateBaselineCost(consumption, hour, tariff);
+    const baselineCost = calculateBaselineCost(consumption, hourOfDay, tariff);
     totalBaselineCost += baselineCost;
 
     // Net energy: positive = deficit (need import), negative = surplus (can export)
@@ -151,14 +157,12 @@ export function simulateHourlyEnergyFlow(
     }
 
     // Calculate costs
-    const hourOfDay = hour % 24;
-    const unitRate = getTariffRateForHour(hour, tariff);
+    const unitRate = getTariffRateForHour(hourOfDay, tariff);
     const pso = tariff.psoLevy || 0;
     const standingCharge = tariff.standingCharge / 24;
     
     const importCost = standingCharge + gridImport * (unitRate + pso);
     const exportRevenue = gridExport * tariff.exportRate;
-    const hourSavings = baselineCost - importCost + exportRevenue;
 
     // Accumulate totals
     totalGridImport += gridImport;
@@ -205,7 +209,8 @@ export function simulateHourlyEnergyFlow(
  * Aggregate hourly simulation results to monthly breakdown
  */
 export function aggregateHourlyResultsToMonthly(
-  hourlyData: HourlyEnergyFlow[]
+  hourlyData: HourlyEnergyFlow[],
+  timeStamps?: HourStamp[]
 ): Array<{
   monthIndex: number;
   generation: number;
@@ -231,26 +236,36 @@ export function aggregateHourlyResultsToMonthly(
     savings: 0
   }));
 
-  let hourIndex = 0;
-  const daysPerMonth = getDaysPerMonthForYear(hourlyData.length);
+  if (timeStamps && timeStamps.length !== hourlyData.length) {
+    throw new Error('timeStamps length must match hourlyData length');
+  }
 
-  for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-    const daysInMonth = daysPerMonth[monthIndex] ?? DAYS_PER_MONTH[monthIndex];
-    const hoursInMonth = daysInMonth * 24;
-    
-    for (let i = 0; i < hoursInMonth && hourIndex < hourlyData.length; i++, hourIndex++) {
-      const hour = hourlyData[hourIndex];
-      monthlyResults[monthIndex].generation += hour.generation;
-      monthlyResults[monthIndex].consumption += hour.consumption;
-      monthlyResults[monthIndex].gridImport += hour.gridImport;
-      monthlyResults[monthIndex].gridExport += hour.gridExport;
-      monthlyResults[monthIndex].selfConsumption += (hour.generation - hour.gridExport);
-      monthlyResults[monthIndex].baselineCost += hour.baselineCost;
-      monthlyResults[monthIndex].importCost += hour.importCost;
-      monthlyResults[monthIndex].exportRevenue += hour.exportRevenue;
-      monthlyResults[monthIndex].savings += hour.savings;
-    }
+  for (let i = 0; i < hourlyData.length; i++) {
+    const row = hourlyData[i]!;
+    const monthIndex = timeStamps ? timeStamps[i]!.monthIndex : hourToMonthIndexFallback(i, hourlyData.length);
+
+    const bucket = monthlyResults[monthIndex];
+    bucket.generation += row.generation;
+    bucket.consumption += row.consumption;
+    bucket.gridImport += row.gridImport;
+    bucket.gridExport += row.gridExport;
+    bucket.selfConsumption += (row.generation - row.gridExport);
+    bucket.baselineCost += row.baselineCost;
+    bucket.importCost += row.importCost;
+    bucket.exportRevenue += row.exportRevenue;
+    bucket.savings += row.savings;
   }
 
   return monthlyResults;
+}
+
+function hourToMonthIndexFallback(hourIndex: number, totalHoursInYear: number): number {
+  const daysPerMonth = getDaysPerMonthForYear(totalHoursInYear);
+  let cumulativeHours = 0;
+  for (let m = 0; m < 12; m++) {
+    const monthHours = (daysPerMonth[m] ?? DAYS_PER_MONTH[m] ?? 30) * 24;
+    if (hourIndex < cumulativeHours + monthHours) return m;
+    cumulativeHours += monthHours;
+  }
+  return 11;
 }

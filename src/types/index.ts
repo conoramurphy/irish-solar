@@ -113,6 +113,12 @@ export interface HourlyEnergyFlow {
   batteryDischarge: number;
   /** Battery state of charge at end of hour (kWh) */
   batterySoC: number;
+  /** Canonical hour key (YYYY-MM-DDTHH) for traceability */
+  hourKey?: string;
+  /** Month index (0-11) from canonical timestamp */
+  monthIndex?: number;
+  /** Hour-of-day (0-23) from canonical timestamp */
+  hourOfDay?: number;
   /** Baseline (no-solar) cost for this hour (EUR) */
   baselineCost: number;
   /** Cost of imports this hour (EUR) */
@@ -164,6 +170,16 @@ export interface CalculationResult {
   audit?: {
     mode: 'hourly';
     year?: number;
+    totalHours?: number;
+    corrections?: {
+      selectedYear: number;
+      expectedHours: number;
+      actualRowsInYear: number;
+      duplicatesDropped: number;
+      hoursMissingFilled: number;
+      rowsOutsideYearDropped: number;
+      warnings: string[];
+    };
     hourly: HourlyEnergyFlow[];
     monthly: Array<{
       monthIndex: number;
@@ -176,6 +192,10 @@ export interface CalculationResult {
       importCost: number;
       exportRevenue: number;
       savings: number;
+      /** Loan payment allocated to this month (Year 1 only; 0 if no loan). */
+      debtPayment: number;
+      /** savings − debtPayment (Year 1 only). Positive means "up", negative means "out of pocket". */
+      netOutOfPocket: number;
     }>;
     provenance: {
       hourlyDefinition: string;

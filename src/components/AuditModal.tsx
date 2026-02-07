@@ -29,7 +29,7 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
   URL.revokeObjectURL(url);
 }
 
-function hourToMonthIndex(hour: number, totalHoursInYear: number): number {
+function hourToMonthIndexFallback(hour: number, totalHoursInYear: number): number {
   const febDays = totalHoursInYear === 8784 ? 29 : 28;
   const daysPerMonth = [31, febDays, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   let cumulativeHours = 0;
@@ -61,7 +61,8 @@ export function AuditModal({ audit, onClose }: { audit: NonNullable<CalculationR
       if (!q) return true;
 
       // Simple search over a few high-signal columns.
-      const month = MONTHS[hourToMonthIndex(h.hour, audit.hourly.length)] ?? '';
+      const monthIndex = typeof h.monthIndex === 'number' ? h.monthIndex : hourToMonthIndexFallback(h.hour, audit.hourly.length);
+      const month = MONTHS[monthIndex] ?? '';
       const hay = `${h.hour} ${month} ${h.tariffBucket}`.toLowerCase();
       return hay.includes(q);
     });
@@ -77,7 +78,8 @@ export function AuditModal({ audit, onClose }: { audit: NonNullable<CalculationR
   const hourlyCsvRows = useMemo(() => {
     return audit.hourly.map((h) => ({
       hour: h.hour,
-      month: MONTHS[hourToMonthIndex(h.hour, audit.hourly.length)],
+      hourKey: h.hourKey ?? '',
+      month: MONTHS[typeof h.monthIndex === 'number' ? h.monthIndex : hourToMonthIndexFallback(h.hour, audit.hourly.length)],
       tariffBucket: h.tariffBucket,
       generationKwh: h.generation,
       consumptionKwh: h.consumption,
@@ -105,7 +107,9 @@ export function AuditModal({ audit, onClose }: { audit: NonNullable<CalculationR
       baselineCostEur: m.baselineCost,
       importCostEur: m.importCost,
       exportRevenueEur: m.exportRevenue,
-      savingsEur: m.savings
+      savingsEur: m.savings,
+      debtPaymentEur: m.debtPayment,
+      netOutOfPocketEur: m.netOutOfPocket
     }));
   }, [audit.monthly]);
 
@@ -278,6 +282,8 @@ function MonthlyTable({ monthly }: { monthly: NonNullable<CalculationResult['aud
           <th className="px-4 py-3 text-right font-semibold text-slate-700">Import cost (€)</th>
           <th className="px-4 py-3 text-right font-semibold text-slate-700">Export rev (€)</th>
           <th className="px-4 py-3 text-right font-semibold text-slate-700">Savings (€)</th>
+          <th className="px-4 py-3 text-right font-semibold text-slate-700">Debt pay (€)</th>
+          <th className="px-4 py-3 text-right font-semibold text-slate-700">Out of pocket (€)</th>
         </tr>
       </thead>
       <tbody>
@@ -295,6 +301,10 @@ function MonthlyTable({ monthly }: { monthly: NonNullable<CalculationResult['aud
             <td className={`px-4 py-2 text-right tabular-nums ${m.savings >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
               {formatCurrency(m.savings)}
             </td>
+            <td className="px-4 py-2 text-right tabular-nums">{formatCurrency(m.debtPayment)}</td>
+            <td className={`px-4 py-2 text-right tabular-nums ${m.netOutOfPocket >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {formatCurrency(m.netOutOfPocket)}
+            </td>
           </tr>
         ))}
       </tbody>
@@ -308,6 +318,7 @@ function HourlyTable({ rows }: { rows: HourlyEnergyFlow[] }) {
       <thead className="sticky top-0 bg-white">
         <tr className="border-b border-slate-200">
           <th className="px-3 py-2 text-left font-semibold text-slate-700">Hour</th>
+          <th className="px-3 py-2 text-left font-semibold text-slate-700">Hour key</th>
           <th className="px-3 py-2 text-left font-semibold text-slate-700">Month</th>
           <th className="px-3 py-2 text-left font-semibold text-slate-700">Bucket</th>
           <th className="px-3 py-2 text-right font-semibold text-slate-700">Gen</th>
@@ -325,7 +336,8 @@ function HourlyTable({ rows }: { rows: HourlyEnergyFlow[] }) {
         {rows.map((h) => (
           <tr key={h.hour} className="border-b border-slate-100">
             <td className="px-3 py-2 text-left tabular-nums">{h.hour}</td>
-            <td className="px-3 py-2 text-left">{MONTHS[hourToMonthIndex(h.hour, rows.length)]}</td>
+            <td className="px-3 py-2 text-left font-mono text-[10px] text-slate-500">{h.hourKey ?? '—'}</td>
+            <td className="px-3 py-2 text-left">{MONTHS[typeof h.monthIndex === 'number' ? h.monthIndex : hourToMonthIndexFallback(h.hour, rows.length)]}</td>
             <td className="px-3 py-2 text-left">{h.tariffBucket}</td>
             <td className="px-3 py-2 text-right tabular-nums">{formatKwh(h.generation)}</td>
             <td className="px-3 py-2 text-right tabular-nums">{formatKwh(h.consumption)}</td>

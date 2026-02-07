@@ -9,57 +9,54 @@ interface StepIndicatorProps {
 }
 
 export function StepIndicator({ steps, currentStep, completedSteps }: StepIndicatorProps) {
+  const total = steps.length;
+
   return (
-    <div className="flex items-center justify-between mb-12">
-      {steps.map((step, index) => {
-        const isActive = step.id === currentStep;
-        const isCompleted = completedSteps.has(step.id);
-        const isAccessible = !step.disabled;
-        const isLast = index === steps.length - 1;
+    <nav aria-label="Progress" className="w-full">
+      <ol className="grid grid-cols-3 gap-2">
+        {steps.map((step, idx) => {
+          const isActive = step.id === currentStep;
+          const isCompleted = completedSteps.has(step.id);
+          const isAccessible = !step.disabled;
 
-        return (
-          <div key={step.id} className="flex items-center flex-1">
-            <div className="flex flex-col items-center flex-1">
-              {/* Step Circle */}
-              <div
-                className={`
-                  w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300
-                  ${isCompleted ? 'bg-tines-purple text-white shadow-lg shadow-indigo-500/30' : ''}
-                  ${isActive && !isCompleted ? 'bg-tines-purple text-white ring-4 ring-indigo-100' : ''}
-                  ${!isActive && !isCompleted && isAccessible ? 'bg-slate-100 text-slate-400 border-2 border-slate-200' : ''}
-                  ${!isAccessible ? 'bg-slate-50 text-slate-300 border-2 border-slate-100' : ''}
-                `}
-              >
-                {isCompleted ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                  </svg>
-                ) : (
-                  step.id
-                )}
-              </div>
-              
-              {/* Step Label */}
-              <div className="mt-3 text-center">
-                <p className={`text-sm font-medium ${isActive ? 'text-tines-dark' : isCompleted ? 'text-slate-600' : 'text-slate-400'}`}>
-                  {step.label}
-                </p>
-              </div>
-            </div>
+          const stateClass = isCompleted
+            ? 'bg-indigo-600 text-white'
+            : isActive
+              ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200'
+              : isAccessible
+                ? 'bg-slate-50 text-slate-600 ring-1 ring-slate-200'
+                : 'bg-slate-50 text-slate-400 ring-1 ring-slate-100';
 
-            {/* Connector Line */}
-            {!isLast && (
-              <div className="flex-1 h-0.5 mx-4 -mt-12">
+          return (
+            <li key={step.id} className="min-w-0">
+              <div className={`h-full rounded-lg px-3 py-2.5 flex items-center gap-3 ${stateClass}`}>
                 <div
-                  className={`h-full transition-all duration-300 ${
-                    isCompleted ? 'bg-tines-purple' : 'bg-slate-200'
-                  }`}
-                ></div>
+                  className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold ${
+                    isCompleted ? 'bg-white/15' : isActive ? 'bg-indigo-100' : 'bg-white'
+                  } ${isCompleted ? 'text-white' : isActive ? 'text-indigo-700' : 'text-slate-700'}`}
+                >
+                  {isCompleted ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                    </svg>
+                  ) : (
+                    step.id
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide ${isCompleted ? 'text-white/80' : isActive ? 'text-indigo-700/80' : 'text-slate-500'}`}>
+                    Step {idx + 1} of {total}
+                  </div>
+                  <div className={`text-sm font-semibold truncate ${isCompleted ? 'text-white' : isActive ? 'text-indigo-700' : 'text-slate-700'}`}>
+                    {step.label}
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }

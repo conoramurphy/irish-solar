@@ -31,32 +31,39 @@ describe('Hourly Simulation Integration Tests', () => {
   // Create minimal mock solar data for testing
   const createMockSolarData = () => {
     const timesteps = [];
+    const year = 2020;
+
+    // Build a canonical non-leap-year UTC sequence.
+    const start = Date.UTC(year, 0, 1, 0, 0, 0);
+
     for (let hour = 0; hour < 8760; hour++) {
-      const hourOfDay = hour % 24;
+      const t = new Date(start + hour * 60 * 60 * 1000);
+      const hourOfDay = t.getUTCHours();
+      const monthIndex = t.getUTCMonth();
+      const day = t.getUTCDate();
+
       // Simple solar curve: generate during daylight hours (8-18)
-      const irradiance = hourOfDay >= 8 && hourOfDay < 18 ? 
-        Math.max(0, 500 * Math.sin(((hourOfDay - 8) / 10) * Math.PI)) : 0;
-      
-      const year = 2020;
-      const dayOfYear = Math.floor(hour / 24);
-      const month = Math.floor(dayOfYear / 30);
-      const day = dayOfYear % 30 + 1;
-      
+      const irradiance = hourOfDay >= 8 && hourOfDay < 18
+        ? Math.max(0, 500 * Math.sin(((hourOfDay - 8) / 10) * Math.PI))
+        : 0;
+
       timesteps.push({
-        timestamp: new Date(year, month, day, hourOfDay, 0),
+        timestamp: t,
+        stamp: { year, monthIndex, day, hour: hourOfDay },
+        hourKey: `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hourOfDay).padStart(2, '0')}`,
         irradianceWm2: irradiance,
-        hourOfYear: hour
+        sourceIndex: hour
       });
     }
-    
+
     const totalIrradiance = timesteps.reduce((sum, ts) => sum + ts.irradianceWm2, 0);
-    
+
     return {
       location: 'Test',
       latitude: 53.0,
       longitude: -6.0,
       elevation: 100,
-      year: 2020,
+      year,
       timesteps,
       totalIrradiance
     };
@@ -94,30 +101,27 @@ describe('Hourly Simulation Integration Tests', () => {
     expect(result.annualSelfConsumption + result.annualExport).toBeCloseTo(22500, 1);
   });
 
-  it('should fallback to monthly simulation when solar timeseries data is not provided', () => {
-    const result = runCalculation(
-      {
-        annualProductionKwh: 22500,
-        batterySizeKwh: 10,
-        installationCost: 35000,
-        location: 'Test',
-        businessType: 'hotel'
-      },
-      [],
-      { equity: 15000, interestRate: 0.05, termYears: 10 },
-      testTariff,
-      { enabled: false },
-      {} as any,
-      [] as any,
-      25,
-      testConsumptionProfile
-      // No solar timeseries data
-    );
-
-    // Should still produce valid results with monthly approximation
-    expect(result.annualGeneration).toBe(22500);
-    expect(result.annualSelfConsumption).toBeGreaterThan(0);
-    expect(result.annualExport).toBeGreaterThanOrEqual(0);
+  it('should throw when solar timeseries data is not provided (no monthly fallback)', () => {
+    expect(() =>
+      runCalculation(
+        {
+          annualProductionKwh: 22500,
+          batterySizeKwh: 10,
+          installationCost: 35000,
+          location: 'Test',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 15000, interestRate: 0.05, termYears: 10 },
+        testTariff,
+        { enabled: false },
+        {} as any,
+        [] as any,
+        25,
+        testConsumptionProfile
+        // No solar timeseries data
+      )
+    ).toThrow();
   });
 
   it('should apply degradation correctly over multiple years', () => {
