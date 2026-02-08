@@ -222,26 +222,22 @@ function App() {
         logSolarInfo('solar', 'Loaded solar timeseries', { totalRows: parsed.timesteps.length, year: parsed.year });
         const years = listSolarTimeseriesYears(parsed);
         
-        if (years.length === 1) {
-          const y = years[0] ?? parsed.year;
-          const spanId = startSolarSpan('solar', 'Solar normalization', { year: y, location: config.location });
-          try {
-            const norm = normalizeSolarTimeseriesYear(parsed, y);
-            logSolarInfo('solar', 'Normalized solar timeseries', norm.corrections, { spanId });
-            if (norm.corrections.warnings.length) {
-              logWarn('solar', 'Normalization warnings', norm.corrections, { spanId });
-            }
-            setSolarTimeseriesData(norm.normalized);
-            endSolarSpan(spanId, 'success');
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : 'Normalization failed';
-            logSolarError('solar', 'Normalization failed', { message: msg }, { spanId });
-            endSolarSpan(spanId, 'error', { message: msg });
-            setSolarTimeseriesData(null);
+        // Normalize to a single year (use first available year or the requested year)
+        const targetYear = years.length === 1 ? years[0] : (years.includes(year) ? year : years[0]);
+        const spanId = startSolarSpan('solar', 'Solar normalization', { year: targetYear, location: config.location });
+        try {
+          const norm = normalizeSolarTimeseriesYear(parsed, targetYear ?? year);
+          logSolarInfo('solar', 'Normalized solar timeseries', norm.corrections, { spanId });
+          if (norm.corrections.warnings.length) {
+            logWarn('solar', 'Normalization warnings', norm.corrections, { spanId });
           }
-        } else {
-          // Multi-year - Step2 will handle year selection
-          setSolarTimeseriesData(parsed);
+          setSolarTimeseriesData(norm.normalized);
+          endSolarSpan(spanId, 'success');
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'Normalization failed';
+          logSolarError('solar', 'Normalization failed', { message: msg }, { spanId });
+          endSolarSpan(spanId, 'error', { message: msg });
+          setSolarTimeseriesData(null);
         }
       })
       .catch((err) => {
