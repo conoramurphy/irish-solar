@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode, useMemo } from 'react';
 import type { CalculationResult, SystemConfiguration } from '../types';
 import { AuditModal } from './AuditModal';
+import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
 
 interface ResultsSectionProps {
   result: CalculationResult | null;
@@ -55,6 +56,17 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
 
   const reportDate = new Date().toLocaleDateString();
   const year1NetCashflow = result.cashFlows[0]?.netCashFlow ?? 0;
+
+  const analyticsYear = useMemo(() => {
+    const y = result.audit?.year;
+    if (typeof y === 'number') return y;
+    const hk = result.audit?.hourly?.[0]?.hourKey;
+    if (hk) {
+      const maybeYear = Number(hk.slice(0, 4));
+      if (Number.isFinite(maybeYear)) return maybeYear;
+    }
+    return new Date().getFullYear();
+  }, [result.audit?.hourly, result.audit?.year]);
 
   return (
     <section className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
@@ -197,6 +209,10 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
             </svg>
           </button>
         </div>
+
+        {result.audit?.hourly && result.audit.hourly.length > 0 && (
+          <EnergyAnalyticsChart hourlyData={result.audit.hourly} year={analyticsYear} />
+        )}
 
         {auditOpen && result.audit && <AuditModal audit={result.audit} onClose={() => setAuditOpen(false)} />}
       </div>
