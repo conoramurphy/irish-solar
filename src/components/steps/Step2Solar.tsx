@@ -127,12 +127,23 @@ export function Step2Solar({
         <h3 className="text-xl font-serif font-semibold text-tines-dark mb-6">System Configuration</h3>
 
         <div className="space-y-6">
-          <Field label="Total Annual Production (kWh/year)">
-            <input className={inputClass} type="number" step={100} value={config.annualProductionKwh}
-              onChange={(e) => setConfig({ ...config, annualProductionKwh: Number(e.target.value) })}
-              placeholder="e.g., 22500" />
-            <p className="mt-2 text-xs text-slate-400 italic">Total energy your system will produce annually</p>
-          </Field>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Field label="Total Annual Production (kWh/year)">
+              <input className={inputClass} type="number" step={100} value={config.annualProductionKwh}
+                onChange={(e) => setConfig({ ...config, annualProductionKwh: Number(e.target.value) })}
+                placeholder="e.g., 22500" />
+              <p className="mt-2 text-xs text-slate-400 italic">Total energy your system will produce annually</p>
+            </Field>
+
+            <Field label="Number of South-Facing Panels">
+              <input className={inputClass} type="number" step={1} value={config.numberOfPanels || ''}
+                onChange={(e) => setConfig({ ...config, numberOfPanels: e.target.value ? Number(e.target.value) : undefined })}
+                placeholder="e.g., 50" />
+              <p className="mt-2 text-xs text-slate-400 italic">
+                Use <a href="https://pvwatts.nrel.gov/pvwatts.php" target="_blank" rel="noopener noreferrer" className="text-tines-purple hover:underline">PVWatts Calculator</a> to estimate
+              </p>
+            </Field>
+          </div>
 
           {(externalLoading || loading) && (
             <div className="flex items-center gap-2 text-sm text-tines-purple">

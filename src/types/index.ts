@@ -4,6 +4,7 @@ export type BuildingTypeSelection = 'hotel-year-round' | 'house' | 'farm' | 'hot
 
 export interface SystemConfiguration {
   annualProductionKwh: number; // Total annual production from solar system
+  numberOfPanels?: number; // Number of south-facing panels
   batterySizeKwh: number;
   installationCost: number;
   location: string;

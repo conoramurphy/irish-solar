@@ -327,7 +327,7 @@ function App() {
         {/* Full-page report */}
         {result ? (
           <div className="max-w-5xl mx-auto">
-            <ResultsSection result={result} />
+            <ResultsSection result={result} config={config} />
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

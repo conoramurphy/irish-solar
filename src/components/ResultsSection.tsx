@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react';
-import type { CalculationResult } from '../types';
+import type { CalculationResult, SystemConfiguration } from '../types';
 import { AuditModal } from './AuditModal';
 
 interface ResultsSectionProps {
   result: CalculationResult | null;
+  config?: SystemConfiguration;
 }
 
 function formatCurrency(value: number) {
@@ -38,7 +39,7 @@ function MetricRow({
   );
 }
 
-export function ResultsSection({ result }: ResultsSectionProps) {
+export function ResultsSection({ result, config }: ResultsSectionProps) {
   const [auditOpen, setAuditOpen] = useState(false);
 
   if (!result) {
@@ -115,6 +116,14 @@ export function ResultsSection({ result }: ResultsSectionProps) {
                   }
                   hint="Total solar energy produced over the selected solar year."
                 />
+
+                {config?.numberOfPanels && (
+                  <MetricRow
+                    label="South-Facing Panels"
+                    value={formatNumber(config.numberOfPanels)}
+                    hint="Number of panels configured for the system."
+                  />
+                )}
 
                 <MetricRow
                   label="Exported Energy"
