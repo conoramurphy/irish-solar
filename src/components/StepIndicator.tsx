@@ -13,7 +13,7 @@ export function StepIndicator({ steps, currentStep, completedSteps }: StepIndica
 
   return (
     <nav aria-label="Progress" className="w-full">
-      <ol className="grid grid-cols-3 gap-2">
+      <ol className="grid grid-cols-4 gap-2">
         {steps.map((step, idx) => {
           const isActive = step.id === currentStep;
           const isCompleted = completedSteps.has(step.id);
@@ -50,6 +50,9 @@ export function StepIndicator({ steps, currentStep, completedSteps }: StepIndica
                   </div>
                   <div className={`text-sm font-semibold truncate ${isCompleted ? 'text-white' : isActive ? 'text-indigo-700' : 'text-slate-700'}`}>
                     {step.label}
+                    {step.disabled && (
+                      <span className="ml-1 text-[10px] font-medium text-slate-400">· Coming Soon</span>
+                    )}
                   </div>
                 </div>
               </div>

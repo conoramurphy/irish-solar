@@ -1,5 +1,7 @@
 export type BusinessType = 'hotel' | 'farm' | 'commercial' | 'other';
 
+export type BuildingTypeSelection = 'hotel-year-round' | 'house' | 'farm' | 'hotel-seasonal';
+
 export interface SystemConfiguration {
   annualProductionKwh: number; // Total annual production from solar system
   batterySizeKwh: number;
