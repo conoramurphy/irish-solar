@@ -151,6 +151,21 @@ export interface HourlySimulationResult {
   hourlyData?: HourlyEnergyFlow[];
 }
 
+export interface SolarSpillageCurvePoint {
+  annualGenerationKwh: number;
+  scaleFactor: number;
+  exportKwh: number;
+  spillageFraction: number;
+}
+
+export interface SolarSpillageAnalysis {
+  targetSpillageFraction: number;
+  current: SolarSpillageCurvePoint;
+  target?: SolarSpillageCurvePoint;
+  curve: SolarSpillageCurvePoint[];
+  note: string;
+}
+
 export interface CalculationResult {
   systemCost: number;
   netCost: number;
@@ -169,6 +184,8 @@ export interface CalculationResult {
     netCashFlow: number;
     cumulativeCashFlow: number;
   }>;
+  /** Extra mini-analysis: solar-only spillage sensitivity (no battery, no € rates). */
+  solarSpillageAnalysis?: SolarSpillageAnalysis;
   /** Optional audit/debug payload derived from the same hourly source-of-truth used for the report. */
   audit?: {
     mode: 'hourly';

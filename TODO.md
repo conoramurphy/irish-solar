@@ -1,6 +1,14 @@
 # TODO
 Single running list of future work items. Add new items at the top under the appropriate section.
 
+## Mr. Brady deliverables
+- [ ] Deliverable 1: Weather data — ingest last 10 years of weather data for Cavan and document/select a canonical source (with provenance) for use in the system.
+- [ ] Deliverable 2: Grants — make hotel grants comprehensive and accurate; add provenance links to the underlying grant source pages/datasets; capture effective dates and caps.
+- [ ] Audit: verify everything is working end-to-end (data ingestion, calculation engine, and UI flows) and note any gaps/issues.
+
+## Done (recent)
+- [x] ROI-DA day-ahead price fetcher (`Other tools/dayahead_ireland.py`): handle missing `Index prices;30;EUR` by supporting alternate SEMOpx formats (e.g. `Index prices;60;EUR` and multi-line blocks).
+
 ## Next up
 - Multi-scenario comparison (save multiple runs, compare side-by-side, export a comparison report)
 - “Best fit” sizing / optimization (suggest PV + battery sizes that maximize NPV or hit a payback target, with constraints)

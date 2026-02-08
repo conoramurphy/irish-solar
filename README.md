@@ -17,19 +17,23 @@ This is a **calculation/test-first** ROI calculator for Irish SME solar projects
 From the repo root:
 
 ```bash
-npm --prefix solar-roi-calculator run dev
+npm install
 ```
 
 ```bash
-npm --prefix solar-roi-calculator run test:run
+npm run dev
 ```
 
 ```bash
-npm --prefix solar-roi-calculator run test:coverage
+npm run test:run
 ```
 
 ```bash
-npm --prefix solar-roi-calculator run build
+npm run test:coverage
+```
+
+```bash
+npm run build
 ```
 
 ## Notes for future agents

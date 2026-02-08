@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-The current solar ROI calculator bundles PVGIS solar irradiance CSV files directly into the JavaScript bundle. A single location (Cavan) produces a 1.4MB CSV file, which compiles to 314KB gzipped in the bundle.
+Historically, the solar ROI calculator bundled PVGIS solar irradiance CSV files directly into the JavaScript bundle. This has since been replaced with dynamic fetching from `/data/solar/{Location}_{Year}.csv` (served from `public/data/solar/`) via `src/utils/solarDataLoader.ts`.
 
 **Scaling challenge**: With plans to support:
 - 32 Irish counties

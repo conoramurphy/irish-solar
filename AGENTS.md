@@ -34,8 +34,9 @@ This is a Vite + React + TypeScript app where the “product” is the calculati
 ### UI flow
 The UI is a step-based wizard in `src/components/steps/`:
 - Step 1 builds a monthly consumption/billing profile.
-- Step 2 loads PVGIS solar irradiance timeseries CSV from `src/data/` and requires selecting a year if the file contains multiple years.
-- Step 3 collects costs/financing and triggers report generation.
+- Step 2 loads PVGIS solar irradiance timeseries CSVs from `public/data/solar/` (fetched at runtime via `src/utils/solarDataLoader.ts`) and requires selecting a year if the file contains multiple years.
+- Step 3 (currently disabled) is planned for batteries & tariff enhancements.
+- Step 4 collects costs/financing and triggers report generation.
 
 Results render in `src/components/ResultsSection.tsx`. Auditor Mode is a full-screen modal (`src/components/AuditModal.tsx`) that surfaces the hourly dataset and a monthly aggregation.
 
@@ -78,7 +79,7 @@ At a high level, the hourly pipeline is:
 - Log to console only as a secondary channel; prefer a user-visible error banner/state in the wizard step or results area.
 
 ### Data
-- Solar timeseries CSVs live under `src/data/` with naming `timeseries_solar_{Location}.csv`.
+- Solar timeseries CSVs live under `public/data/solar/` and are fetched at runtime from `/data/solar/{Location}_{Year}.csv` (see `src/utils/solarDataLoader.ts`).
 - See `SOLAR_DATA_FORMAT.md` for the PVGIS CSV format assumptions and distribution algorithm.
 
 ### Tests

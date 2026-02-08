@@ -22,6 +22,11 @@ function formatSignedCurrency(value: number) {
   return `${sign}${formatCurrency(abs)}`;
 }
 
+function formatPercentFraction(fraction: number, digits = 1) {
+  const f = Number.isFinite(fraction) ? fraction : 0;
+  return `${(f * 100).toFixed(digits)}%`;
+}
+
 function MetricRow({
   label,
   value,
@@ -61,7 +66,6 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
   }
 
   const reportDate = new Date().toLocaleDateString();
-  const year1NetCashflow = result.cashFlows[0]?.netCashFlow ?? 0;
 
   const analyticsYear = useMemo(() => {
     const y = result.audit?.year;
@@ -87,188 +91,162 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
       </div>
 
       <div className="p-6 md:p-8">
-        {/*
-          NOTE: ResultsSection often renders in the right sidebar (narrow column).
-          Use a single-column layout by default; only split into two columns on very wide screens.
-        */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <div>
-            <div className="rounded-xl border border-slate-100 bg-white">
-              <div className="px-4 py-3 border-b border-slate-100">
-                <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Financial Overview</h3>
-              </div>
-              <div className="px-4 divide-y divide-slate-100">
-                <MetricRow
-                  label="System Cost"
-                  value={formatCurrency(result.systemCost)}
-                  hint="Total installed cost before any grants or financing."
-                />
-                <MetricRow
-                  label="Net Cost (after grants)"
-                  value={formatCurrency(result.netCost)}
-                  hint="Your effective project cost after eligible grants are applied."
-                />
-                <MetricRow
-                  label="Annual Savings"
-                  value={formatCurrency(result.annualSavings)}
-                  hint="Estimated reduction in electricity bill in a typical year (Year 1 baseline)."
-                  valueClassName="text-emerald-600 text-2xl"
-                />
-              </div>
-            </div>
+        {/* 1. Energy Analytics Chart (Top) */}
+        {result.audit?.hourly && result.audit.hourly.length > 0 && (
+          <div className="mb-8">
+            <EnergyAnalyticsChart hourlyData={result.audit.hourly} year={analyticsYear} />
           </div>
+        )}
 
-          <div>
-            <div className="rounded-xl border border-slate-100 bg-white">
-              <div className="px-4 py-3 border-b border-slate-100">
-                <h3 className="text-xs font-bold tracking-wider text-slate-400 uppercase">Performance Metrics</h3>
-              </div>
-              <div className="px-4 divide-y divide-slate-100">
+        {/* 2. Combined Financial & Performance Metrics */}
+        <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">System Performance & Financials</h3>
+          </div>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+            {/* Left Column: Financials */}
+            <div className="space-y-1">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Financial Overview</div>
+              <MetricRow
+                label="System Cost"
+                value={formatCurrency(result.systemCost)}
+                hint="Total installed cost before any grants or financing."
+              />
+              <MetricRow
+                label="Net Cost"
+                value={formatCurrency(result.netCost)}
+                hint="Effective cost after eligible grants."
+              />
+              <MetricRow
+                label="Annual Savings"
+                value={formatCurrency(result.annualSavings)}
+                hint="Estimated Year 1 bill reduction."
+                valueClassName="text-emerald-600 font-bold"
+              />
+              <MetricRow
+                label="Simple Payback"
+                value={Number.isFinite(result.simplePayback) ? `${result.simplePayback.toFixed(1)} years` : '∞'}
+                hint="Net Cost ÷ Annual Savings."
+              />
+              <MetricRow
+                label="IRR (25y)"
+                value={Number.isFinite(result.irr) ? `${(result.irr * 100).toFixed(1)}%` : '—'}
+                hint="Internal Rate of Return over 25 years."
+              />
+              <MetricRow
+                label="NPV (25y)"
+                value={formatCurrency(result.npv)}
+                hint="Net Present Value."
+              />
+            </div>
+
+            {/* Right Column: Performance */}
+            <div className="space-y-1">
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Technical Performance</div>
+              <MetricRow
+                label="Annual Generation"
+                value={`${formatNumber(result.annualGeneration)} kWh`}
+                hint="Total solar energy produced."
+              />
+              {config?.numberOfPanels && (
                 <MetricRow
-                  label="Annual Generation"
-                  value={
-                    <span>
-                      {formatNumber(result.annualGeneration)}
-                      <span className="ml-2 text-sm text-slate-400 font-medium">kWh</span>
+                  label="South-Facing Panels"
+                  value={formatNumber(config.numberOfPanels)}
+                  hint="Number of panels configured."
+                />
+              )}
+              <MetricRow
+                label="Exported Energy"
+                value={`${formatNumber(result.annualExport)} kWh`}
+                hint="Solar energy sent to grid."
+              />
+              {/* Spillage Callout */}
+              <MetricRow
+                label="Export (Spillage) %"
+                value={(() => {
+                  const spill = result.annualExport / (result.annualGeneration || 1);
+                  const isHigh = spill > 0.3;
+                  return (
+                    <span className={isHigh ? 'text-amber-600 font-bold' : ''}>
+                      {formatPercentFraction(spill)}
+                      {isHigh && <span className="ml-2 text-xs font-normal text-amber-600">(High)</span>}
                     </span>
-                  }
-                  hint="Total solar energy produced over the selected solar year."
-                />
-
-                {config?.numberOfPanels && (
-                  <MetricRow
-                    label="South-Facing Panels"
-                    value={formatNumber(config.numberOfPanels)}
-                    hint="Number of panels configured for the system."
-                  />
-                )}
-
-                <MetricRow
-                  label="Exported Energy"
-                  value={
-                    <span>
-                      {formatNumber(result.annualExport)}
-                      <span className="ml-2 text-sm text-slate-400 font-medium">kWh</span>
-                    </span>
-                  }
-                  hint="Solar energy sent back to the grid (not used on-site)."
-                />
-
-                <MetricRow
-                  label="Simple Payback"
-                  value={Number.isFinite(result.simplePayback) ? `${result.simplePayback.toFixed(1)} years` : '∞'}
-                  hint="Net Cost ÷ Annual Savings (ignores discounting and financing)."
-                />
-
-                <MetricRow
-                  label="IRR"
-                  value={Number.isFinite(result.irr) ? `${(result.irr * 100).toFixed(2)}%` : (
-                    <span className="text-slate-400 text-sm">Not calculable</span>
-                  )}
-                  hint={Number.isFinite(result.irr) 
-                    ? "Internal rate of return over the full analysis period (annualized)." 
-                    : "IRR cannot be calculated for this cash flow scenario (no solution exists)."}
-                />
-
-                <MetricRow
-                  label="NPV (25y)"
-                  value={formatCurrency(result.npv)}
-                  hint="Net present value of all cashflows over 25 years, discounted at the model rate."
-                />
-              </div>
+                  );
+                })()}
+                hint="Percentage of generation exported. >30% typically indicates oversizing."
+              />
             </div>
           </div>
         </div>
 
-        <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 px-4 py-4">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <div className="text-xs font-bold tracking-wider text-slate-400 uppercase">First Year Cashflow</div>
-              <div className="mt-1 text-sm text-slate-600">Year 1 net cashflow = savings + export revenue − loan payments (if any).</div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-slate-500">Net cashflow (Year 1)</div>
-              <div className="mt-0.5 text-xl font-bold text-slate-900">{formatCurrency(year1NetCashflow)}</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div>
-            {result.audit ? (
-              <button
-                type="button"
-                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                onClick={() => setAuditOpen(true)}
-              >
-                Auditor Mode
-              </button>
-            ) : (
-              <p className="text-xs text-slate-400">Auditor Mode becomes available when an 8,760-hour solar timeseries is provided.</p>
-            )}
-          </div>
-
-          <button className="text-sm text-tines-purple font-medium hover:text-indigo-700 flex items-center gap-1 transition-colors">
-            Download Full PDF Report
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Monthly payment vs savings (Year 1) */}
+        {/* 3. Monthly Cashflow (Year 1) */}
         {result.audit?.monthly && result.audit.monthly.length === 12 && (
-          <div className="mt-8 rounded-2xl border border-slate-100 bg-white p-6 md:p-8">
-            <div className="flex items-start justify-between gap-6">
+          <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div>
-                <h3 className="text-2xl font-serif font-bold text-tines-dark">Monthly Cashflow (Year 1)</h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  Estimated monthly loan payments vs bill savings for the first full calendar year after install.
-                </p>
+                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Monthly Cashflow (Year 1)</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Estimated loan payments vs bill savings for the next calendar year.</p>
               </div>
-              <div className="text-sm font-medium text-slate-400 shrink-0">
-                {new Date().getFullYear() + 1}
-              </div>
+              <div className="text-xs font-medium text-slate-400">{new Date().getFullYear() + 1}</div>
             </div>
-
-            <div className="mt-5 overflow-x-auto">
-              <div className="min-w-[720px]">
-                <div className="grid grid-cols-4 gap-3 px-3 py-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
-                  <div>Month</div>
-                  <div className="text-right">Payment</div>
-                  <div className="text-right">Savings</div>
-                  <div className="text-right">Up/Down</div>
-                </div>
-                <div className="divide-y divide-slate-100 rounded-xl border border-slate-100 bg-white">
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                  <tr>
+                    <th className="px-6 py-3">Month</th>
+                    <th className="px-6 py-3 text-right">Payment</th>
+                    <th className="px-6 py-3 text-right">Savings</th>
+                    <th className="px-6 py-3 text-right">Net Position</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
                   {result.audit.monthly.map((m) => {
                     const monthName = new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' });
                     const payment = m.debtPayment ?? 0;
                     const savings = m.savings ?? 0;
                     const net = (m.netOutOfPocket ?? (savings - payment));
-                    const netClass = net >= 0 ? 'text-emerald-700' : 'text-rose-700';
-
+                    const isPositive = net >= 0;
+                    
                     return (
-                      <div key={m.monthIndex} className="grid grid-cols-4 gap-3 px-3 py-3 text-sm">
-                        <div className="font-medium text-slate-700">{monthName}</div>
-                        <div className="text-right tabular-nums text-slate-700">{formatCurrency(payment)}</div>
-                        <div className="text-right tabular-nums text-slate-700">{formatCurrency(savings)}</div>
-                        <div className={`text-right tabular-nums font-semibold ${netClass}`}>{formatSignedCurrency(net)}</div>
-                      </div>
+                      <tr key={m.monthIndex} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-3 font-medium text-slate-700">{monthName}</td>
+                        <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(payment)}</td>
+                        <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(savings)}</td>
+                        <td className={`px-6 py-3 text-right font-semibold tabular-nums ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {formatSignedCurrency(net)}
+                        </td>
+                      </tr>
                     );
                   })}
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
-
-            <p className="mt-3 text-xs text-slate-400">
-              Up/Down = savings − payment. If you have no loan, payments will appear as €0.
-            </p>
           </div>
         )}
 
-        {result.audit?.hourly && result.audit.hourly.length > 0 && (
-          <EnergyAnalyticsChart hourlyData={result.audit.hourly} year={analyticsYear} />
-        )}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
+          <div>
+            {result.audit ? (
+              <button
+                type="button"
+                className="text-sm font-medium text-slate-500 hover:text-tines-purple transition-colors"
+                onClick={() => setAuditOpen(true)}
+              >
+                Open detailed auditor view
+              </button>
+            ) : (
+              <span className="text-xs text-slate-400">Auditor view unavailable (no hourly data)</span>
+            )}
+          </div>
+
+          <button className="inline-flex items-center gap-2 rounded-lg bg-tines-purple px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+            Download PDF Report
+          </button>
+        </div>
 
         {auditOpen && result.audit && <AuditModal audit={result.audit} onClose={() => setAuditOpen(false)} />}
       </div>

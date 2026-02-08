@@ -16,7 +16,8 @@ import { calculateIRR, calculateLoanPayment, calculateNPV, calculateSimplePaybac
 import { getTariffBucketKeys, normalizeSharesToOne } from './consumption';
 import { generateHourlyConsumption } from './hourlyConsumption';
 import { aggregateHourlyResultsToMonthly, simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
-import { distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
+import { calculateTimeseriesWeights, distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
+import { buildSolarSpillageAnalysis } from './spillageAnalysis';
 
 /**
  * Run a full ROI calculation for a single scenario.
@@ -80,6 +81,7 @@ export function runCalculation(
   
   let annualSelfConsumption = 0;
   let annualExport = 0;
+  let solarSpillageAnalysis: CalculationResult['solarSpillageAnalysis'] | undefined;
   let audit: CalculationResult['audit'] | undefined;
   
   if (useHourlySimulation) {
@@ -87,6 +89,15 @@ export function runCalculation(
     const timeStamps = solarTimeseriesData!.timesteps.map((ts) => ts.stamp);
     const hourlyGeneration = distributeAnnualProductionTimeseries(baseGeneration, solarTimeseriesData!);
     const hourlyConsumption = generateHourlyConsumption(monthlyConsumption, tariff, solarTimeseriesData!.timesteps.length, timeStamps);
+
+    // Extra mini-analysis: solar-only spillage sensitivity (ignores batteries + € rates).
+    // Uses the same hourly consumption profile + irradiance-derived weights.
+    solarSpillageAnalysis = buildSolarSpillageAnalysis({
+      currentAnnualGenerationKwh: baseGeneration,
+      hourlyConsumptionKwh: hourlyConsumption,
+      hourlyWeights: calculateTimeseriesWeights(solarTimeseriesData!),
+      targetSpillageFraction: 0.3
+    }) ?? undefined;
     
     const batteryConfig: BatteryConfig | undefined = config.batterySizeKwh > 0 ? {
       capacityKwh: config.batterySizeKwh,
@@ -208,6 +219,7 @@ export function runCalculation(
     npv,
     irr,
     cashFlows,
+    solarSpillageAnalysis,
     audit
   };
 }

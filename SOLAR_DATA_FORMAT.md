@@ -91,7 +91,7 @@ User provides:
 
 ### 2. Processing
 ```typescript
-// Load CSV (fetched from public/data/solar/ at runtime)
+// Load CSV (served from public/data/solar/ and fetched from /data/solar at runtime)
 const solarData = await loadSolarData(location, year);
 
 // Distribute
@@ -129,7 +129,7 @@ const monthlyProduction = aggregateToMonthly(hourlyProduction, solarData);
 
 1. Obtain PVGIS CSV file for location (horizontal plane, tilt=0°)
 2. Save as `{LocationName}_{Year}.csv` in `public/data/solar/`
-3. Add location name to `availableLocations` array in `Step2SolarInstallation.tsx`
+3. Add location name to `availableLocations` array in `src/components/steps/Step1DigitalTwin.tsx`
 4. The system will automatically load and process the file via `loadSolarData()`
 
 ## Data Source
