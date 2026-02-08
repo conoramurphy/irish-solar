@@ -276,21 +276,23 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 return d.join(' ');
               };
 
-              const darkLinePoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.darkTimeConsumption) }));
+              // Stack order: bright-time usage at the bottom (baseline), dark-time on top.
+              const brightLinePoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.brightTimeConsumption) }));
               const totalUsagePoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.darkTimeConsumption + d.brightTimeConsumption) }));
               const genPoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.totalGeneration) }));
 
-              const darkLine = toSmoothPath(darkLinePoints);
+              const brightLine = toSmoothPath(brightLinePoints);
               const totalLine = toSmoothPath(totalUsagePoints);
               const genLine = toSmoothPath(genPoints);
 
               // Areas
-              const darkArea = `${darkLine} L ${w} ${baseY} L 0 ${baseY} Z`;
+              // Bright-time area: baseline -> bright-time line
+              const brightArea = `${brightLine} L ${w} ${baseY} L 0 ${baseY} Z`;
 
-              // Bright-time area is the region between total usage and dark-time usage.
-              const darkRev = [...darkLinePoints].reverse();
-              const darkRevPath = toSmoothPath(darkRev).replace(/^M/, 'L');
-              const brightArea = `${totalLine} ${darkRevPath} Z`;
+              // Dark-time area: region between total usage line and bright-time line
+              const brightRev = [...brightLinePoints].reverse();
+              const brightRevPath = toSmoothPath(brightRev).replace(/^M/, 'L');
+              const darkArea = `${totalLine} ${brightRevPath} Z`;
 
               return (
                 <svg width={w} height={h} className="block">
@@ -308,12 +310,12 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                   ))}
 
                   {/* Soft areas */}
-                  <path d={darkArea} fill="rgba(99, 102, 241, 0.20)" />
                   <path d={brightArea} fill="rgba(16, 185, 129, 0.22)" />
+                  <path d={darkArea} fill="rgba(99, 102, 241, 0.20)" />
 
                   {/* Usage outlines */}
-                  <path d={darkLine} fill="none" stroke="rgba(99, 102, 241, 0.35)" strokeWidth={1.5} />
-                  <path d={totalLine} fill="none" stroke="rgba(16, 185, 129, 0.45)" strokeWidth={1.5} />
+                  <path d={brightLine} fill="none" stroke="rgba(16, 185, 129, 0.45)" strokeWidth={1.5} />
+                  <path d={totalLine} fill="none" stroke="rgba(99, 102, 241, 0.35)" strokeWidth={1.5} />
 
                   {/* Generation line (slightly thicker) */}
                   <path d={genLine} fill="none" stroke="rgba(245, 158, 11, 0.95)" strokeWidth={2.6} strokeLinecap="round" />
@@ -378,23 +380,23 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
 
                 return (
                   <g key={index}>
-                    {/* Dark time */}
+                    {/* Bright time (bottom) */}
                     <rect
                       x={x - barWidth / 2}
-                      y={220 - darkHeight}
-                      width={barWidth}
-                      height={darkHeight}
-                      fill="#6366f1"
-                      opacity="0.8"
-                      rx="2"
-                    />
-                    {/* Bright time */}
-                    <rect
-                      x={x - barWidth / 2}
-                      y={220 - darkHeight - brightHeight}
+                      y={220 - brightHeight}
                       width={barWidth}
                       height={brightHeight}
                       fill="#10b981"
+                      opacity="0.8"
+                      rx="2"
+                    />
+                    {/* Dark time (top) */}
+                    <rect
+                      x={x - barWidth / 2}
+                      y={220 - brightHeight - darkHeight}
+                      width={barWidth}
+                      height={darkHeight}
+                      fill="#6366f1"
                       opacity="0.8"
                       rx="2"
                     />
