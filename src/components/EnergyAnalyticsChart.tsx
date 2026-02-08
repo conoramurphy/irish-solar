@@ -25,11 +25,29 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [selectedWeek, setSelectedWeek] = useState<number>(0);
 
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    for (const h of hourlyData) {
+      const hk = h.hourKey;
+      if (!hk) continue;
+      const y = Number(hk.slice(0, 4));
+      if (Number.isFinite(y)) years.add(y);
+    }
+    return Array.from(years).sort((a, b) => a - b);
+  }, [hourlyData]);
+
+  const [selectedYear, setSelectedYear] = useState<number>(year);
+
+  const hourlyForSelectedYear = useMemo(() => {
+    if (availableYears.length <= 1) return hourlyData;
+    return hourlyData.filter((h) => h.hourKey?.startsWith(String(selectedYear)));
+  }, [availableYears.length, hourlyData, selectedYear]);
+
   // Group hourly data by day
   const dailyData = useMemo((): DayData[] => {
     const daysMap = new Map<number, HourlyEnergyFlow[]>();
     
-    hourlyData.forEach((hour, index) => {
+    hourlyForSelectedYear.forEach((hour, index) => {
       const dayOfYear = Math.floor(index / 24);
       if (!daysMap.has(dayOfYear)) {
         daysMap.set(dayOfYear, []);
@@ -64,7 +82,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
         hours
       };
     });
-  }, [hourlyData]);
+  }, [hourlyForSelectedYear]);
 
   // Find interesting days
   const interestingDays = useMemo(() => {
@@ -123,6 +141,27 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
 
       {/* View Mode Selector */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
+        {availableYears.length > 1 && (
+          <div className="flex items-center gap-2 mr-2">
+            <span className="text-xs font-medium text-slate-500">Year:</span>
+            <select
+              value={selectedYear}
+              onChange={(e) => {
+                const y = Number(e.target.value);
+                setSelectedYear(y);
+                setSelectedDayIndex(0);
+                setSelectedWeek(0);
+              }}
+              className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+            >
+              {availableYears.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex rounded-lg border border-slate-200 overflow-hidden">
           <button
             onClick={() => setViewMode('yearly')}
@@ -187,7 +226,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
         <div>
           <div className="mb-4 flex items-center justify-between">
             <div className="text-sm font-medium text-slate-700">
-              {year} - Daily Totals ({dailyData.length} days)
+              {availableYears.length > 1 ? selectedYear : year} - Daily Totals ({dailyData.length} days)
             </div>
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-2">

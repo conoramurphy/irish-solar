@@ -16,6 +16,12 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('en-IE', { maximumFractionDigits: 0 }).format(value);
 }
 
+function formatSignedCurrency(value: number) {
+  const sign = value >= 0 ? '+' : '−';
+  const abs = Math.abs(value);
+  return `${sign}${formatCurrency(abs)}`;
+}
+
 function MetricRow({
   label,
   value,
@@ -209,6 +215,56 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
             </svg>
           </button>
         </div>
+
+        {/* Monthly payment vs savings (Year 1) */}
+        {result.audit?.monthly && result.audit.monthly.length === 12 && (
+          <div className="mt-8 rounded-2xl border border-slate-100 bg-white p-6 md:p-8">
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <h3 className="text-2xl font-serif font-bold text-tines-dark">Monthly Cashflow (Year 1)</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Estimated monthly loan payments vs bill savings for the first full calendar year after install.
+                </p>
+              </div>
+              <div className="text-sm font-medium text-slate-400 shrink-0">
+                {new Date().getFullYear() + 1}
+              </div>
+            </div>
+
+            <div className="mt-5 overflow-x-auto">
+              <div className="min-w-[720px]">
+                <div className="grid grid-cols-4 gap-3 px-3 py-2 text-xs font-bold tracking-wider text-slate-400 uppercase">
+                  <div>Month</div>
+                  <div className="text-right">Payment</div>
+                  <div className="text-right">Savings</div>
+                  <div className="text-right">Up/Down</div>
+                </div>
+                <div className="divide-y divide-slate-100 rounded-xl border border-slate-100 bg-white">
+                  {result.audit.monthly.map((m) => {
+                    const monthName = new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' });
+                    const payment = m.debtPayment ?? 0;
+                    const savings = m.savings ?? 0;
+                    const net = (m.netOutOfPocket ?? (savings - payment));
+                    const netClass = net >= 0 ? 'text-emerald-700' : 'text-rose-700';
+
+                    return (
+                      <div key={m.monthIndex} className="grid grid-cols-4 gap-3 px-3 py-3 text-sm">
+                        <div className="font-medium text-slate-700">{monthName}</div>
+                        <div className="text-right tabular-nums text-slate-700">{formatCurrency(payment)}</div>
+                        <div className="text-right tabular-nums text-slate-700">{formatCurrency(savings)}</div>
+                        <div className={`text-right tabular-nums font-semibold ${netClass}`}>{formatSignedCurrency(net)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-3 text-xs text-slate-400">
+              Up/Down = savings − payment. If you have no loan, payments will appear as €0.
+            </p>
+          </div>
+        )}
 
         {result.audit?.hourly && result.audit.hourly.length > 0 && (
           <EnergyAnalyticsChart hourlyData={result.audit.hourly} year={analyticsYear} />
