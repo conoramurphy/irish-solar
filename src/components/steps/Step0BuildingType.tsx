@@ -9,7 +9,7 @@ export function Step0BuildingType({ onNext }: Step0BuildingTypeProps) {
     id: BuildingTypeSelection;
     title: string;
     description: string;
-    icon: JSX.Element;
+    icon: React.ReactNode;
     enabled: boolean;
   }> = [
     {

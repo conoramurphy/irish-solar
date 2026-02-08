@@ -35,7 +35,7 @@ import { ResultsSection } from './components/ResultsSection';
 import type { ExampleMonth, TariffConfiguration } from './types/billing';
 import { loadSolarData } from './utils/solarDataLoader';
 import { endSpan as endSolarSpan, logError as logSolarError, logInfo as logSolarInfo, logWarn, startSpan as startSolarSpan } from './utils/logger';
-import { expectedHoursInYear, listSolarTimeseriesYears, normalizeSolarTimeseriesYear } from './utils/solarTimeseriesParser';
+import { listSolarTimeseriesYears, normalizeSolarTimeseriesYear } from './utils/solarTimeseriesParser';
 import type { BuildingTypeSelection } from './types';
 
 const grantsData = rawGrantsData as unknown as Grant[];
@@ -45,7 +45,7 @@ const historicalTariffData = rawHistoricalTariffData as unknown as HistoricalTar
 
 function App() {
   // Building type selection (Step 0)
-  const [buildingTypeSelection, setBuildingTypeSelection] = useState<BuildingTypeSelection | null>(null);
+  const [, setBuildingTypeSelection] = useState<BuildingTypeSelection | null>(null);
 
   const [config, setConfig] = useState<SystemConfiguration>({
     annualProductionKwh: 22500,
