@@ -5,6 +5,8 @@ export type BuildingTypeSelection = 'hotel-year-round' | 'house' | 'farm' | 'hot
 export interface SystemConfiguration {
   annualProductionKwh: number; // Total annual production from solar system
   numberOfPanels?: number; // Number of south-facing panels
+  /** Installed DC capacity (kWp). Needed for some grant calculations (e.g. SEAI Non-Domestic Microgen). */
+  systemSizeKwp?: number;
   batterySizeKwh: number;
   installationCost: number;
   location: string;
@@ -15,10 +17,26 @@ export interface Grant {
   id: string;
   name: string;
   type: 'SEAI' | 'TAMS' | 'Other';
+
+  /**
+   * Default calculation inputs (legacy): percent-of-project-cost with an independent cap.
+   * Some grants override this via `calculation.method`.
+   */
   percentage: number;
   maxAmount: number;
+
   eligibleFor: BusinessType[];
   description?: string;
+
+  /** One or more authoritative source pages (for provenance). */
+  sourceUrls?: string[];
+  /** Optional: when these figures were last verified. ISO date (YYYY-MM-DD). */
+  lastVerified?: string;
+
+  /** Optional override for how to compute this grant. */
+  calculation?: {
+    method: 'percentage-of-cost' | 'seai-non-domestic-microgen-solar-pv';
+  };
 }
 
 export interface Financing {

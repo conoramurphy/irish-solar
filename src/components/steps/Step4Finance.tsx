@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react';
 import { Field } from '../Field';
 import type { SystemConfiguration, Grant, Financing } from '../../types';
+import { calculateGrantAmount, calculateSingleGrantAmount } from '../../models/grants';
 import { logInfo } from '../../utils/logger';
 
 interface Step4FinanceProps {
@@ -27,23 +29,50 @@ export function Step4Finance({
 }: Step4FinanceProps) {
   const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
 
-  const totalGrantValue = eligibleGrants
-    .filter((g) => selectedGrantIds.includes(g.id))
-    .reduce((sum, g) => {
-      const grantAmount = Math.min((config.installationCost * g.percentage) / 100, g.maxAmount);
-      return sum + grantAmount;
-    }, 0);
+  const [grantValidationError, setGrantValidationError] = useState<string | null>(null);
 
-  const netCost = config.installationCost - totalGrantValue;
+  const selectedGrants = useMemo(
+    () => eligibleGrants.filter((g) => selectedGrantIds.includes(g.id)),
+    [eligibleGrants, selectedGrantIds]
+  );
+
+  const grantContext = useMemo(
+    () => ({ systemSizeKwp: config.systemSizeKwp }),
+    [config.systemSizeKwp]
+  );
+
+  const { totalGrant: totalGrantValue, error: grantCalcError } = useMemo(() => {
+    try {
+      const { totalGrant } = calculateGrantAmount(config.installationCost, selectedGrants, grantContext);
+      return { totalGrant, error: null as string | null };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Grant calculation failed.';
+      return { totalGrant: 0, error: msg };
+    }
+  }, [config.installationCost, selectedGrants, grantContext]);
+
+  const netCost = Math.max(0, config.installationCost - totalGrantValue);
   const loanAmount = Math.max(0, netCost - financing.equity);
 
   const handleGenerateReport = () => {
+    setGrantValidationError(null);
+
     logInfo('ui', 'Step 3 generate report clicked', {
       installationCost: config.installationCost,
       equity: financing.equity,
       interestRate: financing.interestRate,
-      termYears: financing.termYears
+      termYears: financing.termYears,
+      systemSizeKwp: config.systemSizeKwp
     });
+
+    // Enforce: if a selected grant requires extra inputs (e.g. kWp), block generation.
+    try {
+      calculateGrantAmount(config.installationCost, selectedGrants, grantContext);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Grant calculation failed.';
+      setGrantValidationError(msg);
+      return;
+    }
 
     if (config.installationCost > 0 && financing.equity >= 0) {
       onGenerateReport();
@@ -69,6 +98,12 @@ export function Step4Finance({
 
       {/* Main Card */}
       <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-8 mb-8">
+        {(grantValidationError || grantCalcError) && (
+          <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+            <div className="font-semibold">Grant calculation needs attention</div>
+            <div className="mt-1">{grantValidationError ?? grantCalcError}</div>
+          </div>
+        )}
         {/* Installation Cost */}
         <div className="mb-8 pb-8 border-b border-slate-100">
           <h3 className="text-xl font-serif font-semibold text-tines-dark mb-6">Installation Cost</h3>
@@ -112,7 +147,20 @@ export function Step4Finance({
           ) : (
             <div className="space-y-3">
               {eligibleGrants.map((g) => {
-                const grantAmount = Math.min((config.installationCost * g.percentage) / 100, g.maxAmount);
+                let grantAmount: number | null = null;
+                let perGrantError: string | null = null;
+
+                try {
+                  grantAmount = calculateSingleGrantAmount(config.installationCost, g, grantContext);
+                } catch (e) {
+                  perGrantError = e instanceof Error ? e.message : 'Grant calculation failed.';
+                }
+
+                const calculationHint =
+                  g.calculation?.method === 'seai-non-domestic-microgen-solar-pv'
+                    ? `Tiered by system size (kWp), capped at €${g.maxAmount.toLocaleString()}`
+                    : `${g.percentage}% of project cost, up to €${g.maxAmount.toLocaleString()} maximum`;
+
                 return (
                   <label
                     key={g.id}
@@ -131,17 +179,42 @@ export function Step4Finance({
                       }}
                     />
                     <div className="flex-1">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-4">
                         <span className="font-semibold text-tines-dark group-hover:text-tines-purple transition-colors">
                           {g.name}
                         </span>
-                        <span className="text-sm font-bold text-emerald-600">
-                          €{grantAmount.toLocaleString()}
+                        <span className={`text-sm font-bold ${perGrantError ? 'text-slate-400' : 'text-emerald-600'}`}>
+                          {grantAmount != null && !perGrantError ? `€${grantAmount.toLocaleString()}` : '—'}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-500 mt-1">
-                        {g.percentage}% of project cost, up to €{g.maxAmount.toLocaleString()} maximum
-                      </p>
+
+                      <p className="text-sm text-slate-500 mt-1">{calculationHint}</p>
+
+                      {g.description && <p className="text-xs text-slate-400 mt-1">{g.description}</p>}
+
+                      {g.sourceUrls && g.sourceUrls.length > 0 && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          Source:{' '}
+                          {g.sourceUrls.map((url, idx) => (
+                            <span key={url}>
+                              {idx > 0 ? ', ' : ''}
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-tines-purple hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                link
+                              </a>
+                            </span>
+                          ))}
+                        </p>
+                      )}
+
+                      {perGrantError && (
+                        <p className="text-xs text-rose-600 mt-1">{perGrantError}</p>
+                      )}
                     </div>
                   </label>
                 );

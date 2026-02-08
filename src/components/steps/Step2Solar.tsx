@@ -143,6 +143,25 @@ export function Step2Solar({
                 Use <a href="https://pvwatts.nrel.gov/pvwatts.php" target="_blank" rel="noopener noreferrer" className="text-tines-purple hover:underline">PVWatts Calculator</a> to estimate
               </p>
             </Field>
+
+            <Field label="Installed System Size (kWp)">
+              <input
+                className={inputClass}
+                type="number"
+                step={0.1}
+                value={config.systemSizeKwp ?? ''}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    systemSizeKwp: e.target.value ? Number(e.target.value) : undefined
+                  })
+                }
+                placeholder="e.g., 30"
+              />
+              <p className="mt-2 text-xs text-slate-400 italic">
+                Used for grant calculations (e.g. SEAI Non-Domestic Microgen Solar PV).
+              </p>
+            </Field>
           </div>
 
           {(externalLoading || loading) && (

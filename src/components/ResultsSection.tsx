@@ -179,7 +179,7 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
           </div>
         </div>
 
-        {/* 3. Monthly Cashflow (Year 1) */}
+        {/* Monthly payment vs savings (Year 1) */}
         {result.audit?.monthly && result.audit.monthly.length === 12 && (
           <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
@@ -215,6 +215,57 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
                         <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(savings)}</td>
                         <td className={`px-6 py-3 text-right font-semibold tabular-nums ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
                           {formatSignedCurrency(net)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Solar Spillage Sensitivity Analysis */}
+        {result.solarSpillageAnalysis && (
+          <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  How spillage (export) changes if you scale the PV system up/down (hourly simulation only, no battery).
+                </p>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                  <tr>
+                    <th className="px-6 py-3">PV Size (Annual kWh)</th>
+                    <th className="px-6 py-3 text-right">Scale Factor</th>
+                    <th className="px-6 py-3 text-right">Exported</th>
+                    <th className="px-6 py-3 text-right">Spillage %</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {result.solarSpillageAnalysis.curve.map((p) => {
+                    const isCurrent = Math.abs(p.scaleFactor - 1.0) < 0.01;
+                    const isHighSpill = p.spillageFraction > 0.3;
+                    
+                    return (
+                      <tr 
+                        key={p.scaleFactor} 
+                        className={`transition-colors ${isCurrent ? 'bg-slate-50/80 font-medium' : 'hover:bg-slate-50/50'}`}
+                      >
+                        <td className="px-6 py-3 tabular-nums text-slate-700">
+                          {formatNumber(p.annualGenerationKwh)}
+                          {isCurrent && <span className="ml-2 text-xs font-normal text-tines-purple bg-tines-purple/10 px-2 py-0.5 rounded-full">Current</span>}
+                        </td>
+                        <td className="px-6 py-3 text-right tabular-nums text-slate-600">{p.scaleFactor.toFixed(2)}×</td>
+                        <td className="px-6 py-3 text-right tabular-nums text-slate-600">{formatNumber(p.exportKwh)} kWh</td>
+                        <td className={`px-6 py-3 text-right tabular-nums font-medium ${isHighSpill ? 'text-amber-600' : 'text-slate-700'}`}>
+                          {formatPercentFraction(p.spillageFraction)}
+                          {isHighSpill && <span className="ml-2 text-xs font-normal text-amber-600">⚠️</span>}
                         </td>
                       </tr>
                     );

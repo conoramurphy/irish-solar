@@ -44,7 +44,9 @@ export function runCalculation(
 ): CalculationResult {
   const systemCost = Math.max(0, config.installationCost);
 
-  const { totalGrant } = calculateGrantAmount(systemCost, grants);
+  const { totalGrant } = calculateGrantAmount(systemCost, grants, {
+    systemSizeKwp: config.systemSizeKwp
+  });
   const netCost = Math.max(0, systemCost - totalGrant);
 
   const equityAmount = Math.max(0, financing.equity);
