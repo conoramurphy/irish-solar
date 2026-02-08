@@ -195,3 +195,5 @@ export function Step2Solar({
     </div>
   );
 }
+
+export default Step2Solar;

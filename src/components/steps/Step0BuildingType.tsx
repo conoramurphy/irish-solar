@@ -138,3 +138,5 @@ export function Step0BuildingType({ onNext }: Step0BuildingTypeProps) {
     </div>
   );
 }
+
+export default Step0BuildingType;

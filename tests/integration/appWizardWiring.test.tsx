@@ -7,13 +7,22 @@ vi.mock('../../src/components/Hero', () => ({ Hero: () => <div data-testid="hero
 vi.mock('../../src/components/StepIndicator', () => ({ StepIndicator: () => <div data-testid="stepper" /> }));
 vi.mock('../../src/components/ResultsSection', () => ({ ResultsSection: () => <div data-testid="results" /> }));
 
-// Mock steps so we can deterministically drive the wizard.
-vi.mock('../../src/components/steps/Step1ConsumptionBilling', () => ({
-  Step1ConsumptionBilling: ({ onNext }: { onNext: (data: any) => void }) => (
+// Mock steps
+vi.mock('../../src/components/steps/Step0BuildingType', () => ({
+  Step0BuildingType: ({ onNext }: { onNext: (data: any) => void }) => (
+    <button type="button" onClick={() => onNext({ buildingType: 'hotel-year-round' })}>
+      next-step-0
+    </button>
+  )
+}));
+
+vi.mock('../../src/components/steps/Step1DigitalTwin', () => ({
+  Step1DigitalTwin: ({ onNext }: { onNext: (data: any) => void }) => (
     <button
       type="button"
       onClick={() =>
         onNext({
+          location: 'Cavan',
           exampleMonths: [],
           tariffConfig: { type: 'flat', flatRate: 0.25 },
           curvedMonthlyKwh: Array.from({ length: 12 }, () => 1000),
@@ -26,8 +35,8 @@ vi.mock('../../src/components/steps/Step1ConsumptionBilling', () => ({
   )
 }));
 
-vi.mock('../../src/components/steps/Step2SolarInstallation', () => ({
-  Step2SolarInstallation: ({ onNext }: { onNext: (data: any) => void }) => {
+vi.mock('../../src/components/steps/Step2Solar', () => ({
+  Step2Solar: ({ onNext }: { onNext: (data: any) => void }) => {
     const year = 2022;
     const t0 = new Date(Date.UTC(year, 0, 1, 0, 0, 0));
     const t1 = new Date(Date.UTC(year, 0, 1, 1, 0, 0));
@@ -65,8 +74,12 @@ vi.mock('../../src/components/steps/Step2SolarInstallation', () => ({
   }
 }));
 
-vi.mock('../../src/components/steps/Step3CostsAndFinancing', () => ({
-  Step3CostsAndFinancing: ({ onGenerateReport }: { onGenerateReport: () => void }) => (
+vi.mock('../../src/components/steps/Step3ComingSoon', () => ({
+  Step3ComingSoon: () => <div>coming-soon</div>
+}));
+
+vi.mock('../../src/components/steps/Step4Finance', () => ({
+  Step4Finance: ({ onGenerateReport }: { onGenerateReport: () => void }) => (
     <button type="button" onClick={onGenerateReport}>
       generate
     </button>
@@ -93,18 +106,23 @@ vi.mock('../../src/utils/calculations', () => ({
 import App from '../../src/App';
 
 describe('App wizard wiring', () => {
-  it('passes Step 2 solarData through to runCalculation', async () => {
+  it('passes Step 1 location and Step 2 solarData through to runCalculation', async () => {
     const user = userEvent.setup();
 
     render(<App />);
 
+    // Step 0: Building type
+    await user.click(screen.getByRole('button', { name: 'next-step-0' }));
+    // Step 1: Digital Twin (location + consumption)
     await user.click(screen.getByRole('button', { name: 'next-step-1' }));
+    // Step 2: Solar
     await user.click(screen.getByRole('button', { name: 'next-step-2' }));
+    // Step 3 skipped, now at Step 4: Finance
     await user.click(screen.getByRole('button', { name: 'generate' }));
 
     expect(runCalculationMock).toHaveBeenCalledTimes(1);
 
-    // App passes solarTimeseriesData as the last argument.
+    // App passes solarTimeseriesData as the last argument
     const lastCallArgs = runCalculationMock.mock.calls[0] ?? [];
     const solarArg = lastCallArgs.at(-1);
 

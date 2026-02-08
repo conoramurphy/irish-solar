@@ -406,3 +406,5 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
     </div>
   );
 }
+
+export default Step1DigitalTwin;

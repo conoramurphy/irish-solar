@@ -265,3 +265,5 @@ export function Step4Finance({
     </div>
   );
 }
+
+export default Step4Finance;

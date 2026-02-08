@@ -24,3 +24,5 @@ export function Step3ComingSoon() {
     </div>
   );
 }
+
+export default Step3ComingSoon;
