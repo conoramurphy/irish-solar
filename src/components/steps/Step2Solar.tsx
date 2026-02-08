@@ -49,6 +49,11 @@ export function Step2Solar({
       if (years.length === 1) {
         setSolarData(initialSolarData);
         setSelectedYear(years[0]);
+      } else if (years.length > 1) {
+        // For multi-year files, use the initialSolarData if it's already normalized
+        // (App.tsx loads and normalizes it based on selected year)
+        setSolarData(initialSolarData);
+        setSelectedYear(initialSolarData.year);
       }
     }
   }, [initialSolarData]);
