@@ -205,7 +205,7 @@ export function Step4Finance({
                                 className="text-tines-purple hover:underline"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                link
+                                {url.replace(/^https?:\/\//, '').split('/')[0]}
                               </a>
                             </span>
                           ))}

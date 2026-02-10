@@ -4,6 +4,9 @@ Single running list of future work items. Add new items at the top under the app
 ## Mr. Brady deliverables
 - [ ] Deliverable 1: Weather data — ingest last 10 years of weather data for Cavan and document/select a canonical source (with provenance) for use in the system.
 - [ ] Deliverable 2: Grants — make hotel grants comprehensive and accurate; add provenance links to the underlying grant source pages/datasets; capture effective dates and caps.
+  - [x] Add SEAI Non-Domestic Microgen (Solar PV) with kWp-tiered calculation + source link.
+  - [x] Add TAMS SCIS source link + align to published ceiling/rate (farm-only).
+  - [ ] Add/verify any additional hotel-relevant schemes and document whether schemes can be stacked (avoid double-counting).
 - [ ] Audit: verify everything is working end-to-end (data ingestion, calculation engine, and UI flows) and note any gaps/issues.
 
 ## Done (recent)

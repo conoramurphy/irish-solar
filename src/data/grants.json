@@ -1,29 +1,26 @@
 [
   {
-    "id": "seai-solar-sme",
-    "name": "SEAI Solar PV Grant - SME",
+    "id": "seai-ndmg-solar-pv",
+    "name": "SEAI Non-Domestic Microgen Grant (Solar PV)",
     "type": "SEAI",
-    "percentage": 30,
-    "maxAmount": 150000,
-    "eligibleFor": ["hotel", "commercial", "other"],
-    "description": "Support for solar PV installations for SMEs"
+    "percentage": 0,
+    "maxAmount": 162600,
+    "eligibleFor": ["hotel", "commercial", "other", "farm"],
+    "description": "Grant amount is based on installed system size (kWp) using SEAI tier schedule.",
+    "sourceUrls": ["https://www.seai.ie/grants/business-grants/commercial-solar-pv/"],
+    "lastVerified": "2026-02-08",
+    "calculation": { "method": "seai-non-domestic-microgen-solar-pv" }
   },
   {
-    "id": "tams-solar",
-    "name": "TAMS Solar Panel Grant",
+    "id": "tams-scis-solar-pv",
+    "name": "TAMS 3 Solar Capital Investment Scheme (SCIS)",
     "type": "TAMS",
-    "percentage": 40,
-    "maxAmount": 90000,
+    "percentage": 60,
+    "maxAmount": 54000,
     "eligibleFor": ["farm"],
-    "description": "Targeted Agricultural Modernisation Scheme for solar"
-  },
-  {
-    "id": "tams-battery",
-    "name": "TAMS Battery Storage Grant",
-    "type": "TAMS",
-    "percentage": 40,
-    "maxAmount": 30000,
-    "eligibleFor": ["farm"],
-    "description": "Battery storage for farm installations"
+    "description": "Solar PV grant for farms under SCIS. Modelled as 60% of eligible cost with an investment ceiling of €90,000 (i.e. max grant €54,000).",
+    "sourceUrls": ["https://www.gov.ie/en/service/f8cb3-solar-capital-investment-scheme-scis/"],
+    "lastVerified": "2026-02-08",
+    "calculation": { "method": "percentage-of-cost" }
   }
 ]

@@ -5,6 +5,7 @@ import historicalSolarData from '../../src/data/historical/solar-irradiance.json
 import historicalTariffData from '../../src/data/historical/tariff-history.json';
 import { runCalculation } from '../../src/utils/calculations';
 import { calculateLoanPayment } from '../../src/models/financial';
+import { calculateGrantAmount } from '../../src/models/grants';
 
 describe('runCalculation', () => {
   const makeSolar = (year = 2021) => {
@@ -34,7 +35,8 @@ describe('runCalculation', () => {
         batterySizeKwh: 10,
         installationCost: 35_000,
         location: 'Dublin',
-        businessType: 'hotel'
+        businessType: 'hotel',
+        systemSizeKwp: 30
       },
       [grantsData[0]],
       {
@@ -54,8 +56,7 @@ describe('runCalculation', () => {
     // Audit monthly should include Year-1 debt payment allocation.
     expect(result.audit?.monthly).toHaveLength(12);
     const systemCost = 35_000;
-    const { maxAmount, percentage } = grantsData[0]!;
-    const totalGrant = Math.min((systemCost * percentage) / 100, maxAmount);
+    const { totalGrant } = calculateGrantAmount(systemCost, [grantsData[0] as any], { systemSizeKwp: 30 });
     const netCost = systemCost - totalGrant;
     const loanAmount = Math.max(0, netCost - 15_000);
     const annualLoanPayment = calculateLoanPayment(loanAmount, 0.05, 10);

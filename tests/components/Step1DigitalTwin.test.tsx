@@ -14,13 +14,12 @@ describe('Step1DigitalTwin', () => {
     expect(selects.length).toBeGreaterThan(0);
   });
 
-  it('renders example months section', () => {
+  it('renders consumption profile section', () => {
     const onNext = vi.fn();
     const onBack = vi.fn();
     render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
 
-    // Look for "Example Months" heading or similar
-    expect(screen.getByText(/Example Month/i)).toBeInTheDocument();
+    expect(screen.getByText(/Consumption Profile/i)).toBeInTheDocument();
   });
 
   it('renders tariff configuration section', () => {
@@ -28,23 +27,18 @@ describe('Step1DigitalTwin', () => {
     const onBack = vi.fn();
     render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
 
-    // Look for tariff type toggle (Flat Rate / Time of Use)
-    expect(screen.getByText(/Flat Rate/i)).toBeInTheDocument();
-    expect(screen.getByText(/Time of Use/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Flat Rate' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Time-of-Use' })).toBeInTheDocument();
+    expect(screen.getByText(/Current Tariff Structure/i)).toBeInTheDocument();
   });
 
-  it('validates location is required before proceeding', async () => {
-    const user = userEvent.setup();
+  it('validates location is required before proceeding', () => {
     const onNext = vi.fn();
     const onBack = vi.fn();
     render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
 
-    // Try to proceed without selecting location - button should be disabled
-    const continueButtons = screen.getAllByRole('button').filter(btn => 
-      btn.textContent?.includes('Continue to Solar')
-    );
-    expect(continueButtons.length).toBe(1);
-    expect(continueButtons[0]).toBeDisabled();
+    const continueButton = screen.getByRole('button', { name: /Continue to Solar Configuration/i });
+    expect(continueButton).toBeDisabled();
   });
 
   it('calls onNext with complete data when form is valid', async () => {
@@ -53,24 +47,23 @@ describe('Step1DigitalTwin', () => {
     const onBack = vi.fn();
     render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
 
-    // Select location (Cavan is the default available location)
+    // Select location (Cavan is the only available location)
     const selects = screen.getAllByRole('combobox');
-    const locationSelect = selects[0]; // First combobox is location
+    const locationSelect = selects[0];
     await user.selectOptions(locationSelect, 'Cavan');
 
-    // Click next
-    const continueButtons = screen.getAllByRole('button').filter(btn => 
-      btn.textContent?.includes('Continue to Solar')
-    );
-    await user.click(continueButtons[0]);
+    const continueButton = screen.getByRole('button', { name: /Continue to Solar Configuration/i });
+    expect(continueButton).not.toBeDisabled();
 
-    // onNext should be called with data object
+    await user.click(continueButton);
+
     expect(onNext).toHaveBeenCalledTimes(1);
     const callData = onNext.mock.calls[0][0];
-    expect(callData).toHaveProperty('location');
     expect(callData.location).toBe('Cavan');
-    expect(callData).toHaveProperty('exampleMonths');
+    expect(Array.isArray(callData.exampleMonths)).toBe(true);
     expect(callData).toHaveProperty('tariffConfig');
+    expect(Array.isArray(callData.curvedMonthlyKwh)).toBe(true);
+    expect(Array.isArray(callData.estimatedMonthlyBills)).toBe(true);
   });
 
   it('calls onBack when back button is clicked', async () => {
@@ -79,25 +72,19 @@ describe('Step1DigitalTwin', () => {
     const onBack = vi.fn();
     render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
 
-    const backButton = screen.getByRole('button', { name: /Back/i });
+    const backButton = screen.getByRole('button', { name: /^Back$/ });
     await user.click(backButton);
 
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('supports flat rate tariff configuration', async () => {
-    const user = userEvent.setup();
+  it('supports flat rate tariff configuration', () => {
     const onNext = vi.fn();
     const onBack = vi.fn();
     render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
 
-    // Flat rate should be default - check for the button
-    const buttons = screen.getAllByRole('button');
-    const flatRateButton = buttons.find(btn => btn.textContent === 'Flat Rate');
-    expect(flatRateButton).toBeInTheDocument();
-    
-    // Should show flat rate info (calculated from example months)
-    expect(screen.getByText(/Using flat rate calculated/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Flat Rate' })).toBeInTheDocument();
+    expect(screen.getByText(/Using flat rate calculated from your example months/i)).toBeInTheDocument();
   });
 
   it('supports time-of-use tariff configuration', async () => {

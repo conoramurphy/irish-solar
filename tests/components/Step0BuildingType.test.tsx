@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Step0BuildingType from '../../src/components/steps/Step0BuildingType';
 
@@ -30,20 +30,12 @@ describe('Step0BuildingType', () => {
     expect(hotelCard).not.toBeDisabled();
   });
 
-  it('calls onNext with hotel-year-round when hotel card is clicked', async () => {
-    const user = userEvent.setup();
+  it('calls onNext with hotel-year-round when hotel card is clicked', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
-    // Find and click the hotel card - use specific text matching
-    const buttons = screen.getAllByRole('button');
-    const hotelCard = buttons.find(btn => 
-      btn.textContent?.includes('Hotel (open all year round)') && 
-      btn.textContent?.includes('Get started')
-    );
-    
-    expect(hotelCard).toBeInTheDocument();
-    await user.click(hotelCard!);
+    const hotelCard = screen.getByRole('button', { name: /Hotel \(open all year round\)/i });
+    fireEvent.click(hotelCard);
 
     expect(onNext).toHaveBeenCalledTimes(1);
     expect(onNext).toHaveBeenCalledWith({ buildingType: 'hotel-year-round' });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateGrantAmount, getEligibleGrants } from '../../src/models/grants';
+import { calculateGrantAmount, calculateSingleGrantAmount, getEligibleGrants } from '../../src/models/grants';
 import type { Grant } from '../../src/types';
 
 describe('grants model', () => {
@@ -42,6 +42,32 @@ describe('grants model', () => {
   it('returns 0 if system cost is <= 0', () => {
     expect(calculateGrantAmount(0, grants).totalGrant).toBe(0);
     expect(calculateGrantAmount(-1, grants).totalGrant).toBe(0);
+  });
+
+  describe('SEAI Non-Domestic Microgen (kWp-based) grants', () => {
+    const seaiKwpGrant: Grant = {
+      id: 'seai-ndmg',
+      name: 'SEAI Non-Domestic Microgen Grant (Solar PV)',
+      type: 'SEAI',
+      percentage: 0,
+      maxAmount: 162_600,
+      eligibleFor: ['hotel'],
+      calculation: { method: 'seai-non-domestic-microgen-solar-pv' }
+    };
+
+    it('calculates expected values from SEAI examples (e.g. 30kWp -> €8,600)', () => {
+      const amount = calculateSingleGrantAmount(1_000, seaiKwpGrant, { systemSizeKwp: 30 });
+      expect(amount).toBe(8_600);
+    });
+
+    it('caps at the SEAI max (e.g. 1000kWp -> €162,600)', () => {
+      const amount = calculateSingleGrantAmount(1_000, seaiKwpGrant, { systemSizeKwp: 1000 });
+      expect(amount).toBe(162_600);
+    });
+
+    it('throws when system size is missing', () => {
+      expect(() => calculateGrantAmount(10_000, [seaiKwpGrant])).toThrow(/requires a valid system size/i);
+    });
   });
 
   describe('grant eligibility edge cases', () => {

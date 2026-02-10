@@ -31,7 +31,24 @@ vi.mock('../../src/components/steps/Step2Solar', () => ({
   Step2Solar: ({ onNext, onBack }: any) => (
     <div data-testid="step2">
       <button onClick={onBack}>Back</button>
-      <button onClick={() => onNext({ annualProductionKwh: 10000 })}>Next</button>
+      <button
+        onClick={() =>
+          onNext({
+            solarData: {
+              year: 2020,
+              timesteps: Array.from({ length: 8760 }, (_, i) => ({
+                stamp: { year: 2020, monthIndex: 0, day: 1, hour: 0 },
+                hourKey: `2020-01-01T00`,
+                irradianceWm2: 0,
+                sourceIndex: i
+              })),
+              totalIrradiance: 0
+            }
+          })
+        }
+      >
+        Next
+      </button>
     </div>
   ),
 }));
@@ -60,13 +77,31 @@ vi.mock('../../src/components/steps/Step4Finance', () => ({
 
 // Mock other dependencies
 vi.mock('../../src/utils/solarTimeseriesParser', () => ({
-  parseSolarTimeseries: vi.fn(() => ({ parsedRows: [], warnings: [] })),
-  normalizeSolarTimeseriesYear: vi.fn(() => ({ 
-    normalizedRows: [], 
-    corrections: { missingCount: 0, duplicateCount: 0, outsideYearCount: 0 },
-    warnings: [],
+  listSolarTimeseriesYears: vi.fn(() => [2020]),
+  normalizeSolarTimeseriesYear: vi.fn((parsed: any) => ({
+    normalized: parsed,
+    corrections: { warnings: [] }
   })),
   distributeAnnualProductionTimeseries: vi.fn(() => []),
+  aggregateToMonthly: vi.fn(() => []),
+}));
+
+vi.mock('../../src/utils/solarDataLoader', () => ({
+  loadSolarData: vi.fn(async (location: string, year: number) => ({
+    location,
+    latitude: 0,
+    longitude: 0,
+    elevation: 0,
+    year,
+    timesteps: Array.from({ length: 8760 }, (_, i) => ({
+      timestamp: new Date(Date.UTC(year, 0, 1, 0, 0, 0)),
+      stamp: { year, monthIndex: 0, day: 1, hour: 0 },
+      hourKey: `${year}-01-01T00`,
+      irradianceWm2: 0,
+      sourceIndex: i
+    })),
+    totalIrradiance: 0
+  }))
 }));
 
 vi.mock('../../src/utils/calculations', () => ({
