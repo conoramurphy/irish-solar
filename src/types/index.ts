@@ -73,8 +73,13 @@ export interface Tariff {
 
 export interface TradingConfig {
   enabled: boolean;
+  /** Margin added to day-ahead price for imports (EUR/kWh). Default 0. */
+  importMargin?: number;
+  /** Margin deducted from day-ahead price for exports (EUR/kWh). Default 0. */
+  exportMargin?: number;
+  /** Number of hours to force charge (cheapest) and discharge (most expensive) per day. Default 4. */
+  hoursWindow?: number; 
   annualRevenue?: number;
-  frequency?: 'daily' | 'weekly' | 'monthly';
 }
 
 export interface HistoricalSolarData {
@@ -165,6 +170,13 @@ export interface HourlySimulationResult {
   totalExportRevenue: number;
   /** Net savings compared to baseline (EUR) */
   totalSavings: number;
+  
+  // Breakdown
+  totalSolarToLoadKwh: number;
+  totalBatteryToLoadKwh: number;
+  totalSolarToLoadSavings: number;
+  totalBatteryToLoadSavings: number;
+
   /** Hourly detail (optional, for debugging/visualization) */
   hourlyData?: HourlyEnergyFlow[];
 }
@@ -191,6 +203,12 @@ export interface CalculationResult {
   annualSelfConsumption: number;
   annualExport: number;
   annualSavings: number;
+  
+  // Savings breakdown (EUR)
+  annualSolarToLoadSavings: number;
+  annualBatteryToLoadSavings: number;
+  annualExportRevenue: number;
+
   simplePayback: number;
   npv: number;
   irr: number;

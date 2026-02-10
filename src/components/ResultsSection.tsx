@@ -6,6 +6,7 @@ import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
 interface ResultsSectionProps {
   result: CalculationResult | null;
   config?: SystemConfiguration;
+  onSelectSimulation?: (annualProduction: number) => void;
 }
 
 function formatCurrency(value: number) {
@@ -51,7 +52,7 @@ function MetricRow({
   );
 }
 
-export function ResultsSection({ result, config }: ResultsSectionProps) {
+export function ResultsSection({ result, config, onSelectSimulation }: ResultsSectionProps) {
   const [auditOpen, setAuditOpen] = useState(false);
 
   if (!result) {
@@ -97,6 +98,33 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
             <EnergyAnalyticsChart hourlyData={result.audit.hourly} year={analyticsYear} />
           </div>
         )}
+
+        {/* Savings Breakdown Compact Section */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
+             <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">Total Annual Savings</div>
+             <div className="text-2xl font-bold text-emerald-700">{formatCurrency(result.annualSavings)}</div>
+             <div className="text-xs text-emerald-600/80 mt-1">Bill Reduction + Revenue</div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Solar Displacement</div>
+             <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualSolarToLoadSavings)}</div>
+             <div className="text-xs text-slate-400 mt-1">Direct to Load</div>
+          </div>
+
+          <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Battery Displacement</div>
+             <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualBatteryToLoadSavings)}</div>
+             <div className="text-xs text-slate-400 mt-1">Stored & Discharged</div>
+          </div>
+
+          <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Export Income</div>
+             <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualExportRevenue)}</div>
+             <div className="text-xs text-slate-400 mt-1">Feed-in / Market</div>
+          </div>
+        </div>
 
         {/* 2. Combined Financial & Performance Metrics */}
         <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
@@ -160,6 +188,30 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
                 value={`${formatNumber(result.annualExport)} kWh`}
                 hint="Solar energy sent to grid."
               />
+              
+              {/* Battery Metrics */}
+              {config?.batterySizeKwh ? (
+                <>
+                  <MetricRow
+                    label="Battery Capacity"
+                    value={`${formatNumber(config.batterySizeKwh)} kWh`}
+                    hint="Installed energy storage."
+                  />
+                  <MetricRow
+                    label="Self-Consumption"
+                    value={formatPercentFraction(result.annualSelfConsumption / (result.annualGeneration || 1))}
+                    hint="Solar energy used on-site (boosted by battery)."
+                    valueClassName="text-emerald-600 font-bold"
+                  />
+                </>
+              ) : (
+                <MetricRow
+                  label="Self-Consumption"
+                  value={formatPercentFraction(result.annualSelfConsumption / (result.annualGeneration || 1))}
+                  hint="Solar energy used on-site."
+                />
+              )}
+
               {/* Spillage Callout */}
               <MetricRow
                 label="Export (Spillage) %"
@@ -232,7 +284,7 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
               <div>
                 <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  How spillage (export) changes if you scale the PV system up/down (hourly simulation only, no battery).
+                  Click a row to simulate that system size.
                 </p>
               </div>
             </div>
@@ -255,9 +307,14 @@ export function ResultsSection({ result, config }: ResultsSectionProps) {
                     return (
                       <tr 
                         key={p.scaleFactor} 
-                        className={`transition-colors ${isCurrent ? 'bg-slate-50/80 font-medium' : 'hover:bg-slate-50/50'}`}
+                        onClick={() => !isCurrent && onSelectSimulation?.(p.annualGenerationKwh)}
+                        className={`transition-colors ${
+                          isCurrent 
+                            ? 'bg-slate-50/80 font-medium cursor-default' 
+                            : 'hover:bg-indigo-50 cursor-pointer group'
+                        }`}
                       >
-                        <td className="px-6 py-3 tabular-nums text-slate-700">
+                        <td className="px-6 py-3 tabular-nums text-slate-700 group-hover:text-indigo-700">
                           {formatNumber(p.annualGenerationKwh)}
                           {isCurrent && <span className="ml-2 text-xs font-normal text-tines-purple bg-tines-purple/10 px-2 py-0.5 rounded-full">Current</span>}
                         </td>

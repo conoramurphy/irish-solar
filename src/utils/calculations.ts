@@ -18,6 +18,7 @@ import { generateHourlyConsumption } from './hourlyConsumption';
 import { aggregateHourlyResultsToMonthly, simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
 import { calculateTimeseriesWeights, distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
 import { buildSolarSpillageAnalysis } from './spillageAnalysis';
+import { normalizePriceTimeseries, type ParsedPriceData } from './priceTimeseriesParser';
 
 /**
  * Run a full ROI calculation for a single scenario.
@@ -40,7 +41,8 @@ export function runCalculation(
   historicalTariffs: HistoricalTariffData[] = [],
   analysisYears = 25,
   consumptionProfile?: ConsumptionProfile,
-  solarTimeseriesData?: ParsedSolarData
+  solarTimeseriesData?: ParsedSolarData,
+  priceTimeseriesData?: ParsedPriceData
 ): CalculationResult {
   const systemCost = Math.max(0, config.installationCost);
 
@@ -77,12 +79,25 @@ export function runCalculation(
       `Received ${solarHours} timesteps.`
     );
   }
+
+  // Normalize price timeseries if provided and trading enabled
+  let hourlyPrices: number[] | undefined;
+  if (trading.enabled && priceTimeseriesData) {
+    // Normalize prices to match solar year
+    const { normalized } = normalizePriceTimeseries(priceTimeseriesData, solarTimeseriesData.year);
+    // Extract simple array
+    hourlyPrices = normalized.timesteps.map(ts => ts.priceEur);
+  }
   
   // Always use hourly simulation (audit mode)
   const useHourlySimulation = true;
   
   let annualSelfConsumption = 0;
   let annualExport = 0;
+  let annualSolarToLoadSavings = 0;
+  let annualBatteryToLoadSavings = 0;
+  let annualExportRevenue = 0;
+
   let solarSpillageAnalysis: CalculationResult['solarSpillageAnalysis'] | undefined;
   let audit: CalculationResult['audit'] | undefined;
   
@@ -113,7 +128,9 @@ export function runCalculation(
       tariff,
       batteryConfig,
       true,
-      timeStamps
+      timeStamps,
+      hourlyPrices,
+      trading
     );
 
     const hourly = baseYearElectricity.hourlyData ?? [];
@@ -151,6 +168,9 @@ export function runCalculation(
 
     annualSelfConsumption = baseYearElectricity.totalSelfConsumption;
     annualExport = baseYearElectricity.totalGridExport;
+    annualSolarToLoadSavings = baseYearElectricity.totalSolarToLoadSavings;
+    annualBatteryToLoadSavings = baseYearElectricity.totalBatteryToLoadSavings;
+    annualExportRevenue = baseYearElectricity.totalExportRevenue;
   }
   // Note: Monthly approximation fallback removed - audit mode is now mandatory
 
@@ -182,11 +202,26 @@ export function runCalculation(
       tariff,
       batteryConfig,
       false,
-      timeStamps
+      timeStamps,
+      hourlyPrices,
+      trading
     );
     electricitySavings = yearElectricity.totalSavings;
 
-    const tradingRevenue = calculateTradingRevenue(trading, config.batterySizeKwh, year);
+    // Trading revenue is now implicitly part of electricitySavings because simulateHourlyEnergyFlow
+    // uses the dynamic prices for imports/exports. 
+    // HOWEVER, the `calculateTradingRevenue` function (legacy?) might be double counting or unneeded now?
+    // Let's check `calculateTradingRevenue`. It seems to be a simple heuristic.
+    // If we are using hourly simulation with prices, we should NOT add separate heuristic trading revenue.
+    // If we are NOT using hourly prices but trading is enabled (legacy mode?), we might keep it.
+    // But since `hourlyPrices` is optional, let's logic check:
+    
+    let tradingRevenue = 0;
+    if (!hourlyPrices && trading.enabled) {
+        // Fallback to heuristic if no price data but trading enabled
+        tradingRevenue = calculateTradingRevenue(trading, config.batterySizeKwh, year);
+    }
+    // If hourlyPrices present, `electricitySavings` already includes the P&L from trading arbitrage.
 
     const loanPayment = year <= financing.termYears ? annualLoanPayment : 0;
 
@@ -206,6 +241,18 @@ export function runCalculation(
   const annualCashFlows = cashFlows.map((cf) => cf.netCashFlow);
   const annualSavings = cashFlows[0]?.savings ?? 0;
 
+  // If heuristic trading revenue is used (no hourly prices), add it to battery savings
+  const heuristicTradingRevenue = (!hourlyPrices && trading.enabled) 
+    ? calculateTradingRevenue(trading, config.batterySizeKwh, 1) 
+    : 0;
+    
+  // Add heuristic revenue to battery part if applicable
+  // (Note: annualSavings from cashFlows already includes heuristicTradingRevenue via the loop logic)
+  // We just need to ensure the breakdown sums up correctly.
+  // annualSolarToLoadSavings + annualBatteryToLoadSavings + annualExportRevenue should approx equal annualSavings.
+  
+  const finalBatterySavings = annualBatteryToLoadSavings + heuristicTradingRevenue;
+
   const simplePayback = calculateSimplePayback(netCost, annualSavings);
   const npv = calculateNPV(equityAmount, annualCashFlows, 0.05);
   const irr = calculateIRR(equityAmount, annualCashFlows);
@@ -217,6 +264,9 @@ export function runCalculation(
     annualSelfConsumption,
     annualExport,
     annualSavings,
+    annualSolarToLoadSavings,
+    annualBatteryToLoadSavings: finalBatterySavings,
+    annualExportRevenue,
     simplePayback,
     npv,
     irr,

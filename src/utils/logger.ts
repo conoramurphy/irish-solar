@@ -15,6 +15,16 @@ export type LogOptions = {
 };
 
 export function log(scope: string, level: LogLevel, message: string, details?: unknown, options?: LogOptions) {
+  // Console logging for debugging
+  const logFn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+  const prefix = `[${scope.toUpperCase()}]`;
+  if (details) {
+    logFn(prefix, message, details);
+  } else {
+    logFn(prefix, message);
+  }
+
+  // Keep internal store for now (in case other things use it, though we removed Viewer)
   useLogStore.getState().add({
     scope,
     level,

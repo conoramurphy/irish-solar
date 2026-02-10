@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { LogViewer } from './components/LogViewer';
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
 import rawTariffsData from './data/tariffs.json';
@@ -22,6 +21,7 @@ import type {
   TradingConfig
 } from './types';
 import type { ParsedSolarData } from './utils/solarTimeseriesParser';
+import type { ParsedPriceData } from './utils/priceTimeseriesParser';
 
 import { CalendarSidebar } from './components/CalendarSidebar';
 import { Hero } from './components/Hero';
@@ -29,7 +29,7 @@ import { StepIndicator } from './components/StepIndicator';
 import { Step0BuildingType } from './components/steps/Step0BuildingType';
 import { Step1DigitalTwin } from './components/steps/Step1DigitalTwin';
 import { Step2Solar } from './components/steps/Step2Solar';
-import { Step3ComingSoon } from './components/steps/Step3ComingSoon';
+import { Step3Battery } from './components/steps/Step3Battery';
 import { Step4Finance } from './components/steps/Step4Finance';
 import { ResultsSection } from './components/ResultsSection';
 import type { ExampleMonth, TariffConfiguration } from './types/billing';
@@ -67,7 +67,8 @@ function App() {
     termYears: 10
   });
 
-  const [trading] = useState<TradingConfig>({ enabled: false });
+  const [trading, setTrading] = useState<TradingConfig>({ enabled: false });
+  const [priceTimeseriesData, setPriceTimeseriesData] = useState<ParsedPriceData | null>(null);
 
   // Billing profile from Step 1
   const [, setExampleMonths] = useState<ExampleMonth[]>([]);
@@ -116,7 +117,6 @@ function App() {
   }, [curvedMonthlyKwh, bucketKeys]);
 
   const [result, setResult] = useState<CalculationResult | null>(null);
-  const [logOpen, setLogOpen] = useState(false);
 
   // Step management - starts at 0 (building type)
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -126,7 +126,7 @@ function App() {
   const steps = [
     { id: 1, label: 'Digital Twin' },
     { id: 2, label: 'Solar' },
-    { id: 3, label: 'Batteries & Tariffs', disabled: true },
+    { id: 3, label: 'Batteries & Tariffs' },
     { id: 4, label: 'Finance' }
   ];
 
@@ -135,24 +135,25 @@ function App() {
     [eligibleGrants, selectedGrantIds]
   );
 
-  const handleCalculate = () => {
+  const handleCalculate = (configOverride?: SystemConfiguration) => {
     setResult(null);
+    const cfg = configOverride || config;
 
     logInfo('ui', 'Generate report clicked', {
       currentStep,
       hasSolarTimeseries: !!solarTimeseriesData,
-      hasConsumptionProfile: curvedMonthlyKwh.length === 12
+      hasConsumptionProfile: curvedMonthlyKwh.length === 12,
+      isOverride: !!configOverride
     });
 
     if (!tariff) {
       logError('ui', 'Tariff missing when generating report');
-      setLogOpen(true);
       return;
     }
 
     const spanId = startSpan('engine', 'Run calculation', {
       analysisYears: 25,
-      location: config.location
+      location: cfg.location
     });
 
     try {
@@ -160,17 +161,17 @@ function App() {
         'engine',
         'runCalculation start',
         {
-          annualProductionKwh: config.annualProductionKwh,
-          batterySizeKwh: config.batterySizeKwh,
-          installationCost: config.installationCost,
-          location: config.location,
+          annualProductionKwh: cfg.annualProductionKwh,
+          batterySizeKwh: cfg.batterySizeKwh,
+          installationCost: cfg.installationCost,
+          location: cfg.location,
           analysisYears: 25
         },
         { spanId }
       );
 
       const r = runCalculation(
-        config,
+        cfg,
         selectedGrants,
         financing,
         tariff,
@@ -202,7 +203,6 @@ function App() {
       const msg = e instanceof Error ? e.message : 'Calculation failed.';
       logError('engine', 'runCalculation failed', { message: msg }, { spanId });
       endSpan(spanId, 'error', { message: msg });
-      setLogOpen(true);
     }
   };
 
@@ -278,7 +278,14 @@ function App() {
         timesteps: data.solarData.timesteps?.length
       });
       setCompletedSteps(prev => new Set(prev).add(step));
-      // Skip step 3, go to 4
+      // Go to Step 3
+      setCurrentStep(3);
+      return;
+    }
+
+    if (step === 3) {
+      // Step 3: Battery & Trading
+      setCompletedSteps(prev => new Set(prev).add(step));
       setCurrentStep(4);
       return;
     }
@@ -293,8 +300,8 @@ function App() {
       // Back to Step 0 (building type)
       setCurrentStep(0);
     } else if (currentStep === 4) {
-      // Back from Step 4 -> skip Step 3, go to Step 2
-      setCurrentStep(2);
+      // Back from Step 4 -> Step 3
+      setCurrentStep(3);
     } else {
       setCurrentStep(prev => Math.max(0, prev - 1));
     }
@@ -303,18 +310,6 @@ function App() {
   return (
     <div className="min-h-screen bg-tines-light font-sans text-slate-600">
       <Hero />
-
-      {/* Always-available logging UI */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <button
-          type="button"
-          className="rounded-full bg-slate-900 text-white px-4 py-3 shadow-lg hover:bg-slate-800 text-sm font-semibold"
-          onClick={() => setLogOpen(true)}
-        >
-          Logs
-        </button>
-      </div>
-      <LogViewer open={logOpen} onClose={() => setLogOpen(false)} />
 
       <main className="mx-auto max-w-7xl px-6 py-10 -mt-10 relative z-20">
       {/* Step Indicator (hide on Step 0 and when report is generated) */}
@@ -327,7 +322,29 @@ function App() {
         {/* Full-page report */}
         {result ? (
           <div className="max-w-5xl mx-auto">
-            <ResultsSection result={result} config={config} />
+            <ResultsSection 
+              result={result} 
+              config={config} 
+              onSelectSimulation={(newKwh) => {
+                if (config.annualProductionKwh <= 0) return;
+                const ratio = newKwh / config.annualProductionKwh;
+                
+                const newConfig: SystemConfiguration = {
+                  ...config,
+                  annualProductionKwh: newKwh,
+                  // Scale system size and cost linearly as a first-order approximation
+                  systemSizeKwp: config.systemSizeKwp ? Number((config.systemSizeKwp * ratio).toFixed(1)) : undefined,
+                  numberOfPanels: config.numberOfPanels ? Math.round(config.numberOfPanels * ratio) : undefined,
+                  installationCost: Number((config.installationCost * ratio).toFixed(0))
+                };
+                
+                setConfig(newConfig);
+                handleCalculate(newConfig);
+                
+                // Scroll to top to show updated results
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -356,7 +373,18 @@ function App() {
                 />
               )}
 
-              {currentStep === 3 && <Step3ComingSoon />}
+              {currentStep === 3 && (
+                <Step3Battery
+                  config={config}
+                  setConfig={setConfig}
+                  trading={trading}
+                  setTrading={setTrading}
+                  priceData={priceTimeseriesData}
+                  setPriceData={setPriceTimeseriesData}
+                  onNext={() => handleNextStep(3)}
+                  onBack={handleBackStep}
+                />
+              )}
 
               {currentStep === 4 && (
                 <Step4Finance
@@ -367,7 +395,7 @@ function App() {
                   setSelectedGrantIds={setSelectedGrantIds}
                   financing={financing}
                   setFinancing={setFinancing}
-                  onGenerateReport={handleCalculate}
+                  onGenerateReport={() => handleCalculate()}
                   onBack={handleBackStep}
                 />
               )}

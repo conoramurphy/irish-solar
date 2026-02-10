@@ -130,7 +130,17 @@ export function Step2Solar({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Field label="Total Annual Production (kWh/year)">
               <input className={inputClass} type="number" step={100} value={config.annualProductionKwh}
-                onChange={(e) => setConfig({ ...config, annualProductionKwh: Number(e.target.value) })}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  // Auto-estimate system size (kWp) if not set or if user is just starting
+                  // Assume ~900 kWh/kWp for Ireland
+                  const estimatedKwp = val > 0 ? Number((val / 900).toFixed(1)) : 0;
+                  setConfig({ 
+                    ...config, 
+                    annualProductionKwh: val,
+                    systemSizeKwp: estimatedKwp 
+                  });
+                }}
                 placeholder="e.g., 22500" />
               <p className="mt-2 text-xs text-slate-400 italic">Total energy your system will produce annually</p>
             </Field>
