@@ -1,8 +1,40 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Field } from '../Field';
 import type { SystemConfiguration, Grant, Financing } from '../../types';
 import { calculateGrantAmount, calculateSingleGrantAmount } from '../../models/grants';
 import { logInfo } from '../../utils/logger';
+
+// Soft curve estimation helper
+function estimateSystemCost(kwp: number): number {
+  if (!kwp || kwp <= 0) return 0;
+  
+  // Linear interpolation of price-per-kWp based on upper-bound markers
+  let pricePerKwp = 1500;
+  
+  if (kwp <= 10) {
+    pricePerKwp = 2000;
+  } else if (kwp <= 50) {
+    // Range 10-50 (span 40), Price 2000-1800 (span -200)
+    const progress = (kwp - 10) / 40;
+    pricePerKwp = 2000 - (progress * 200);
+  } else if (kwp <= 150) {
+    // Range 50-150 (span 100), Price 1800-1700 (span -100)
+    const progress = (kwp - 50) / 100;
+    pricePerKwp = 1800 - (progress * 100);
+  } else if (kwp <= 300) {
+    // Range 150-300 (span 150), Price 1700-1600 (span -100)
+    const progress = (kwp - 150) / 150;
+    pricePerKwp = 1700 - (progress * 100);
+  } else if (kwp <= 500) {
+    // Range 300-500 (span 200), Price 1600-1500 (span -100)
+    const progress = (kwp - 300) / 200;
+    pricePerKwp = 1600 - (progress * 100);
+  } else {
+    pricePerKwp = 1500;
+  }
+  
+  return kwp * pricePerKwp;
+}
 
 interface Step4FinanceProps {
   config: SystemConfiguration;
@@ -30,6 +62,23 @@ export function Step4Finance({
   const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
 
   const [grantValidationError, setGrantValidationError] = useState<string | null>(null);
+  const [useEstimatedCost, setUseEstimatedCost] = useState(true);
+  const [vatRate, setVatRate] = useState(0.135);
+
+  const estimatedBaseCost = useMemo(() => {
+    return estimateSystemCost(config.systemSizeKwp || 0);
+  }, [config.systemSizeKwp]);
+
+  // Update cost when estimation params change
+  useEffect(() => {
+    if (useEstimatedCost && config.systemSizeKwp) {
+      const total = Math.round(estimatedBaseCost * (1 + vatRate));
+      // Only update if different to avoid loops (though strict mode might trigger twice)
+      if (total !== config.installationCost) {
+        setConfig({ ...config, installationCost: total });
+      }
+    }
+  }, [useEstimatedCost, vatRate, estimatedBaseCost, config, setConfig]);
 
   const selectedGrants = useMemo(
     () => eligibleGrants.filter((g) => selectedGrantIds.includes(g.id)),
@@ -106,14 +155,70 @@ export function Step4Finance({
         )}
         {/* Installation Cost */}
         <div className="mb-8 pb-8 border-b border-slate-100">
-          <h3 className="text-xl font-serif font-semibold text-tines-dark mb-6">Installation Cost</h3>
-          <Field label="Total Project Cost (€)">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-serif font-semibold text-tines-dark">Installation Cost</h3>
+            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useEstimatedCost}
+                onChange={(e) => setUseEstimatedCost(e.target.checked)}
+                className="rounded border-slate-300 text-tines-purple focus:ring-tines-purple"
+              />
+              <span>Use estimated cost based on system size</span>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+             <Field label="VAT Rate">
+                <select
+                  className={inputClass}
+                  value={vatRate}
+                  onChange={(e) => setVatRate(Number(e.target.value))}
+                  disabled={!useEstimatedCost} // If manual, user enters total gross cost directly
+                >
+                  <option value={0.135}>Reduced (13.5%)</option>
+                  <option value={0.23}>Standard (23%)</option>
+                </select>
+                <p className="mt-2 text-xs text-slate-400">
+                  <a 
+                    href="https://www.revenue.ie/en/tax-professionals/tdm/value-added-tax/part03-taxable-transactions-goods-ica-services/Services/solar-panels.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-tines-purple hover:underline"
+                  >
+                    Check eligibility for reduced VAT
+                  </a>
+                </p>
+             </Field>
+             
+             {useEstimatedCost && (
+               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm">
+                 <div className="flex justify-between mb-1">
+                    <span className="text-slate-500">Estimated Base Cost:</span>
+                    <span className="font-medium text-slate-700">€{estimatedBaseCost.toLocaleString()}</span>
+                 </div>
+                 <div className="flex justify-between mb-2 pb-2 border-b border-slate-200">
+                    <span className="text-slate-500">VAT (@ {(vatRate * 100).toFixed(1)}%):</span>
+                    <span className="font-medium text-slate-700">€{Math.round(estimatedBaseCost * vatRate).toLocaleString()}</span>
+                 </div>
+                 <div className="flex justify-between pt-1">
+                    <span className="font-semibold text-slate-700">Total Estimate:</span>
+                    <span className="font-bold text-tines-purple">€{Math.round(estimatedBaseCost * (1 + vatRate)).toLocaleString()}</span>
+                 </div>
+               </div>
+             )}
+          </div>
+
+          <Field label="Total Project Cost (Inc. VAT) (€)">
             <input
-              className={inputClass}
+              className={`${inputClass} ${useEstimatedCost ? 'bg-slate-50 text-slate-500' : ''}`}
               type="number"
               step={100}
               value={config.installationCost}
-              onChange={(e) => setConfig({ ...config, installationCost: Number(e.target.value) })}
+              onChange={(e) => {
+                setConfig({ ...config, installationCost: Number(e.target.value) });
+                if (useEstimatedCost) setUseEstimatedCost(false); // Switch to manual if user edits
+              }}
               placeholder="e.g., 35000"
             />
             <p className="mt-2 text-xs text-slate-400 italic">

@@ -74,8 +74,12 @@ vi.mock('../../src/components/steps/Step2Solar', () => ({
   }
 }));
 
-vi.mock('../../src/components/steps/Step3ComingSoon', () => ({
-  Step3ComingSoon: () => <div>coming-soon</div>
+vi.mock('../../src/components/steps/Step3Battery', () => ({
+  Step3Battery: ({ onNext }: { onNext: () => void }) => (
+    <button type="button" onClick={onNext}>
+      next-step-3
+    </button>
+  )
 }));
 
 vi.mock('../../src/components/steps/Step4Finance', () => ({
@@ -117,7 +121,11 @@ describe('App wizard wiring', () => {
     await user.click(screen.getByRole('button', { name: 'next-step-1' }));
     // Step 2: Solar
     await user.click(screen.getByRole('button', { name: 'next-step-2' }));
-    // Step 3 skipped, now at Step 4: Finance
+    
+    // Step 3: Battery
+    await user.click(screen.getByRole('button', { name: 'next-step-3' }));
+    
+    // Step 4: Finance
     await user.click(screen.getByRole('button', { name: 'generate' }));
 
     expect(runCalculationMock).toHaveBeenCalledTimes(1);

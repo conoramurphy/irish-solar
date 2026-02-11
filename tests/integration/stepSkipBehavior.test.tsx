@@ -53,10 +53,11 @@ vi.mock('../../src/components/steps/Step2Solar', () => ({
   ),
 }));
 
-vi.mock('../../src/components/steps/Step3ComingSoon', () => ({
-  Step3ComingSoon: () => (
-    <div data-testid="step3-should-never-render">
-      Step 3 Coming Soon
+vi.mock('../../src/components/steps/Step3Battery', () => ({
+  Step3Battery: ({ onNext, onBack }: any) => (
+    <div data-testid="step3">
+      <button onClick={onBack}>Back</button>
+      <button onClick={onNext}>Next</button>
     </div>
   ),
 }));
@@ -148,7 +149,7 @@ describe('Step Skip Behavior', () => {
     vi.clearAllMocks();
   });
 
-  it('navigates from Step 2 directly to Step 4 (skips Step 3)', async () => {
+  it('navigates from Step 2 to Step 3, then Step 4', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -165,15 +166,20 @@ describe('Step Skip Behavior', () => {
 
     // Click through Step 2
     await user.click(screen.getAllByText('Next')[0]);
+    
+    // Should go to Step 3
+    await waitFor(() => expect(screen.getByTestId('step3')).toBeInTheDocument());
+    
+    // Click through Step 3
+    await user.click(screen.getAllByText('Next')[0]);
 
-    // Should skip Step 3 and land on Step 4
+    // Should land on Step 4
     await waitFor(() => {
       expect(screen.getByTestId('step4')).toBeInTheDocument();
-      expect(screen.queryByTestId('step3-should-never-render')).not.toBeInTheDocument();
     });
   });
 
-  it('navigates back from Step 4 to Step 2 (skips Step 3)', async () => {
+  it('navigates back from Step 4 to Step 3', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -185,16 +191,18 @@ describe('Step Skip Behavior', () => {
     await waitFor(() => expect(screen.getByTestId('step2')).toBeInTheDocument());
 
     await user.click(screen.getAllByText('Next')[0]);
+    await waitFor(() => expect(screen.getByTestId('step3')).toBeInTheDocument());
+    
+    await user.click(screen.getAllByText('Next')[0]);
     await waitFor(() => expect(screen.getByTestId('step4')).toBeInTheDocument());
 
     // Click back from Step 4
     const backButtons = screen.getAllByText('Back');
     await user.click(backButtons[backButtons.length - 1]);
 
-    // Should skip Step 3 and land back on Step 2
+    // Should land back on Step 3
     await waitFor(() => {
-      expect(screen.getByTestId('step2')).toBeInTheDocument();
-      expect(screen.queryByTestId('step3-should-never-render')).not.toBeInTheDocument();
+      expect(screen.getByTestId('step3')).toBeInTheDocument();
     });
   });
 
@@ -216,7 +224,7 @@ describe('Step Skip Behavior', () => {
     });
   });
 
-  it('shows Step 3 as disabled in stepper', async () => {
+  it('Step 3 is enabled in stepper', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -224,12 +232,12 @@ describe('Step Skip Behavior', () => {
     await user.click(screen.getByText('Select Hotel'));
     await waitFor(() => expect(screen.getByTestId('step-indicator')).toBeInTheDocument());
 
-    // Check that Step 3 (index 2 in the 4-step array) is marked as disabled
+    // Check that Step 3 (index 2) is NOT disabled
     const step3Indicator = screen.getByTestId('indicator-step-2');
-    expect(step3Indicator).toHaveAttribute('data-disabled', 'true');
+    expect(step3Indicator).not.toHaveAttribute('data-disabled', 'true');
   });
 
-  it('Step3ComingSoon component is never mounted during navigation', async () => {
+  it('Step3Battery is rendered during navigation', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -237,26 +245,19 @@ describe('Step Skip Behavior', () => {
     await user.click(screen.getByText('Select Hotel'));
     await waitFor(() => expect(screen.getByTestId('step1')).toBeInTheDocument());
 
-    expect(screen.queryByTestId('step3-should-never-render')).not.toBeInTheDocument();
-
     await user.click(screen.getAllByText('Next')[0]);
     await waitFor(() => expect(screen.getByTestId('step2')).toBeInTheDocument());
 
-    expect(screen.queryByTestId('step3-should-never-render')).not.toBeInTheDocument();
-
+    await user.click(screen.getAllByText('Next')[0]);
+    await waitFor(() => expect(screen.getByTestId('step3')).toBeInTheDocument());
+    
     await user.click(screen.getAllByText('Next')[0]);
     await waitFor(() => expect(screen.getByTestId('step4')).toBeInTheDocument());
-
-    // Step 3 should never have been rendered
-    expect(screen.queryByTestId('step3-should-never-render')).not.toBeInTheDocument();
 
     // Navigate back
     const backButtons = screen.getAllByText('Back');
     await user.click(backButtons[backButtons.length - 1]);
-    await waitFor(() => expect(screen.getByTestId('step2')).toBeInTheDocument());
-
-    // Still should not have rendered Step 3
-    expect(screen.queryByTestId('step3-should-never-render')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('step3')).toBeInTheDocument());
   });
 
   it('stepper is hidden on Step 0', () => {
