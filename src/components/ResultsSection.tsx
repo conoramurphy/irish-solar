@@ -122,6 +122,16 @@ export function ResultsSection({ result, config, onSelectSimulation }: ResultsSe
     return { solarYield: sYield, batteryYield: bYield };
   }, [config, result]);
 
+  const monthlyTotals = useMemo(() => {
+    if (!result?.audit?.monthly) return null;
+    const monthly = result.audit.monthly;
+    return {
+        payment: monthly.reduce((sum, m) => sum + (m.debtPayment ?? 0), 0),
+        savings: monthly.reduce((sum, m) => sum + (m.savings ?? 0), 0),
+        net: monthly.reduce((sum, m) => sum + (m.netOutOfPocket ?? ((m.savings ?? 0) - (m.debtPayment ?? 0))), 0)
+    };
+  }, [result]);
+
   return (
     <section className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
       <div className="px-8 py-7 md:px-10 md:py-8 border-b border-slate-100">
@@ -331,6 +341,18 @@ export function ResultsSection({ result, config, onSelectSimulation }: ResultsSe
                     );
                   })}
                 </tbody>
+                {monthlyTotals && (
+                  <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
+                    <tr>
+                      <td className="px-6 py-4 text-slate-800">Total</td>
+                      <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.payment)}</td>
+                      <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.savings)}</td>
+                      <td className={`px-6 py-4 text-right tabular-nums ${monthlyTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {formatSignedCurrency(monthlyTotals.net)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
