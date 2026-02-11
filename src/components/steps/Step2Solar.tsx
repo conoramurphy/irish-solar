@@ -121,6 +121,9 @@ export function Step2Solar({
         <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
           Enter your annual solar production. We'll distribute it using real irradiance data from <span className="font-semibold text-tines-purple">{locationFromStep1}</span>.
         </p>
+        <p className="text-sm text-slate-500 mt-2">
+          Need help sizing? Use the <a href="https://pvwatts.nrel.gov/pvwatts.php" target="_blank" rel="noopener noreferrer" className="text-tines-purple hover:underline font-medium">PVWatts Calculator</a> to estimate annual production.
+        </p>
       </div>
 
       <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-8 mb-8">
@@ -143,15 +146,6 @@ export function Step2Solar({
                 }}
                 placeholder="e.g., 22500" />
               <p className="mt-2 text-xs text-slate-400 italic">Total energy your system will produce annually</p>
-            </Field>
-
-            <Field label="Number of South-Facing Panels">
-              <input className={inputClass} type="number" step={1} value={config.numberOfPanels || ''}
-                onChange={(e) => setConfig({ ...config, numberOfPanels: e.target.value ? Number(e.target.value) : undefined })}
-                placeholder="e.g., 50" />
-              <p className="mt-2 text-xs text-slate-400 italic">
-                Use <a href="https://pvwatts.nrel.gov/pvwatts.php" target="_blank" rel="noopener noreferrer" className="text-tines-purple hover:underline">PVWatts Calculator</a> to estimate
-              </p>
             </Field>
 
             <Field label="Installed System Size (kWp)">

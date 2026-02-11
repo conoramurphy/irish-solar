@@ -58,7 +58,7 @@ export function Step3Battery({
       ...trading,
       enabled,
       // Set defaults if enabling for first time
-      importMargin: trading.importMargin ?? 0.02,
+      importMargin: trading.importMargin ?? 0.05,
       exportMargin: 0, // No export margin as requested
       hoursWindow: trading.hoursWindow ?? 4
     });

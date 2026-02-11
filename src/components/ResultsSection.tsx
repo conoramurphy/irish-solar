@@ -7,6 +7,7 @@ interface ResultsSectionProps {
   result: CalculationResult | null;
   config?: SystemConfiguration;
   onSelectSimulation?: (annualProduction: number) => void;
+  onBack?: () => void;
 }
 
 function formatCurrency(value: number) {
@@ -52,7 +53,7 @@ function MetricRow({
   );
 }
 
-export function ResultsSection({ result, config, onSelectSimulation }: ResultsSectionProps) {
+export function ResultsSection({ result, config, onSelectSimulation, onBack }: ResultsSectionProps) {
   const [auditOpen, setAuditOpen] = useState(false);
 
   if (!result) {
@@ -439,12 +440,25 @@ export function ResultsSection({ result, config, onSelectSimulation }: ResultsSe
             )}
           </div>
 
-          <button className="inline-flex items-center gap-2 rounded-lg bg-tines-purple px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-            </svg>
-            Download PDF Report
-          </button>
+          <div className="flex gap-4">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+                Edit Inputs
+              </button>
+            )}
+            <button className="inline-flex items-center gap-2 rounded-lg bg-tines-purple px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Download PDF Report
+            </button>
+          </div>
         </div>
 
         {auditOpen && result.audit && <AuditModal audit={result.audit} onClose={() => setAuditOpen(false)} />}

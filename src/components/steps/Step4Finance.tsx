@@ -80,6 +80,18 @@ export function Step4Finance({
     }
   }, [useEstimatedCost, vatRate, estimatedBaseCost, config, setConfig]);
 
+  // Auto-select eligible grants if none selected (e.g. initial load)
+  useEffect(() => {
+    if (eligibleGrants.length > 0 && selectedGrantIds.length === 0) {
+      // Check if we are in a "pristine" state where we haven't explicitly deselected them.
+      // For simplicity, we'll just auto-select all on mount/change if empty.
+      // A more robust way would be to track "touched" state, but this fits the MVP requirement.
+      setSelectedGrantIds(eligibleGrants.map(g => g.id));
+    }
+    // We only want to run this when eligibleGrants changes, NOT when selectedGrantIds changes (to avoid re-selecting after user clears)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eligibleGrants]);
+
   const selectedGrants = useMemo(
     () => eligibleGrants.filter((g) => selectedGrantIds.includes(g.id)),
     [eligibleGrants, selectedGrantIds]
@@ -222,7 +234,7 @@ export function Step4Finance({
               placeholder="e.g., 35000"
             />
             <p className="mt-2 text-xs text-slate-400 italic">
-              Includes panels, inverters, installation, and grid connection
+              Includes panels, inverters, battery, installation, and grid connection
             </p>
           </Field>
         </div>
