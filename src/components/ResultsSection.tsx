@@ -128,7 +128,9 @@ export function ResultsSection({ result, config, onSelectSimulation }: ResultsSe
     return {
         payment: monthly.reduce((sum, m) => sum + (m.debtPayment ?? 0), 0),
         savings: monthly.reduce((sum, m) => sum + (m.savings ?? 0), 0),
-        net: monthly.reduce((sum, m) => sum + (m.netOutOfPocket ?? ((m.savings ?? 0) - (m.debtPayment ?? 0))), 0)
+        net: monthly.reduce((sum, m) => sum + (m.netOutOfPocket ?? ((m.savings ?? 0) - (m.debtPayment ?? 0))), 0),
+        baseline: monthly.reduce((sum, m) => sum + (m.baselineCost ?? 0), 0),
+        newBill: monthly.reduce((sum, m) => sum + (m.importCost ?? 0), 0)
     };
   }, [result]);
 
@@ -316,6 +318,8 @@ export function ResultsSection({ result, config, onSelectSimulation }: ResultsSe
                 <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
                   <tr>
                     <th className="px-6 py-3">Month</th>
+                    <th className="px-6 py-3 text-right">Previous Bill</th>
+                    <th className="px-6 py-3 text-right">New Bill (Market Rate)</th>
                     <th className="px-6 py-3 text-right">Payment</th>
                     <th className="px-6 py-3 text-right">Savings</th>
                     <th className="px-6 py-3 text-right">Net Position</th>
@@ -328,10 +332,14 @@ export function ResultsSection({ result, config, onSelectSimulation }: ResultsSe
                     const savings = m.savings ?? 0;
                     const net = (m.netOutOfPocket ?? (savings - payment));
                     const isPositive = net >= 0;
+                    const baseline = m.baselineCost ?? 0;
+                    const newBill = m.importCost ?? 0;
                     
                     return (
                       <tr key={m.monthIndex} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-3 font-medium text-slate-700">{monthName}</td>
+                        <td className="px-6 py-3 text-right text-slate-500 tabular-nums">{formatCurrency(baseline)}</td>
+                        <td className="px-6 py-3 text-right text-slate-500 tabular-nums">{formatCurrency(newBill)}</td>
                         <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(payment)}</td>
                         <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(savings)}</td>
                         <td className={`px-6 py-3 text-right font-semibold tabular-nums ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -345,6 +353,8 @@ export function ResultsSection({ result, config, onSelectSimulation }: ResultsSe
                   <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
                     <tr>
                       <td className="px-6 py-4 text-slate-800">Total</td>
+                      <td className="px-6 py-4 text-right text-slate-600 tabular-nums">{formatCurrency(monthlyTotals.baseline)}</td>
+                      <td className="px-6 py-4 text-right text-slate-600 tabular-nums">{formatCurrency(monthlyTotals.newBill)}</td>
                       <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.payment)}</td>
                       <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.savings)}</td>
                       <td className={`px-6 py-4 text-right tabular-nums ${monthlyTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
