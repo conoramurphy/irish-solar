@@ -295,6 +295,18 @@ function App() {
     setCurrentStep(step + 1);
   };
 
+  const handleBackStep = () => {
+    if (currentStep === 1) {
+      // Back to Step 0 (building type)
+      setCurrentStep(0);
+    } else if (currentStep === 4) {
+      // Back from Step 4 -> Step 3
+      setCurrentStep(3);
+    } else {
+      setCurrentStep(prev => Math.max(0, prev - 1));
+    }
+  };
+
   const handleBackFromResults = () => {
     setResult(null);
     // Go back to the last step (Finance)

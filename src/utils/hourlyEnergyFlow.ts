@@ -157,9 +157,9 @@ export function simulateHourlyEnergyFlow(
   const battery = batteryConfig ? {
     capacity: Math.max(0, batteryConfig.capacityKwh),
     efficiency: Math.max(0, Math.min(1, batteryConfig.efficiency ?? 0.9)),
-    soc: Math.max(0, Math.min(1, batteryConfig.initialSoC ?? 0)) * batteryConfig.capacityKwh,
-    maxChargeRate: batteryConfig.maxChargeRateKw ?? batteryConfig.capacityKwh, // Default 1C
-    maxDischargeRate: batteryConfig.maxDischargeRateKw ?? batteryConfig.capacityKwh // Default 1C
+    soc: Math.max(0, Math.min(1, batteryConfig.initialSoC ?? 0)) * Math.max(0, batteryConfig.capacityKwh),
+    maxChargeRate: Math.max(0, batteryConfig.maxChargeRateKw ?? batteryConfig.capacityKwh), 
+    maxDischargeRate: Math.max(0, batteryConfig.maxDischargeRateKw ?? batteryConfig.capacityKwh)
   } : null;
 
   let totalGridImport = 0;
