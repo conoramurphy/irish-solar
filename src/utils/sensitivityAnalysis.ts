@@ -90,7 +90,7 @@ function computeScenarioMetrics(
     initialSoC: 0
   } : undefined;
 
-  let cumulativeCashFlow = -equityAmount;
+  // let cumulativeCashFlow = -equityAmount;
   let firstYearSavings = 0;
   let firstYearSpillageFraction = 0;
 

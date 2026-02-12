@@ -24,6 +24,9 @@ import type { ParsedSolarData } from './utils/solarTimeseriesParser';
 import type { ParsedPriceData } from './utils/priceTimeseriesParser';
 
 import { CalendarSidebar } from './components/CalendarSidebar';
+import { SavedReportsList } from './components/SavedReportsList';
+import { useSavedReports } from './hooks/useSavedReports';
+import type { SavedReport } from './types/savedReports';
 import { Hero } from './components/Hero';
 import { StepIndicator } from './components/StepIndicator';
 import { Step0BuildingType } from './components/steps/Step0BuildingType';
@@ -44,6 +47,10 @@ const historicalSolarData = rawHistoricalSolarData as unknown as Record<string, 
 const historicalTariffData = rawHistoricalTariffData as unknown as HistoricalTariffData[];
 
 function App() {
+  // Saved Reports
+  const { reports, saveReport, deleteReport } = useSavedReports();
+  const [showSavedReports, setShowSavedReports] = useState(false);
+
   // Building type selection (Step 0)
   const [, setBuildingTypeSelection] = useState<BuildingTypeSelection | null>(null);
 
@@ -337,6 +344,82 @@ function App() {
     }
   };
 
+  const handleLoadReport = (saved: SavedReport) => {
+    // 1. Restore all state
+    setConfig(saved.config);
+    setFinancing(saved.financing);
+    setSelectedGrantIds(saved.selectedGrantIds);
+    setTrading(saved.trading);
+    // tariffId is stateful but derived from const in this MVP (only 1 tariff supported mostly), 
+    // but if we had multiple tariffs we'd set it here.
+    // setTariffId(saved.tariffId);
+
+    setExampleMonths(saved.exampleMonths);
+    setTariffConfig(saved.tariffConfig);
+    setCurvedMonthlyKwh(saved.curvedMonthlyKwh);
+    setEstimatedMonthlyBills(saved.estimatedMonthlyBills);
+    
+    if (saved.selectedYear) {
+      setSelectedYear(saved.selectedYear);
+    }
+
+    // 2. Close modal
+    setShowSavedReports(false);
+
+    // 3. Mark steps as complete
+    setCompletedSteps(new Set([0, 1, 2, 3, 4]));
+    
+    // 4. Navigate to results or trigger calculation
+    // Ideally we re-run the calculation to ensure freshness
+    // But we need to wait for state updates? 
+    // State updates are async. We can't call handleCalculate immediately with old state.
+    // Option A: Just set result from saved snapshot (if available)
+    if (saved.result) {
+      setResult(saved.result);
+    } else {
+      // If no result snapshot, user has to click "Generate"
+      setResult(null);
+    }
+    
+    // 5. If we have a location, we need to ensure solar data loads.
+    // The existing useEffect on config.location will trigger loadSolarData.
+    // That's good.
+    
+    // 6. Go to last step (Finance) or results?
+    // If we have a result, show it.
+    // If not, go to Finance step.
+    if (saved.result) {
+        // Results are shown when result != null
+        // And we scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+        setCurrentStep(4);
+    }
+
+    logInfo('ui', 'Loaded saved report', { reportId: saved.id, name: saved.name });
+  };
+
+  const handleSaveReport = (name: string) => {
+    if (!result) return;
+
+    saveReport({
+        name,
+        config,
+        financing,
+        selectedGrantIds,
+        trading,
+        tariffId,
+        exampleMonths: [], // We don't strictly need these if we have curvedMonthlyKwh, but good to have
+        tariffConfig: null, // Same
+        curvedMonthlyKwh,
+        estimatedMonthlyBills,
+        selectedYear,
+        result // Snapshot
+    });
+    
+    logInfo('ui', 'Saved report', { name });
+  };
+
   const handleBackFromResults = () => {
     setResult(null);
     // Go back to the last step (Finance)
@@ -348,6 +431,27 @@ function App() {
   return (
     <div className="min-h-screen bg-tines-light font-sans text-slate-600">
       <Hero />
+      
+      {/* Saved Reports Access */ }
+      <div className="absolute top-4 right-4 z-30">
+        <button
+          onClick={() => setShowSavedReports(true)}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/90 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-sm transition-colors border border-white/10"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+          </svg>
+          Saved Reports
+        </button>
+      </div>
+
+      <SavedReportsList
+        isOpen={showSavedReports}
+        reports={reports}
+        onClose={() => setShowSavedReports(false)}
+        onLoad={handleLoadReport}
+        onDelete={deleteReport}
+      />
 
       <main className="mx-auto max-w-7xl px-6 py-10 -mt-10 relative z-20">
       {/* Step Indicator (hide on Step 0 and when report is generated) */}
@@ -405,6 +509,8 @@ function App() {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onBack={handleBackFromResults}
+              onSaveReport={handleSaveReport}
+              existingReportNames={reports.map(r => r.name)}
             />
           </div>
         ) : (

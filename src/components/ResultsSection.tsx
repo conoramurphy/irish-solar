@@ -2,6 +2,7 @@ import { useState, type ReactNode, useMemo } from 'react';
 import type { CalculationResult, SystemConfiguration } from '../types';
 import { AuditModal } from './AuditModal';
 import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
+import { SaveReportModal } from './SaveReportModal';
 
 import { estimateSystemCost } from '../utils/costEstimation';
 
@@ -13,6 +14,8 @@ interface ResultsSectionProps {
   onSelectYear?: (year: number) => void;
   onSelectSimulation?: (annualProduction: number) => void;
   onBack?: () => void;
+  onSaveReport?: (name: string) => void;
+  existingReportNames?: string[];
 }
 
 function formatCurrency(value: number) {
@@ -65,9 +68,12 @@ export function ResultsSection({
   selectedYear, 
   onSelectYear, 
   onSelectSimulation, 
-  onBack 
+  onBack,
+  onSaveReport,
+  existingReportNames = []
 }: ResultsSectionProps) {
   const [auditOpen, setAuditOpen] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
 
   if (!result) {
     return (
@@ -565,6 +571,19 @@ export function ResultsSection({
                 Edit Inputs
               </button>
             )}
+            
+            {onSaveReport && (
+              <button
+                onClick={() => setSaveModalOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                </svg>
+                Save As...
+              </button>
+            )}
+
             <button className="inline-flex items-center gap-2 rounded-lg bg-tines-purple px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -575,6 +594,16 @@ export function ResultsSection({
         </div>
 
         {auditOpen && result.audit && <AuditModal audit={result.audit} onClose={() => setAuditOpen(false)} />}
+        
+        <SaveReportModal
+          isOpen={saveModalOpen}
+          existingNames={existingReportNames}
+          onCancel={() => setSaveModalOpen(false)}
+          onSave={(name) => {
+            onSaveReport?.(name);
+            setSaveModalOpen(false);
+          }}
+        />
       </div>
     </section>
   );

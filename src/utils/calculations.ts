@@ -39,7 +39,7 @@ export function runCalculation(
   tariff: Tariff,
   trading: TradingConfig,
   _historicalSolar: Record<string, HistoricalSolarData>,
-  historicalTariffs: HistoricalTariffData[] = [],
+  _historicalTariffs: HistoricalTariffData[] = [],
   analysisYears = 25,
   consumptionProfile?: ConsumptionProfile,
   solarTimeseriesData?: ParsedSolarData,
