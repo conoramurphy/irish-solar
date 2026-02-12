@@ -76,8 +76,11 @@ function App() {
   const [curvedMonthlyKwh, setCurvedMonthlyKwh] = useState<number[]>([]);
   const [estimatedMonthlyBills, setEstimatedMonthlyBills] = useState<number[]>([]);
 
-  // Solar timeseries data - loaded in App when location set in Step 1
+  // Solar timeseries data - loaded in App when location is set in Step 1
+  const [rawSolarData, setRawSolarData] = useState<ParsedSolarData | null>(null);
   const [solarTimeseriesData, setSolarTimeseriesData] = useState<ParsedSolarData | null>(null);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [solarDataLoading, setSolarDataLoading] = useState(false);
 
   const monthlySolarGeneration = useMemo(() => {
@@ -220,32 +223,59 @@ function App() {
     loadSolarData(config.location, year)
       .then((parsed) => {
         logSolarInfo('solar', 'Loaded solar timeseries', { totalRows: parsed.timesteps.length, year: parsed.year });
-        const years = listSolarTimeseriesYears(parsed);
+        setRawSolarData(parsed);
         
-        // Normalize to a single year (use first available year or the requested year)
-        const targetYear = years.length === 1 ? years[0] : (years.includes(year) ? year : years[0]);
-        const spanId = startSolarSpan('solar', 'Solar normalization', { year: targetYear, location: config.location });
-        try {
-          const norm = normalizeSolarTimeseriesYear(parsed, targetYear ?? year);
-          logSolarInfo('solar', 'Normalized solar timeseries', norm.corrections, { spanId });
-          if (norm.corrections.warnings.length) {
-            logWarn('solar', 'Normalization warnings', norm.corrections, { spanId });
-          }
-          setSolarTimeseriesData(norm.normalized);
-          endSolarSpan(spanId, 'success');
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Normalization failed';
-          logSolarError('solar', 'Normalization failed', { message: msg }, { spanId });
-          endSolarSpan(spanId, 'error', { message: msg });
-          setSolarTimeseriesData(null);
+        const years = listSolarTimeseriesYears(parsed);
+        setAvailableYears(years);
+        
+        // Default to first available year if current selectedYear is invalid
+        const defaultYear = years.length > 0 ? years[0] : year;
+        if (!selectedYear || !years.includes(selectedYear)) {
+          setSelectedYear(defaultYear);
         }
       })
       .catch((err) => {
         logSolarError('solar', 'Failed to load solar data', { error: String(err) });
+        setRawSolarData(null);
         setSolarTimeseriesData(null);
+        setAvailableYears([]);
       })
       .finally(() => setSolarDataLoading(false));
   }, [config.location]);
+
+  // Normalize solar data when raw data or selected year changes
+  useEffect(() => {
+    if (!rawSolarData || !selectedYear) {
+      setSolarTimeseriesData(null);
+      return;
+    }
+
+    const spanId = startSolarSpan('solar', 'Solar normalization', { year: selectedYear, location: config.location });
+    try {
+      const norm = normalizeSolarTimeseriesYear(rawSolarData, selectedYear);
+      logSolarInfo('solar', 'Normalized solar timeseries', norm.corrections, { spanId });
+      if (norm.corrections.warnings.length) {
+        logWarn('solar', 'Normalization warnings', norm.corrections, { spanId });
+      }
+      setSolarTimeseriesData(norm.normalized);
+      endSolarSpan(spanId, 'success');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Normalization failed';
+      logSolarError('solar', 'Normalization failed', { message: msg }, { spanId });
+      endSolarSpan(spanId, 'error', { message: msg });
+      setSolarTimeseriesData(null);
+    }
+  }, [rawSolarData, selectedYear, config.location]);
+
+  // Auto-recalculate when solar data changes (e.g. year selection) IF we already have a result
+  useEffect(() => {
+    if (result && solarTimeseriesData) {
+      // Check if we need to update based on year mismatch
+      if (result.audit?.year !== solarTimeseriesData.year) {
+         handleCalculate();
+      }
+    }
+  }, [solarTimeseriesData]);
 
   const handleNextStep = (step: number, data?: any) => {
     logInfo('ui', `Step ${step} completed`, { step });
@@ -333,6 +363,28 @@ function App() {
             <ResultsSection 
               result={result} 
               config={config} 
+              availableYears={availableYears}
+              selectedYear={selectedYear}
+              onSelectYear={(y) => {
+                setSelectedYear(y);
+                // Trigger recalculation if result is already showing
+                // Note: The normalization useEffect will fire first, updating solarTimeseriesData.
+                // We need to wait for that? Or just let the user click "Generate" again?
+                // The user probably expects the result to update immediately.
+                // However, solarTimeseriesData update is async via useEffect.
+                // A better pattern: just update selectedYear. The effect updates solarTimeseriesData.
+                // Then another effect could trigger calculation? Or just let the user re-run?
+                // For a smooth UX, we should probably auto-recalculate if result is present.
+                // But handleCalculate depends on the NEW solarTimeseriesData which isn't ready yet.
+                // Quick fix: clear result so they have to click generate, or use a ref/effect to auto-run.
+                // Given the instruction "dropdown that has years... and I can select from them",
+                // implying instant update.
+                // But complex state updates are tricky.
+                // Let's just update the year. The report will likely need regeneration.
+                // Ideally, we pass a callback that updates year AND triggers calc when data ready.
+                // For now, let's just update the year. The ResultsSection will re-render with new dropdown value.
+                // If we want auto-update, we need a useEffect on solarTimeseriesData that checks if result!=null.
+              }}
               onSelectSimulation={(newKwh) => {
                 if (config.annualProductionKwh <= 0) return;
                 const ratio = newKwh / config.annualProductionKwh;

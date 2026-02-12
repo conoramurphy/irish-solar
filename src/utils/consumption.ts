@@ -1,3 +1,37 @@
+export function normalizeConsumptionProfile(
+  profile: ConsumptionProfile | undefined,
+  tariff: Tariff
+): ConsumptionProfile {
+  const bucketKeys = getTariffBucketKeys(tariff);
+
+  const emptyMonths = Array.from({ length: 12 }, (_, monthIndex) => ({
+    monthIndex,
+    totalKwh: 0,
+    bucketShares: normalizeSharesToOne({}, bucketKeys)
+  }));
+
+  const months = (profile?.months ?? emptyMonths)
+    .slice(0, 12)
+    .map((m, idx) => {
+      const monthIndex = typeof m?.monthIndex === 'number' ? m.monthIndex : idx;
+      const totalKwh = typeof m?.totalKwh === 'number' && Number.isFinite(m.totalKwh) ? Math.max(0, m.totalKwh) : 0;
+      const bucketShares = normalizeSharesToOne(m?.bucketShares ?? {}, bucketKeys);
+      return { monthIndex, totalKwh, bucketShares };
+    });
+
+  // Ensure 12 months in order.
+  const byIndex = new Map(months.map((m) => [m.monthIndex, m] as const));
+  const full = Array.from({ length: 12 }, (_, monthIndex) =>
+    byIndex.get(monthIndex) ?? {
+      monthIndex,
+      totalKwh: 0,
+      bucketShares: normalizeSharesToOne({}, bucketKeys)
+    }
+  );
+
+  return { months: full };
+}
+
 import type { ConsumptionProfile, MonthlyConsumption, Tariff, TariffBucketKey } from '../types';
 
 export const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;

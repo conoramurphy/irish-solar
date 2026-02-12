@@ -196,6 +196,39 @@ export interface SolarSpillageAnalysis {
   note: string;
 }
 
+export interface SensitivityScenario {
+  scaleFactor: number;
+  annualGenerationKwh: number;
+  systemSizeKwp: number;
+  
+  // Scenario 1: No Battery
+  noBattery: {
+    batterySizeKwh: number;
+    systemCost: number;
+    netCost: number;
+    annualSavings: number;
+    year1NetCashFlow: number;
+    year10NetCashFlow: number;
+    spillageFraction: number;
+  };
+  
+  // Scenario 2: With Comparable Battery
+  withBattery: {
+    batterySizeKwh: number;
+    systemCost: number;
+    netCost: number;
+    annualSavings: number;
+    year1NetCashFlow: number;
+    year10NetCashFlow: number;
+    spillageFraction: number;
+  };
+}
+
+export interface SensitivityAnalysis {
+  rows: SensitivityScenario[];
+  note: string;
+}
+
 export interface CalculationResult {
   systemCost: number;
   netCost: number;
@@ -222,6 +255,7 @@ export interface CalculationResult {
   }>;
   /** Extra mini-analysis: solar-only spillage sensitivity (no battery, no € rates). */
   solarSpillageAnalysis?: SolarSpillageAnalysis;
+  sensitivityAnalysis?: SensitivityAnalysis;
   /** Optional audit/debug payload derived from the same hourly source-of-truth used for the report. */
   audit?: {
     mode: 'hourly';

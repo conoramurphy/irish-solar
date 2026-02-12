@@ -13,11 +13,12 @@ import { applyDegradation } from '../models/solar';
 import { calculateGrantAmount } from '../models/grants';
 import { calculateTradingRevenue } from '../models/trading';
 import { calculateIRR, calculateLoanPayment, calculateNPV, calculateSimplePayback } from '../models/financial';
-import { getTariffBucketKeys, normalizeSharesToOne } from './consumption';
+import { normalizeConsumptionProfile } from './consumption';
 import { generateHourlyConsumption } from './hourlyConsumption';
 import { aggregateHourlyResultsToMonthly, simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
 import { calculateTimeseriesWeights, distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
 import { buildSolarSpillageAnalysis } from './spillageAnalysis';
+import { runSensitivityAnalysis } from './sensitivityAnalysis';
 import { normalizePriceTimeseries, type ParsedPriceData } from './priceTimeseriesParser';
 
 /**
@@ -99,7 +100,12 @@ export function runCalculation(
   let annualExportRevenue = 0;
 
   let solarSpillageAnalysis: CalculationResult['solarSpillageAnalysis'] | undefined;
+  let sensitivityAnalysisResult: CalculationResult['sensitivityAnalysis'] | undefined;
   let audit: CalculationResult['audit'] | undefined;
+  
+  // Year 1 variables for projection
+  let year1ElectricitySavings = 0;
+  let year1TradingRevenue = 0;
   
   if (useHourlySimulation) {
     // Use hour-by-hour simulation with solar timeseries data
@@ -115,6 +121,19 @@ export function runCalculation(
       hourlyWeights: calculateTimeseriesWeights(solarTimeseriesData!),
       targetSpillageFraction: 0.3
     }) ?? undefined;
+
+    // Full Sensitivity Analysis (Solar + Battery + Financials)
+    // This provides the Year 1 Net Cash Flow heatmap
+    sensitivityAnalysisResult = runSensitivityAnalysis({
+      config,
+      grants,
+      financing,
+      tariff,
+      trading,
+      consumptionProfile,
+      solarTimeseriesData: solarTimeseriesData!,
+      priceTimeseriesData
+    });
     
     const batteryConfig: BatteryConfig | undefined = config.batterySizeKwh > 0 ? {
       capacityKwh: config.batterySizeKwh,
@@ -171,67 +190,36 @@ export function runCalculation(
     annualSolarToLoadSavings = baseYearElectricity.totalSolarToLoadSavings;
     annualBatteryToLoadSavings = baseYearElectricity.totalBatteryToLoadSavings;
     annualExportRevenue = baseYearElectricity.totalExportRevenue;
+    
+    // Store for projection
+    year1ElectricitySavings = baseYearElectricity.totalSavings;
+    
+    if (!hourlyPrices && trading.enabled) {
+        year1TradingRevenue = calculateTradingRevenue(trading, config.batterySizeKwh, 1);
+    }
   }
-  // Note: Monthly approximation fallback removed - audit mode is now mandatory
 
+  // 2. Project Cash Flows for Analysis Years (Fast Projection)
   const cashFlows: CalculationResult['cashFlows'] = [];
   let cumulativeCashFlow = -equityAmount;
 
   for (let year = 1; year <= analysisYears; year++) {
-    const yearGeneration = applyDegradation(baseGeneration, year - 1);
-
-    // TODO: once we implement tariff projection, use historicalTariffs here.
-    void historicalTariffs;
-
-    let electricitySavings: number;
+    // Apply degradation to generation-based value
+    // We assume savings scale linearly with generation (approx correct for solar, less so for battery/arb but acceptable for projection)
+    const degradationFactor = applyDegradation(1, year - 1);
     
-    // Always use hourly simulation with degraded generation
-    const timeStamps = solarTimeseriesData.timesteps.map((ts) => ts.stamp);
-    const hourlyGeneration = distributeAnnualProductionTimeseries(yearGeneration, solarTimeseriesData);
-    const hourlyConsumption = generateHourlyConsumption(monthlyConsumption, tariff, solarTimeseriesData.timesteps.length, timeStamps);
+    const yearGeneration = baseGeneration * degradationFactor;
+    const yearSavings = (year1ElectricitySavings + year1TradingRevenue) * degradationFactor;
     
-    const batteryConfig: BatteryConfig | undefined = config.batterySizeKwh > 0 ? {
-      capacityKwh: config.batterySizeKwh,
-      efficiency: 0.9,
-      initialSoC: 0
-    } : undefined;
-    
-    const yearElectricity = simulateHourlyEnergyFlow(
-      hourlyGeneration,
-      hourlyConsumption,
-      tariff,
-      batteryConfig,
-      false,
-      timeStamps,
-      hourlyPrices,
-      trading
-    );
-    electricitySavings = yearElectricity.totalSavings;
-
-    // Trading revenue is now implicitly part of electricitySavings because simulateHourlyEnergyFlow
-    // uses the dynamic prices for imports/exports. 
-    // HOWEVER, the `calculateTradingRevenue` function (legacy?) might be double counting or unneeded now?
-    // Let's check `calculateTradingRevenue`. It seems to be a simple heuristic.
-    // If we are using hourly simulation with prices, we should NOT add separate heuristic trading revenue.
-    // If we are NOT using hourly prices but trading is enabled (legacy mode?), we might keep it.
-    // But since `hourlyPrices` is optional, let's logic check:
-    
-    let tradingRevenue = 0;
-    if (!hourlyPrices && trading.enabled) {
-        // Fallback to heuristic if no price data but trading enabled
-        tradingRevenue = calculateTradingRevenue(trading, config.batterySizeKwh, year);
-    }
-    // If hourlyPrices present, `electricitySavings` already includes the P&L from trading arbitrage.
-
     const loanPayment = year <= financing.termYears ? annualLoanPayment : 0;
 
-    const netCashFlow = electricitySavings + tradingRevenue - loanPayment;
+    const netCashFlow = yearSavings - loanPayment;
     cumulativeCashFlow += netCashFlow;
 
     cashFlows.push({
       year,
       generation: yearGeneration,
-      savings: electricitySavings + tradingRevenue,
+      savings: yearSavings,
       loanPayment,
       netCashFlow,
       cumulativeCashFlow
@@ -241,17 +229,17 @@ export function runCalculation(
   const annualCashFlows = cashFlows.map((cf) => cf.netCashFlow);
   const annualSavings = cashFlows[0]?.savings ?? 0;
 
-  // If heuristic trading revenue is used (no hourly prices), add it to battery savings
-  const heuristicTradingRevenue = (!hourlyPrices && trading.enabled) 
-    ? calculateTradingRevenue(trading, config.batterySizeKwh, 1) 
-    : 0;
-    
   // Add heuristic revenue to battery part if applicable
   // (Note: annualSavings from cashFlows already includes heuristicTradingRevenue via the loop logic)
   // We just need to ensure the breakdown sums up correctly.
   // annualSolarToLoadSavings + annualBatteryToLoadSavings + annualExportRevenue should approx equal annualSavings.
   
-  const finalBatterySavings = annualBatteryToLoadSavings + heuristicTradingRevenue;
+  // Calculate Year 1 heuristic trading revenue for the breakdown
+  const year1HeuristicTradingRevenue = (!hourlyPrices && trading.enabled) 
+    ? calculateTradingRevenue(trading, config.batterySizeKwh, 1) 
+    : 0;
+
+  const finalBatterySavings = annualBatteryToLoadSavings + year1HeuristicTradingRevenue;
 
   const simplePayback = calculateSimplePayback(netCost, annualSavings);
   const npv = calculateNPV(equityAmount, annualCashFlows, 0.05);
@@ -272,41 +260,8 @@ export function runCalculation(
     irr,
     cashFlows,
     solarSpillageAnalysis,
+    sensitivityAnalysis: sensitivityAnalysisResult,
     audit
   };
-}
-
-function normalizeConsumptionProfile(
-  profile: ConsumptionProfile | undefined,
-  tariff: Tariff
-): ConsumptionProfile {
-  const bucketKeys = getTariffBucketKeys(tariff);
-
-  const emptyMonths = Array.from({ length: 12 }, (_, monthIndex) => ({
-    monthIndex,
-    totalKwh: 0,
-    bucketShares: normalizeSharesToOne({}, bucketKeys)
-  }));
-
-  const months = (profile?.months ?? emptyMonths)
-    .slice(0, 12)
-    .map((m, idx) => {
-      const monthIndex = typeof m?.monthIndex === 'number' ? m.monthIndex : idx;
-      const totalKwh = typeof m?.totalKwh === 'number' && Number.isFinite(m.totalKwh) ? Math.max(0, m.totalKwh) : 0;
-      const bucketShares = normalizeSharesToOne(m?.bucketShares ?? {}, bucketKeys);
-      return { monthIndex, totalKwh, bucketShares };
-    });
-
-  // Ensure 12 months in order.
-  const byIndex = new Map(months.map((m) => [m.monthIndex, m] as const));
-  const full = Array.from({ length: 12 }, (_, monthIndex) =>
-    byIndex.get(monthIndex) ?? {
-      monthIndex,
-      totalKwh: 0,
-      bucketShares: normalizeSharesToOne({}, bucketKeys)
-    }
-  );
-
-  return { months: full };
 }
 

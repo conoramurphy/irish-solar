@@ -3,9 +3,14 @@ import type { CalculationResult, SystemConfiguration } from '../types';
 import { AuditModal } from './AuditModal';
 import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
 
+import { estimateSystemCost } from '../utils/costEstimation';
+
 interface ResultsSectionProps {
   result: CalculationResult | null;
   config?: SystemConfiguration;
+  availableYears?: number[];
+  selectedYear?: number;
+  onSelectYear?: (year: number) => void;
   onSelectSimulation?: (annualProduction: number) => void;
   onBack?: () => void;
 }
@@ -53,7 +58,15 @@ function MetricRow({
   );
 }
 
-export function ResultsSection({ result, config, onSelectSimulation, onBack }: ResultsSectionProps) {
+export function ResultsSection({ 
+  result, 
+  config, 
+  availableYears = [], 
+  selectedYear, 
+  onSelectYear, 
+  onSelectSimulation, 
+  onBack 
+}: ResultsSectionProps) {
   const [auditOpen, setAuditOpen] = useState(false);
 
   if (!result) {
@@ -88,20 +101,8 @@ export function ResultsSection({ result, config, onSelectSimulation, onBack }: R
     const kwp = config.systemSizeKwp || (config.annualProductionKwh / 950); // Fallback estimation
     const kwh = config.batterySizeKwh || 0;
     
-    // Solar Base Cost Curve (Same as Step 4)
-    let solarBaseCost = 0;
-    if (kwp > 0) {
-      let pricePerKwp = 1500;
-      if (kwp <= 10) pricePerKwp = 2000;
-      else if (kwp <= 50) pricePerKwp = 2000 - ((kwp - 10) / 40) * 200;
-      else if (kwp <= 150) pricePerKwp = 1800 - ((kwp - 50) / 100) * 100;
-      else if (kwp <= 300) pricePerKwp = 1700 - ((kwp - 150) / 150) * 100;
-      else if (kwp <= 500) pricePerKwp = 1600 - ((kwp - 300) / 200) * 100;
-      solarBaseCost = kwp * pricePerKwp;
-    }
-
-    // Battery Base Cost (Simple benchmark: €750/kWh)
-    const batteryBaseCost = kwh * 750;
+    const solarBaseCost = estimateSystemCost(kwp, 0);
+    const batteryBaseCost = estimateSystemCost(0, kwh);
     
     // 2. Allocate Net Cost proportionally
     const totalBase = solarBaseCost + batteryBaseCost;
@@ -143,7 +144,28 @@ export function ResultsSection({ result, config, onSelectSimulation, onBack }: R
             <h2 className="text-3xl font-serif font-bold text-tines-dark leading-tight">Projected Impact Report</h2>
             <p className="mt-1 text-sm text-slate-500">Summary of costs, savings, and returns based on your inputs.</p>
           </div>
-          <div className="text-sm font-medium text-slate-400 shrink-0">{reportDate}</div>
+          <div className="flex items-center gap-4">
+            {availableYears.length > 1 && onSelectYear && selectedYear && (
+              <div className="flex items-center gap-2">
+                <label htmlFor="year-select" className="text-sm font-medium text-slate-500">
+                  Simulation Year:
+                </label>
+                <select
+                  id="year-select"
+                  value={selectedYear}
+                  onChange={(e) => onSelectYear(Number(e.target.value))}
+                  className="rounded-md border-slate-200 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                  {availableYears.map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="text-sm font-medium text-slate-400 shrink-0">{reportDate}</div>
+          </div>
         </div>
       </div>
 
@@ -369,8 +391,99 @@ export function ResultsSection({ result, config, onSelectSimulation, onBack }: R
           </div>
         )}
 
-        {/* Solar Spillage Sensitivity Analysis */}
-        {result.solarSpillageAnalysis && (
+        {/* Solar Sizing Sensitivity Analysis */}
+        {result.sensitivityAnalysis && (
+          <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Year 1 vs Year 10 cumulative net cash flow. Click a row to simulate that system size.
+                </p>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                  <tr>
+                    <th className="px-6 py-3">PV Size (Annual kWh)</th>
+                    <th className="px-6 py-3 text-right">No Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
+                    <th className="px-6 py-3 text-right">With Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
+                    <th className="px-6 py-3 text-right">Scale Factor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {result.sensitivityAnalysis.rows.map((row) => {
+                    const isCurrent = Math.abs(row.scaleFactor - 1.0) < 0.01;
+                    
+                    const formatProfit = (val: number) => {
+                       const isPos = val >= 0;
+                       return (
+                         <span className={isPos ? 'text-emerald-700 font-bold' : 'text-rose-600 font-medium'}>
+                           {formatSignedCurrency(val)}
+                         </span>
+                       );
+                    };
+
+                    return (
+                      <tr 
+                        key={row.scaleFactor} 
+                        onClick={() => !isCurrent && onSelectSimulation?.(row.annualGenerationKwh)}
+                        className={`transition-colors ${
+                          isCurrent 
+                            ? 'bg-slate-50/80 cursor-default' 
+                            : 'hover:bg-indigo-50 cursor-pointer group'
+                        }`}
+                      >
+                        <td className="px-6 py-3">
+                          <div className="font-medium text-slate-700 group-hover:text-indigo-700 tabular-nums">
+                            {formatNumber(row.annualGenerationKwh)} kWh
+                          </div>
+                          {isCurrent && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 mt-1">
+                              Current
+                            </span>
+                          )}
+                        </td>
+                        
+                        <td className="px-6 py-3 text-right tabular-nums">
+                           <div className="flex flex-col items-end gap-0.5">
+                             <div className="text-sm font-medium">{formatProfit(row.noBattery.year1NetCashFlow)}</div>
+                             <div className="text-xs">{formatProfit(row.noBattery.year10NetCashFlow)}</div>
+                           </div>
+                           <div className="text-[10px] text-slate-400 mt-1">
+                             Spill: {(row.noBattery.spillageFraction * 100).toFixed(0)}%
+                           </div>
+                        </td>
+
+                        <td className="px-6 py-3 text-right tabular-nums">
+                           <div className="flex flex-col items-end gap-0.5">
+                             <div className="text-sm font-medium">{formatProfit(row.withBattery.year1NetCashFlow)}</div>
+                             <div className="text-xs">{formatProfit(row.withBattery.year10NetCashFlow)}</div>
+                           </div>
+                           <div className="text-[10px] text-slate-400 mt-1">
+                             {formatNumber(row.withBattery.batterySizeKwh)} kWh Battery
+                           </div>
+                        </td>
+
+                        <td className="px-6 py-3 text-right tabular-nums text-slate-500">
+                          {row.scaleFactor}×
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
+              {result.sensitivityAnalysis.note}
+            </div>
+          </div>
+        )}
+
+        {/* Legacy Solar Spillage Sensitivity Analysis (Fallback) */}
+        {!result.sensitivityAnalysis && result.solarSpillageAnalysis && (
           <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div>
