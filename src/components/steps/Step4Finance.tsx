@@ -289,7 +289,24 @@ export function Step4Finance({
                       checked={selectedGrantIds.includes(g.id)}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedGrantIds([...selectedGrantIds, g.id]);
+                          // Enforce mutual exclusivity: TAMS vs SEAI
+                          // If selecting a TAMS grant, remove any SEAI grants, and vice versa.
+                          const newGrantType = g.type;
+                          const conflictingType = newGrantType === 'TAMS' ? 'SEAI' : newGrantType === 'SEAI' ? 'TAMS' : null;
+
+                          let newSelectedIds = [...selectedGrantIds];
+                          
+                          if (conflictingType) {
+                            // Find IDs of conflicting grants
+                            const conflictingIds = eligibleGrants
+                              .filter(cg => cg.type === conflictingType)
+                              .map(cg => cg.id);
+                            
+                            // Remove them
+                            newSelectedIds = newSelectedIds.filter(id => !conflictingIds.includes(id));
+                          }
+                          
+                          setSelectedGrantIds([...newSelectedIds, g.id]);
                         } else {
                           setSelectedGrantIds(selectedGrantIds.filter((id) => id !== g.id));
                         }
@@ -390,6 +407,48 @@ export function Step4Finance({
               </Field>
             </div>
 
+            {/* Tax Relief (ACA) */}
+            <div className="pt-6 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-serif font-semibold text-tines-dark">Tax Incentives</h4>
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={financing.isTaxReliefEligible || false}
+                    onChange={(e) => setFinancing({ 
+                      ...financing, 
+                      isTaxReliefEligible: e.target.checked,
+                      taxRate: e.target.checked ? (financing.taxRate || 0.125) : undefined
+                    })}
+                    className="rounded border-slate-300 text-tines-purple focus:ring-tines-purple"
+                  />
+                  <span>Apply Accelerated Capital Allowance (ACA)</span>
+                </label>
+              </div>
+
+              {financing.isTaxReliefEligible && (
+                <div className="bg-blue-50/50 rounded-lg p-4 border border-blue-100">
+                  <p className="text-sm text-slate-600 mb-4">
+                    Companies and sole traders can write off 100% of the equipment cost against their tax bill in Year 1.
+                    Select your effective tax rate to estimate the benefit.
+                  </p>
+                  
+                  <Field label="Effective Tax Rate">
+                     <select
+                      className={inputClass}
+                      value={financing.taxRate || 0.125}
+                      onChange={(e) => setFinancing({ ...financing, taxRate: Number(e.target.value) })}
+                    >
+                      <option value={0.125}>Corporate Tax (12.5%) - Hotels/Companies</option>
+                      <option value={0.20}>Income Tax Standard (20%) - Sole Traders</option>
+                      <option value={0.40}>Income Tax Higher (40%) - Sole Traders</option>
+                      <option value={0.52}>Income Tax Top (52%) - High Earner Sole Traders</option>
+                    </select>
+                  </Field>
+                </div>
+              )}
+            </div>
+
             {/* Financial Summary */}
             {config.installationCost > 0 && (
               <div className="bg-slate-50 rounded-lg p-6 space-y-3 border border-slate-200">
@@ -408,11 +467,18 @@ export function Step4Finance({
                 )}
 
                 <div className="flex justify-between items-baseline text-sm pt-2 border-t border-slate-200">
-                  <span className="text-slate-600">Net Cost</span>
+                  <span className="text-slate-600">Net Cost (Before Tax)</span>
                   <span className="font-semibold text-slate-900">€{netCost.toLocaleString()}</span>
                 </div>
 
-                <div className="flex justify-between items-baseline text-sm">
+                {financing.isTaxReliefEligible && (
+                  <div className="flex justify-between items-baseline text-sm text-blue-700 bg-blue-50 px-2 py-1 -mx-2 rounded">
+                    <span>Est. Tax Savings (Year 1)</span>
+                    <span className="font-semibold">−€{Math.round(netCost * (financing.taxRate || 0)).toLocaleString()}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-baseline text-sm pt-2 border-t border-slate-200">
                   <span className="text-slate-600">Your Equity</span>
                   <span className="font-semibold text-slate-900">€{financing.equity.toLocaleString()}</span>
                 </div>

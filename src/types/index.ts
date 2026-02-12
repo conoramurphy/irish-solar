@@ -48,6 +48,10 @@ export interface Financing {
   termYears: number;
   /** Optional explicit loan amount (otherwise derived from netCost - equity) */
   loanAmount?: number;
+  /** Whether to apply Accelerated Capital Allowance (tax relief) */
+  isTaxReliefEligible?: boolean;
+  /** Effective tax rate for ACA (decimal, e.g. 0.125 or 0.52) */
+  taxRate?: number;
 }
 
 export interface TariffRate {
@@ -241,6 +245,8 @@ export interface CalculationResult {
   annualSolarToLoadSavings: number;
   annualBatteryToLoadSavings: number;
   annualExportRevenue: number;
+  /** Tax savings from ACA in Year 1 (EUR) */
+  year1TaxSavings?: number;
 
   simplePayback: number;
   npv: number;

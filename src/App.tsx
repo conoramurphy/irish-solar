@@ -290,6 +290,21 @@ function App() {
     if (step === 0 && data) {
       // Step 0: Building type selected
       setBuildingTypeSelection(data.buildingType);
+      
+      // Update config.businessType based on selection
+      // Map 'hotel-year-round'/'hotel-seasonal' -> 'hotel', 'farm' -> 'farm', etc.
+      let businessType: SystemConfiguration['businessType'] = 'hotel';
+      if (data.buildingType === 'farm') {
+        businessType = 'farm';
+      } else if (data.buildingType === 'commercial') {
+        businessType = 'commercial';
+      } else if (data.buildingType === 'house') {
+        // Not officially supported in type yet but fallback
+        businessType = 'other';
+      }
+      
+      setConfig(prev => ({ ...prev, businessType }));
+      
       setCompletedSteps(prev => new Set(prev).add(step));
       setCurrentStep(1);
       return;

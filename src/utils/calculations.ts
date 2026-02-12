@@ -111,7 +111,7 @@ export function runCalculation(
     // Use hour-by-hour simulation with solar timeseries data
     const timeStamps = solarTimeseriesData!.timesteps.map((ts) => ts.stamp);
     const hourlyGeneration = distributeAnnualProductionTimeseries(baseGeneration, solarTimeseriesData!);
-    const hourlyConsumption = generateHourlyConsumption(monthlyConsumption, tariff, solarTimeseriesData!.timesteps.length, timeStamps);
+    const hourlyConsumption = generateHourlyConsumption(monthlyConsumption, tariff, solarTimeseriesData!.timesteps.length, timeStamps, config.businessType);
 
     // Extra mini-analysis: solar-only spillage sensitivity (ignores batteries + € rates).
     // Uses the same hourly consumption profile + irradiance-derived weights.
@@ -199,6 +199,12 @@ export function runCalculation(
     }
   }
 
+  // Calculate tax savings (ACA)
+  // ACA is claimed on the capital cost net of grants.
+  // It is a tax credit, effectively a cash inflow in Year 1 (or reduction in tax bill).
+  const taxRate = financing.isTaxReliefEligible ? (financing.taxRate ?? 0) : 0;
+  const year1TaxSavings = netCost * taxRate;
+
   // 2. Project Cash Flows for Analysis Years (Fast Projection)
   const cashFlows: CalculationResult['cashFlows'] = [];
   let cumulativeCashFlow = -equityAmount;
@@ -209,17 +215,20 @@ export function runCalculation(
     const degradationFactor = applyDegradation(1, year - 1);
     
     const yearGeneration = baseGeneration * degradationFactor;
-    const yearSavings = (year1ElectricitySavings + year1TradingRevenue) * degradationFactor;
+    const yearOperationalSavings = (year1ElectricitySavings + year1TradingRevenue) * degradationFactor;
     
+    // Add tax savings to Year 1 cash flow
+    const yearTotalSavings = yearOperationalSavings + (year === 1 ? year1TaxSavings : 0);
+
     const loanPayment = year <= financing.termYears ? annualLoanPayment : 0;
 
-    const netCashFlow = yearSavings - loanPayment;
+    const netCashFlow = yearTotalSavings - loanPayment;
     cumulativeCashFlow += netCashFlow;
 
     cashFlows.push({
       year,
       generation: yearGeneration,
-      savings: yearSavings,
+      savings: yearOperationalSavings, // Keep this as operational savings for display clarity
       loanPayment,
       netCashFlow,
       cumulativeCashFlow
@@ -230,18 +239,17 @@ export function runCalculation(
   const annualSavings = cashFlows[0]?.savings ?? 0;
 
   // Add heuristic revenue to battery part if applicable
-  // (Note: annualSavings from cashFlows already includes heuristicTradingRevenue via the loop logic)
-  // We just need to ensure the breakdown sums up correctly.
-  // annualSolarToLoadSavings + annualBatteryToLoadSavings + annualExportRevenue should approx equal annualSavings.
-  
-  // Calculate Year 1 heuristic trading revenue for the breakdown
   const year1HeuristicTradingRevenue = (!hourlyPrices && trading.enabled) 
     ? calculateTradingRevenue(trading, config.batterySizeKwh, 1) 
     : 0;
-
   const finalBatterySavings = annualBatteryToLoadSavings + year1HeuristicTradingRevenue;
 
-  const simplePayback = calculateSimplePayback(netCost, annualSavings);
+  // Use effective net cost (Net Cost - Tax Savings) for payback to reflect true "money at risk"
+  const effectiveNetCost = Math.max(0, netCost - year1TaxSavings);
+  const simplePayback = calculateSimplePayback(effectiveNetCost, annualSavings);
+  
+  // For NPV/IRR, the initial investment is the equity (cash out).
+  // The tax savings is correctly modeled as a Year 1 inflow in annualCashFlows[0].
   const npv = calculateNPV(equityAmount, annualCashFlows, 0.05);
   const irr = calculateIRR(equityAmount, annualCashFlows);
 
@@ -255,6 +263,7 @@ export function runCalculation(
     annualSolarToLoadSavings,
     annualBatteryToLoadSavings: finalBatterySavings,
     annualExportRevenue,
+    year1TaxSavings,
     simplePayback,
     npv,
     irr,

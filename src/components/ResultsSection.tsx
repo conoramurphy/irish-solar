@@ -245,6 +245,14 @@ export function ResultsSection({
                 value={formatCurrency(result.netCost)}
                 hint="Effective cost after eligible grants."
               />
+              {result.year1TaxSavings && result.year1TaxSavings > 0 && (
+                <MetricRow
+                  label="Tax Relief (Yr 1)"
+                  value={formatCurrency(result.year1TaxSavings)}
+                  hint="Estimated ACA tax savings in Year 1."
+                  valueClassName="text-emerald-600"
+                />
+              )}
               <MetricRow
                 label="Annual Savings"
                 value={formatCurrency(result.annualSavings)}
@@ -254,7 +262,7 @@ export function ResultsSection({
               <MetricRow
                 label="Simple Payback"
                 value={Number.isFinite(result.simplePayback) ? `${result.simplePayback.toFixed(1)} years` : '∞'}
-                hint="Net Cost ÷ Annual Savings."
+                hint={result.year1TaxSavings ? "Net Cost (less Tax Relief) ÷ Annual Savings." : "Net Cost ÷ Annual Savings."}
               />
               <MetricRow
                 label="IRR (25y)"

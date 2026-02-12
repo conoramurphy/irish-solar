@@ -1,4 +1,4 @@
-import type { ConsumptionProfile, Tariff, TariffBucketKey } from '../types';
+import type { BusinessType, ConsumptionProfile, Tariff, TariffBucketKey } from '../types';
 import { normalizeBucketKey } from './consumption';
 
 const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
@@ -85,8 +85,53 @@ export function getTariffBucketForHour(hour: number, tariff: Tariff): TariffBuck
  * Generate a realistic daily consumption curve (0-23 hours)
  * Returns normalized values that sum to 1
  */
-export function generateDailyConsumptionCurve(): number[] {
-  // Typical commercial/hotel consumption pattern:
+export function generateDailyConsumptionCurve(businessType: BusinessType = 'hotel'): number[] {
+  if (businessType === 'farm') {
+    // Dairy Farm Profile (MECD mechanistic framework)
+    // Two-peak pattern: Morning (07:00) and Evening (17:00) milking
+    // Night water heating spike (00:00)
+    
+    const hourlyFactors = [
+      // 00-05: Night (Water heating spike + base)
+      2.5, // 00:00 - Water heating kick-in (timer)
+      1.5, // 01:00 - Water heating continues/tapers
+      0.4, // 02:00 - Base
+      0.4, // 03:00 - Base
+      0.4, // 04:00 - Base
+      0.5, // 05:00 - Early prep
+      
+      // 06-09: Morning Milking
+      1.2, // 06:00 - Ramp up
+      2.8, // 07:00 - PEAK: Milking + Cooling
+      2.5, // 08:00 - High: Cooling + Wash
+      1.0, // 09:00 - Taper
+
+      // 10-15: Daytime Base (Scrapers, pumping, etc.)
+      0.6, // 10:00
+      0.6, // 11:00
+      0.6, // 12:00
+      0.6, // 13:00
+      0.6, // 14:00
+      0.7, // 15:00 - Prep
+
+      // 16-19: Evening Milking
+      1.2, // 16:00 - Ramp up
+      2.8, // 17:00 - PEAK: Milking + Cooling
+      2.5, // 18:00 - High: Cooling + Wash
+      1.0, // 19:00 - Taper
+
+      // 20-23: Evening/Night Base
+      0.5, // 20:00
+      0.5, // 21:00
+      0.5, // 22:00
+      0.5  // 23:00
+    ];
+
+    const sum = hourlyFactors.reduce((a, b) => a + b, 0);
+    return hourlyFactors.map(f => f / sum);
+  }
+
+  // Default: Commercial/Hotel consumption pattern
   // - Low at night (00:00-06:00)
   // - Rising in morning (06:00-09:00)
   // - High during day (09:00-18:00)
@@ -109,14 +154,16 @@ export function generateDailyConsumptionCurve(): number[] {
  * @param bucketShares Share of consumption in each tariff bucket (should sum to 1)
  * @param daysInMonth Number of days in the month
  * @param tariff Tariff configuration to determine hour-to-bucket mapping
+ * @param businessType Business type to determine daily profile shape
  */
 export function distributeMonthlyConsumptionToHourly(
   monthlyKwh: number,
   bucketShares: Record<TariffBucketKey, number>,
   daysInMonth: number,
-  tariff: Tariff
+  tariff: Tariff,
+  businessType: BusinessType = 'hotel'
 ): number[] {
-  const dailyCurve = generateDailyConsumptionCurve();
+  const dailyCurve = generateDailyConsumptionCurve(businessType);
   
   // First, determine how much energy belongs to each bucket
   const bucketAllocations = new Map<TariffBucketKey, number>();
@@ -183,7 +230,8 @@ export function generateHourlyConsumption(
   consumptionProfile: ConsumptionProfile,
   tariff: Tariff,
   totalHoursInYear = 8760,
-  timeStamps?: Array<{ monthIndex: number; day: number; hour: number }>
+  timeStamps?: Array<{ monthIndex: number; day: number; hour: number }>,
+  businessType: BusinessType = 'hotel'
 ): number[] {
   const hourlyConsumption: number[] = [];
   const daysPerMonth = getDaysPerMonthForYear(totalHoursInYear);
@@ -201,7 +249,8 @@ export function generateHourlyConsumption(
       monthlyKwh,
       bucketShares,
       daysInMonth,
-      tariff
+      tariff,
+      businessType
     );
     
     hourlyConsumption.push(...monthHourly);
