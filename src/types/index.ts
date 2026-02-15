@@ -159,6 +159,8 @@ export interface HourlyEnergyFlow {
   savings: number;
   /** Tariff bucket for this hour */
   tariffBucket: string;
+  /** Market price for this hour (EUR/kWh) if trading enabled */
+  marketPrice?: number;
 }
 
 export interface HourlySimulationResult {

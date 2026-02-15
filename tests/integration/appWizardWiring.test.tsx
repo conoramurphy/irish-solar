@@ -24,9 +24,8 @@ vi.mock('../../src/components/steps/Step1DigitalTwin', () => ({
         onNext({
           location: 'Cavan',
           exampleMonths: [],
-          tariffConfig: { type: 'flat', flatRate: 0.25 },
-          curvedMonthlyKwh: Array.from({ length: 12 }, () => 1000),
-          estimatedMonthlyBills: Array.from({ length: 12 }, () => 250)
+          // tariffConfig & estimatedMonthlyBills removed
+          curvedMonthlyKwh: Array.from({ length: 12 }, () => 1000)
         })
       }
     >
@@ -130,9 +129,12 @@ describe('App wizard wiring', () => {
 
     expect(runCalculationMock).toHaveBeenCalledTimes(1);
 
-    // App passes solarTimeseriesData as the last argument
+    // App passes solarTimeseriesData as the 10th argument (index 9)
+    // and priceTimeseriesData as the 11th argument (index 10)
+    // But since we pass (..., solar, price), let's check them positionally or by shape.
+    // solar is argument 9 (0-indexed).
     const lastCallArgs = runCalculationMock.mock.calls[0] ?? [];
-    const solarArg = lastCallArgs.at(-1);
+    const solarArg = lastCallArgs[9]; 
 
     expect(solarArg).toMatchObject({ year: 2022 });
     expect(Array.isArray(solarArg.timesteps)).toBe(true);

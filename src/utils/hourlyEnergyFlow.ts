@@ -525,7 +525,8 @@ export function simulateHourlyEnergyFlow(
         importCost,
         exportRevenue,
         savings,
-        tariffBucket: bucket
+        tariffBucket: bucket,
+        marketPrice: hourlyPrice
       });
     }
   }

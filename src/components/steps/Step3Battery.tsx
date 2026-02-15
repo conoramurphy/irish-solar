@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { SystemConfiguration, TradingConfig } from '../../types';
+import type { ExampleMonth, TariffConfiguration, TariffSlot } from '../../types/billing';
 import { type ParsedPriceData, parsePriceTimeseriesCSV } from '../../utils/priceTimeseriesParser';
+import { calculateAverageFlatRate } from '../../utils/billingCalculations';
+import { Field } from '../Field';
 
 interface Step3Props {
   config: SystemConfiguration;
@@ -9,6 +12,10 @@ interface Step3Props {
   setTrading: (trading: TradingConfig) => void;
   priceData: ParsedPriceData | null;
   setPriceData: (data: ParsedPriceData | null) => void;
+  exampleMonths: ExampleMonth[];
+  setExampleMonths: (months: ExampleMonth[]) => void;
+  tariffConfig: TariffConfiguration | null;
+  setTariffConfig: (config: TariffConfiguration) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -20,15 +27,48 @@ export function Step3Battery({
   setTrading,
   priceData,
   setPriceData,
+  exampleMonths,
+  setExampleMonths,
+  tariffConfig,
+  setTariffConfig,
   onNext,
   onBack
 }: Step3Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Auto-load price data when trading is enabled
-  React.useEffect(() => {
-    if (trading.enabled && !priceData && !loading) {
+  const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
+
+  // Mode state: Derived from trading.enabled
+  const tariffMode = trading.enabled ? 'market' : 'standard';
+
+  // Local state for Standard Tariff Builder
+  const [localTariffType, setLocalTariffType] = useState<'flat' | 'custom'>(
+    tariffConfig?.type === 'custom' ? 'custom' : 'flat'
+  );
+  const [customSlots, setCustomSlots] = useState<TariffSlot[]>(
+    tariffConfig?.customSlots || []
+  );
+
+  // Sync Standard Tariff changes to parent
+  useEffect(() => {
+    if (tariffMode === 'standard') {
+      if (localTariffType === 'flat') {
+        const flatRate = calculateAverageFlatRate(exampleMonths);
+        // Only update if changed to avoid loops
+        if (tariffConfig?.type !== 'flat' || Math.abs((tariffConfig.flatRate || 0) - flatRate) > 0.0001) {
+           setTariffConfig({ type: 'flat', flatRate });
+        }
+      } else {
+        // Custom
+        setTariffConfig({ type: 'custom', customSlots });
+      }
+    }
+  }, [tariffMode, localTariffType, customSlots, exampleMonths, setTariffConfig, tariffConfig]);
+
+  // Auto-load price data when trading is enabled (Market Mode)
+  useEffect(() => {
+    if (tariffMode === 'market' && !priceData && !loading) {
       setLoading(true);
       setError(null);
       fetch('/data/dayahead_prices/Lookback2_mkt_filtered.csv')
@@ -46,35 +86,74 @@ export function Step3Battery({
         .catch(e => {
           console.error(e);
           setError('Failed to load market price data');
-          // Disable trading if data load fails
-          setTrading({ ...trading, enabled: false });
         })
         .finally(() => setLoading(false));
     }
-  }, [trading.enabled, priceData, loading, setPriceData, setTrading]);
+  }, [tariffMode, priceData, loading, setPriceData]);
 
-  const handleTradingToggle = (enabled: boolean) => {
-    setTrading({
-      ...trading,
-      enabled,
-      // Set defaults if enabling for first time
-      importMargin: trading.importMargin ?? 0.05,
-      exportMargin: 0, // No export margin as requested
-      hoursWindow: trading.hoursWindow ?? 4
-    });
+  const handleModeChange = (mode: 'standard' | 'market') => {
+    if (mode === 'market') {
+      setTrading({
+        ...trading,
+        enabled: true,
+        importMargin: trading.importMargin ?? 0.05,
+        exportMargin: 0,
+        hoursWindow: trading.hoursWindow ?? 4
+      });
+    } else {
+      setTrading({ ...trading, enabled: false });
+    }
+  };
+
+  // Standard Tariff Helpers
+  const addTariffSlot = () => {
+    const newSlot: TariffSlot = {
+      id: `slot-${Date.now()}`,
+      name: `Time Slot ${customSlots.length + 1}`,
+      startHour: 0,
+      endHour: 23,
+      ratePerKwh: 0.20
+    };
+    setCustomSlots([...customSlots, newSlot]);
+  };
+
+  const updateTariffSlot = (id: string, updates: Partial<TariffSlot>) => {
+    setCustomSlots(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const removeTariffSlot = (id: string) => {
+    setCustomSlots(prev => prev.filter(s => s.id !== id));
+    // Remove usage from months
+    const newMonths = exampleMonths.map(m => ({
+      ...m,
+      tariffSlotUsage: Object.fromEntries(
+        Object.entries(m.tariffSlotUsage).filter(([slotId]) => slotId !== id)
+      )
+    }));
+    setExampleMonths(newMonths);
+  };
+
+  const updateSlotUsage = (monthIndex: number, slotId: string, percentage: number) => {
+    const newMonths = exampleMonths.map(m => 
+      m.monthIndex === monthIndex 
+        ? { ...m, tariffSlotUsage: { ...m.tariffSlotUsage, [slotId]: percentage / 100 } }
+        : m
+    );
+    setExampleMonths(newMonths);
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="text-center mb-10">
         <h2 className="text-3xl font-serif font-bold text-tines-dark mb-4">
-          Batteries & Market Trading
+          Batteries & Tariffs
         </h2>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          Configure energy storage and optional market trading strategies (Day Ahead Price Arbitrage).
+          Configure energy storage and define how you interact with the grid.
         </p>
       </div>
 
+      {/* Battery Section */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mr-2 text-indigo-600">
@@ -108,105 +187,211 @@ export function Step3Battery({
         </div>
       </div>
 
+      {/* Tariff Strategy Selector */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-slate-800 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mr-2 text-emerald-600">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-            </svg>
-            Market Trading
-          </h3>
-          
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={trading.enabled} 
-              onChange={(e) => handleTradingToggle(e.target.checked)}
-              className="sr-only peer" 
-            />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-            <span className="ml-3 text-sm font-medium text-slate-700">Enable</span>
-          </label>
+        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mr-2 text-emerald-600">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+          </svg>
+          Tariff Strategy
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <button
+            onClick={() => handleModeChange('standard')}
+            className={`flex items-start p-4 rounded-lg border-2 transition-all text-left ${
+              tariffMode === 'standard'
+                ? 'border-indigo-600 bg-indigo-50'
+                : 'border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mr-3 ${
+              tariffMode === 'standard' ? 'border-indigo-600' : 'border-slate-400'
+            }`}>
+              {tariffMode === 'standard' && <div className="w-2 h-2 rounded-full bg-indigo-600" />}
+            </div>
+            <div>
+              <div className={`font-semibold ${tariffMode === 'standard' ? 'text-indigo-900' : 'text-slate-700'}`}>Standard Tariff</div>
+              <p className="text-sm text-slate-500 mt-1">Flat Rate or Time-of-Use (Day/Night/Peak). System optimizes self-consumption.</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => handleModeChange('market')}
+            className={`flex items-start p-4 rounded-lg border-2 transition-all text-left ${
+              tariffMode === 'market'
+                ? 'border-emerald-600 bg-emerald-50'
+                : 'border-slate-200 hover:border-slate-300'
+            }`}
+          >
+            <div className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center shrink-0 mr-3 ${
+              tariffMode === 'market' ? 'border-emerald-600' : 'border-slate-400'
+            }`}>
+              {tariffMode === 'market' && <div className="w-2 h-2 rounded-full bg-emerald-600" />}
+            </div>
+            <div>
+              <div className={`font-semibold ${tariffMode === 'market' ? 'text-emerald-900' : 'text-slate-700'}`}>Dynamic Market Pricing</div>
+              <p className="text-sm text-slate-500 mt-1">Day-Ahead Arbitrage. Charge when cheap, discharge when expensive.</p>
+            </div>
+          </button>
         </div>
 
-        {trading.enabled && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
+        {/* --- STANDARD TARIFF BUILDER --- */}
+        {tariffMode === 'standard' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setLocalTariffType('flat')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  localTariffType === 'flat'
+                    ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Flat Rate
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocalTariffType('custom')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  localTariffType === 'custom'
+                    ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Time-of-Use
+              </button>
+            </div>
+
+            {localTariffType === 'flat' && (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm text-slate-700">
+                <p>
+                  Estimated Flat Rate based on your consumption inputs: {' '}
+                  <span className="font-bold text-indigo-700">
+                    €{tariffConfig?.flatRate?.toFixed(3) || '0.000'}/kWh
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Calculated from Total Bill / Total kWh.</p>
+              </div>
+            )}
+
+            {localTariffType === 'custom' && (
+              <div className="space-y-4">
+                {customSlots.map(slot => (
+                  <div key={slot.id} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                      <Field label="Slot Name">
+                        <input
+                          className={inputClass}
+                          type="text"
+                          value={slot.name}
+                          onChange={(e) => updateTariffSlot(slot.id, { name: e.target.value })}
+                          placeholder="e.g., Peak"
+                        />
+                      </Field>
+                      <Field label="Start (0-23)">
+                        <input
+                          className={inputClass}
+                          type="number"
+                          min={0} max={23}
+                          value={slot.startHour}
+                          onChange={(e) => updateTariffSlot(slot.id, { startHour: Number(e.target.value) })}
+                        />
+                      </Field>
+                      <Field label="End (0-23)">
+                        <input
+                          className={inputClass}
+                          type="number"
+                          min={0} max={23}
+                          value={slot.endHour}
+                          onChange={(e) => updateTariffSlot(slot.id, { endHour: Number(e.target.value) })}
+                        />
+                      </Field>
+                      <Field label="Rate (€/kWh)">
+                        <input
+                          className={inputClass}
+                          type="number"
+                          step={0.001}
+                          value={slot.ratePerKwh}
+                          onChange={(e) => updateTariffSlot(slot.id, { ratePerKwh: Number(e.target.value) })}
+                        />
+                      </Field>
+                    </div>
+                    {/* Usage sliders */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                      {exampleMonths.map(month => (
+                        <Field key={month.monthIndex} label={`${month.monthName} usage (%)`}>
+                          <input
+                            className={inputClass}
+                            type="number"
+                            min={0} max={100} step={1}
+                            value={Math.round((month.tariffSlotUsage[slot.id] || 0) * 100)}
+                            onChange={(e) => updateSlotUsage(month.monthIndex, slot.id, Number(e.target.value))}
+                          />
+                        </Field>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <button onClick={() => removeTariffSlot(slot.id)} className="text-xs text-red-600 hover:underline">Remove Slot</button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addTariffSlot}
+                  className="w-full py-3 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-indigo-500 hover:text-indigo-600"
+                >
+                  + Add Tariff Slot
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- MARKET TRADING BUILDER --- */}
+        {tariffMode === 'market' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-lg text-sm text-emerald-800">
+              <p className="font-medium mb-1">Market Strategy Active</p>
               <p>
-                <strong>Trading Strategy:</strong> Day Ahead Price Arbitrage.
-                The system will automatically charge from the grid during the cheapest <strong>{trading.hoursWindow || 4}</strong> hours 
-                and discharge during the most expensive hours of each day.
+                The system will use hourly Day-Ahead Market prices to optimize battery charging and discharging.
+                Arbitrage window: <strong>{trading.hoursWindow || 4} hours</strong> (Cheapest Charge / Most Expensive Discharge).
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Import Margin (added to price)
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Import Margin (€/kWh)</label>
                 <div className="relative">
                   <input
-                    type="number"
-                    step="0.001"
+                    type="number" step="0.001"
                     value={trading.importMargin}
                     onChange={(e) => setTrading({ ...trading, importMargin: parseFloat(e.target.value) || 0 })}
-                    className="block w-full rounded-lg border-slate-300 pl-4 pr-16 py-3 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
+                    className={inputClass}
                   />
-                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                    <span className="text-slate-500">€/kWh</span>
-                  </div>
                 </div>
+                <p className="mt-1 text-xs text-slate-500">Added to market price for imports.</p>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Arbitrage Window (Hours per day)
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="1"
-                    max="12"
-                    step="1"
-                    value={trading.hoursWindow}
-                    onChange={(e) => setTrading({ ...trading, hoursWindow: parseInt(e.target.value) || 4 })}
-                    className="block w-full rounded-lg border-slate-300 pl-4 pr-4 py-3 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
-                  />
-                </div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Arbitrage Window (Hours)</label>
+                <input
+                  type="number" min="1" max="12"
+                  value={trading.hoursWindow}
+                  onChange={(e) => setTrading({ ...trading, hoursWindow: parseInt(e.target.value) || 4 })}
+                  className={inputClass}
+                />
               </div>
             </div>
 
-            <div className="border-t border-slate-200 pt-6">
-              <p className="text-sm text-slate-500 mb-4">
-                Market price data is automatically loaded from historical records (2021).
-              </p>
-              
-              {loading && (
-                 <div className="text-sm text-indigo-600 flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Loading price data...
-                 </div>
-              )}
-
-              {error && (
-                <p className="mt-2 text-sm text-red-600">{error}</p>
-              )}
-              
+            {/* Price Data Loader Status */}
+            <div className="border-t border-slate-200 pt-4">
+              {loading && <div className="text-sm text-slate-500">Loading market prices...</div>}
+              {error && <div className="text-sm text-red-600">{error}</div>}
               {priceData && !loading && (
-                <div className="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-                  <p className="text-emerald-800 font-medium flex items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 mr-2">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-                    </svg>
-                    Valid Price Data Loaded
-                  </p>
-                  <ul className="mt-2 text-sm text-emerald-700 space-y-1">
-                    <li>Source Year: {priceData.year}</li>
-                    <li>Total Hours: {priceData.timesteps.length}</li>
-                  </ul>
+                <div className="flex items-center text-sm text-emerald-700">
+                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                  Price data loaded ({priceData.timesteps.length} hours, {priceData.year})
                 </div>
               )}
             </div>
@@ -223,9 +408,9 @@ export function Step3Battery({
         </button>
         <button
           onClick={onNext}
-          disabled={trading.enabled && !priceData}
+          disabled={tariffMode === 'market' && !priceData}
           className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition-all transform hover:-translate-y-0.5 ${
-            trading.enabled && !priceData
+            tariffMode === 'market' && !priceData
               ? 'bg-slate-400 cursor-not-allowed shadow-none' 
               : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400'
           }`}

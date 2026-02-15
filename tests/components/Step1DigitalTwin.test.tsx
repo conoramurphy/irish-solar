@@ -22,15 +22,7 @@ describe('Step1DigitalTwin', () => {
     expect(screen.getByText(/Consumption Profile/i)).toBeInTheDocument();
   });
 
-  it('renders tariff configuration section', () => {
-    const onNext = vi.fn();
-    const onBack = vi.fn();
-    render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
-
-    expect(screen.getByRole('button', { name: 'Flat Rate' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Time-of-Use' })).toBeInTheDocument();
-    expect(screen.getByText(/Current Tariff Structure/i)).toBeInTheDocument();
-  });
+  // Tariff configuration section removed from Step 1
 
   it('validates location is required before proceeding', () => {
     const onNext = vi.fn();
@@ -61,9 +53,8 @@ describe('Step1DigitalTwin', () => {
     const callData = onNext.mock.calls[0][0];
     expect(callData.location).toBe('Cavan');
     expect(Array.isArray(callData.exampleMonths)).toBe(true);
-    expect(callData).toHaveProperty('tariffConfig');
+    // tariffConfig and estimatedMonthlyBills removed
     expect(Array.isArray(callData.curvedMonthlyKwh)).toBe(true);
-    expect(Array.isArray(callData.estimatedMonthlyBills)).toBe(true);
   });
 
   it('calls onBack when back button is clicked', async () => {
@@ -78,29 +69,5 @@ describe('Step1DigitalTwin', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('supports flat rate tariff configuration', () => {
-    const onNext = vi.fn();
-    const onBack = vi.fn();
-    render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
-
-    expect(screen.getByRole('button', { name: 'Flat Rate' })).toBeInTheDocument();
-    expect(screen.getByText(/Using flat rate calculated from your example months/i)).toBeInTheDocument();
-  });
-
-  it('supports time-of-use tariff configuration', async () => {
-    const user = userEvent.setup();
-    const onNext = vi.fn();
-    const onBack = vi.fn();
-    render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
-
-    // Switch to time-of-use
-    const buttons = screen.getAllByRole('button');
-    const touButton = buttons.find(btn => btn.textContent === 'Time-of-Use');
-    expect(touButton).toBeInTheDocument();
-    await user.click(touButton!);
-
-    // Should show message about adding tariff slots
-    expect(screen.getByText(/No tariff slots defined yet/i)).toBeInTheDocument();
-    expect(screen.getByText(/Add Your First Tariff Slot/i)).toBeInTheDocument();
-  });
+  // Tariff config tests removed as functionality moved to Step 3
 });

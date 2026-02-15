@@ -35,6 +35,7 @@ import { Step2Solar } from './components/steps/Step2Solar';
 import { Step3Battery } from './components/steps/Step3Battery';
 import { Step4Finance } from './components/steps/Step4Finance';
 import { ResultsSection } from './components/ResultsSection';
+import { estimateAnnualBills, calculateAverageFlatRate } from './utils/billingCalculations';
 import type { ExampleMonth, TariffConfiguration } from './types/billing';
 import { loadSolarData } from './utils/solarDataLoader';
 import { endSpan as endSolarSpan, logError as logSolarError, logInfo as logSolarInfo, logWarn, startSpan as startSolarSpan } from './utils/logger';
@@ -78,10 +79,17 @@ function App() {
   const [priceTimeseriesData, setPriceTimeseriesData] = useState<ParsedPriceData | null>(null);
 
   // Billing profile from Step 1
-  const [, setExampleMonths] = useState<ExampleMonth[]>([]);
-  const [, setTariffConfig] = useState<TariffConfiguration | null>(null);
+  const [exampleMonths, setExampleMonths] = useState<ExampleMonth[]>([]);
+  const [tariffConfig, setTariffConfig] = useState<TariffConfiguration | null>(null);
   const [curvedMonthlyKwh, setCurvedMonthlyKwh] = useState<number[]>([]);
-  const [estimatedMonthlyBills, setEstimatedMonthlyBills] = useState<number[]>([]);
+  
+  // Estimated monthly bills (derived)
+  const estimatedMonthlyBills = useMemo(() => {
+    if (curvedMonthlyKwh.length !== 12 || !tariffConfig || exampleMonths.length === 0) {
+      return [];
+    }
+    return estimateAnnualBills(curvedMonthlyKwh, tariffConfig, exampleMonths);
+  }, [curvedMonthlyKwh, tariffConfig, exampleMonths]);
 
   // Solar timeseries data - loaded in App when location is set in Step 1
   const [rawSolarData, setRawSolarData] = useState<ParsedSolarData | null>(null);
@@ -190,7 +198,8 @@ function App() {
         historicalTariffData as any,
         25,
         consumptionProfile,
-        solarTimeseriesData || undefined
+        solarTimeseriesData || undefined,
+        priceTimeseriesData || undefined
       );
       setResult(r);
       logInfo(
@@ -282,7 +291,7 @@ function App() {
          handleCalculate();
       }
     }
-  }, [solarTimeseriesData]);
+  }, [solarTimeseriesData, result]);
 
   const handleNextStep = (step: number, data?: any) => {
     logInfo('ui', `Step ${step} completed`, { step });
@@ -311,12 +320,17 @@ function App() {
     }
 
     if (step === 1 && data) {
-      // Step 1: Digital Twin (location + consumption + tariff)
+      // Step 1: Digital Twin (location + consumption)
       setConfig({ ...config, location: data.location });
       setExampleMonths(data.exampleMonths);
-      setTariffConfig(data.tariffConfig);
       setCurvedMonthlyKwh(data.curvedMonthlyKwh);
-      setEstimatedMonthlyBills(data.estimatedMonthlyBills);
+      
+      // Set a default tariff config if none exists (Flat Rate inferred from inputs)
+      if (!tariffConfig) {
+        const flatRate = calculateAverageFlatRate(data.exampleMonths);
+        setTariffConfig({ type: 'flat', flatRate });
+      }
+      
       setCompletedSteps(prev => new Set(prev).add(step));
       setCurrentStep(2);
       return;
@@ -372,7 +386,7 @@ function App() {
     setExampleMonths(saved.exampleMonths);
     setTariffConfig(saved.tariffConfig);
     setCurvedMonthlyKwh(saved.curvedMonthlyKwh);
-    setEstimatedMonthlyBills(saved.estimatedMonthlyBills);
+    // estimatedMonthlyBills is derived, no need to set
     
     if (saved.selectedYear) {
       setSelectedYear(saved.selectedYear);
@@ -424,8 +438,8 @@ function App() {
         selectedGrantIds,
         trading,
         tariffId,
-        exampleMonths: [], // We don't strictly need these if we have curvedMonthlyKwh, but good to have
-        tariffConfig: null, // Same
+        exampleMonths,
+        tariffConfig,
         curvedMonthlyKwh,
         estimatedMonthlyBills,
         selectedYear,
@@ -486,23 +500,6 @@ function App() {
               selectedYear={selectedYear}
               onSelectYear={(y) => {
                 setSelectedYear(y);
-                // Trigger recalculation if result is already showing
-                // Note: The normalization useEffect will fire first, updating solarTimeseriesData.
-                // We need to wait for that? Or just let the user click "Generate" again?
-                // The user probably expects the result to update immediately.
-                // However, solarTimeseriesData update is async via useEffect.
-                // A better pattern: just update selectedYear. The effect updates solarTimeseriesData.
-                // Then another effect could trigger calculation? Or just let the user re-run?
-                // For a smooth UX, we should probably auto-recalculate if result is present.
-                // But handleCalculate depends on the NEW solarTimeseriesData which isn't ready yet.
-                // Quick fix: clear result so they have to click generate, or use a ref/effect to auto-run.
-                // Given the instruction "dropdown that has years... and I can select from them",
-                // implying instant update.
-                // But complex state updates are tricky.
-                // Let's just update the year. The report will likely need regeneration.
-                // Ideally, we pass a callback that updates year AND triggers calc when data ready.
-                // For now, let's just update the year. The ResultsSection will re-render with new dropdown value.
-                // If we want auto-update, we need a useEffect on solarTimeseriesData that checks if result!=null.
               }}
               onSelectSimulation={(newKwh) => {
                 if (config.annualProductionKwh <= 0) return;
@@ -563,6 +560,10 @@ function App() {
                   setTrading={setTrading}
                   priceData={priceTimeseriesData}
                   setPriceData={setPriceTimeseriesData}
+                  exampleMonths={exampleMonths}
+                  setExampleMonths={setExampleMonths}
+                  tariffConfig={tariffConfig}
+                  setTariffConfig={setTariffConfig}
                   onNext={() => handleNextStep(3)}
                   onBack={handleBackStep}
                 />

@@ -38,6 +38,11 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
 
   const [selectedYear, setSelectedYear] = useState<number>(year);
 
+  // Sync selectedYear state when the year prop changes (e.g. parent updates simulation year)
+  if (selectedYear !== year && availableYears.length <= 1) {
+    setSelectedYear(year);
+  }
+
   const hourlyForSelectedYear = useMemo(() => {
     if (availableYears.length <= 1) return hourlyData;
     return hourlyData.filter((h) => h.hourKey?.startsWith(String(selectedYear)));

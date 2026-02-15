@@ -2,6 +2,7 @@ import { useState, type ReactNode, useMemo } from 'react';
 import type { CalculationResult, SystemConfiguration } from '../types';
 import { AuditModal } from './AuditModal';
 import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
+import { MarketAnalysis } from './MarketAnalysis';
 import { SaveReportModal } from './SaveReportModal';
 
 import { estimateSystemCost } from '../utils/costEstimation';
@@ -180,6 +181,7 @@ export function ResultsSection({
         {result.audit?.hourly && result.audit.hourly.length > 0 && (
           <div className="mb-8">
             <EnergyAnalyticsChart hourlyData={result.audit.hourly} year={analyticsYear} />
+            <MarketAnalysis hourlyData={result.audit.hourly} year={analyticsYear} />
           </div>
         )}
 
