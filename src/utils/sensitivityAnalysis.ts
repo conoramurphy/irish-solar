@@ -71,7 +71,7 @@ function computeScenarioMetrics(
   let hourlyPrices: number[] | undefined;
   if (trading.enabled && priceTimeseriesData) {
     const { normalized } = normalizePriceTimeseries(priceTimeseriesData, solarTimeseriesData.year);
-    hourlyPrices = normalized.timesteps.map(ts => ts.priceEur);
+    hourlyPrices = normalized.timesteps.map(ts => ts.priceEur / 1000);
   }
 
   const monthlyConsumption = normalizeConsumptionProfile(consumptionProfile, tariff);
