@@ -142,9 +142,9 @@ function App() {
 
   // Steps for stepper (1-4, Step 0 not shown in stepper)
   const steps = [
-    { id: 1, label: 'Digital Twin' },
+    { id: 1, label: 'Consumption & Tariff' },
     { id: 2, label: 'Solar' },
-    { id: 3, label: 'Batteries & Tariffs' },
+    { id: 3, label: 'Battery & Market' },
     { id: 4, label: 'Finance' }
   ];
 
@@ -320,16 +320,11 @@ function App() {
     }
 
     if (step === 1 && data) {
-      // Step 1: Digital Twin (location + consumption)
+      // Step 1: Digital Twin (location + consumption + tariff)
       setConfig({ ...config, location: data.location });
       setExampleMonths(data.exampleMonths);
       setCurvedMonthlyKwh(data.curvedMonthlyKwh);
-      
-      // Set a default tariff config if none exists (Flat Rate inferred from inputs)
-      if (!tariffConfig) {
-        const flatRate = calculateAverageFlatRate(data.exampleMonths);
-        setTariffConfig({ type: 'flat', flatRate });
-      }
+      setTariffConfig(data.tariffConfig);
       
       setCompletedSteps(prev => new Set(prev).add(step));
       setCurrentStep(2);
@@ -561,9 +556,6 @@ function App() {
                   priceData={priceTimeseriesData}
                   setPriceData={setPriceTimeseriesData}
                   exampleMonths={exampleMonths}
-                  setExampleMonths={setExampleMonths}
-                  tariffConfig={tariffConfig}
-                  setTariffConfig={setTariffConfig}
                   onNext={() => handleNextStep(3)}
                   onBack={handleBackStep}
                 />

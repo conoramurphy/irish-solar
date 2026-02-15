@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { logInfo } from '../../utils/logger';
 import { Field } from '../Field';
 import { MONTH_LABELS } from '../../utils/consumption';
-import { curveConsumption, calculateAverageFlatRate, estimateAnnualBills } from '../../utils/billingCalculations';
+import { curveConsumption, calculateAverageFlatRate, calculateMonthlyBill } from '../../utils/billingCalculations';
 import type { ExampleMonth, TariffConfiguration, TariffSlot } from '../../types/billing';
 
 interface Step1DigitalTwinProps {
@@ -10,6 +10,7 @@ interface Step1DigitalTwinProps {
     location: string;
     exampleMonths: ExampleMonth[];
     curvedMonthlyKwh: number[];
+    tariffConfig: TariffConfiguration;
   }) => void;
   onBack?: () => void;
 }
@@ -32,24 +33,76 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
     { monthIndex: 6, monthName: 'July', totalKwh: 45000, totalBillEur: 9000, tariffSlotUsage: {} }
   ]);
 
+  // Tariff configuration
+  const [tariffType, setTariffType] = useState<'flat' | 'custom'>('flat');
+  const [customSlots, setCustomSlots] = useState<TariffSlot[]>([]);
+  const [standingCharge, setStandingCharge] = useState<number>(0.9);
+
   // Curved consumption
   const curvedMonthlyKwh = useMemo(() => curveConsumption(exampleMonths), [exampleMonths]);
+
+  // Build tariff config
+  const tariffConfig: TariffConfiguration = useMemo(() => {
+    if (tariffType === 'flat') {
+      const flatRate = calculateAverageFlatRate(exampleMonths);
+      return { type: 'flat', flatRate, standingChargePerDay: standingCharge };
+    }
+    return { type: 'custom', customSlots, standingChargePerDay: standingCharge };
+  }, [tariffType, exampleMonths, customSlots, standingCharge]);
   
   const updateExampleMonth = (index: number, updates: Partial<ExampleMonth>) => {
     setExampleMonths(prev => prev.map((m, i) => i === index ? { ...m, ...updates } : m));
+  };
+
+  const addTariffSlot = () => {
+    const newSlot: TariffSlot = {
+      id: `slot-${Date.now()}`,
+      name: `Time Slot ${customSlots.length + 1}`,
+      startHour: 0,
+      endHour: 23,
+      ratePerKwh: 0.20
+    };
+    setCustomSlots([...customSlots, newSlot]);
+  };
+
+  const updateTariffSlot = (id: string, updates: Partial<TariffSlot>) => {
+    setCustomSlots(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const removeTariffSlot = (id: string) => {
+    setCustomSlots(prev => prev.filter(s => s.id !== id));
+    // Remove usage from months
+    const newMonths = exampleMonths.map(m => ({
+      ...m,
+      tariffSlotUsage: Object.fromEntries(
+        Object.entries(m.tariffSlotUsage).filter(([slotId]) => slotId !== id)
+      )
+    }));
+    setExampleMonths(newMonths);
+  };
+
+  const updateSlotUsage = (monthIndex: number, slotId: string, kwhValue: number) => {
+    const newMonths = exampleMonths.map(m => 
+      m.monthIndex === monthIndex 
+        ? { ...m, tariffSlotUsage: { ...m.tariffSlotUsage, [slotId]: kwhValue } }
+        : m
+    );
+    setExampleMonths(newMonths);
   };
 
   const handleContinue = () => {
     logInfo('ui', 'Step 1 (Digital Twin) continue clicked', {
       location,
       exampleMonths,
-      curvedMonthlyKwhTotal: curvedMonthlyKwh.reduce((a, b) => a + b, 0)
+      curvedMonthlyKwhTotal: curvedMonthlyKwh.reduce((a, b) => a + b, 0),
+      tariffConfig
     });
 
     onNext({
       location,
       exampleMonths,
-      curvedMonthlyKwh
+      curvedMonthlyKwh,
+      tariffConfig
     });
   };
 
@@ -100,69 +153,279 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
         </Field>
       </div>
 
-      {/* Section B: Consumption Profile */}
+      {/* Section B: Consumption & Tariff Profile */}
       <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-8 mb-8">
-        <h3 className="text-xl font-serif font-semibold text-tines-dark mb-6">Consumption Profile</h3>
-        <p className="text-sm text-slate-500 mb-6">
-          Select two different months (typically one winter, one summer) and enter your actual usage and bill amounts.
-        </p>
-
-        <div className="space-y-6">
-          {exampleMonths.map((month, idx) => (
-            <div key={idx} className="p-6 rounded-lg border-2 border-slate-200 bg-slate-50">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Field label="Month">
-                  <select
-                    className={selectClass}
-                    value={month.monthIndex}
-                    onChange={(e) => {
-                      const newIndex = Number(e.target.value);
-                      updateExampleMonth(idx, {
-                        monthIndex: newIndex,
-                        monthName: MONTHS[newIndex].name
-                      });
-                    }}
-                  >
-                    {MONTHS.map(m => (
-                      <option key={m.index} value={m.index}>{m.name}</option>
-                    ))}
-                  </select>
-                </Field>
-
-                <Field label="Total kWh">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    step={100}
-                    value={month.totalKwh}
-                    onChange={(e) => updateExampleMonth(idx, { totalKwh: Number(e.target.value) })}
-                    placeholder="e.g., 60000"
-                  />
-                </Field>
-
-                <Field label="Total Bill (€)">
-                  <input
-                    className={inputClass}
-                    type="number"
-                    step={10}
-                    value={month.totalBillEur}
-                    onChange={(e) => updateExampleMonth(idx, { totalBillEur: Number(e.target.value) })}
-                    placeholder="e.g., 12000"
-                  />
-                </Field>
-              </div>
-
-              {month.totalKwh > 0 && month.totalBillEur > 0 && (
-                <div className="mt-4 text-sm text-slate-600 bg-white p-3 rounded border border-slate-200">
-                  <span className="font-medium">Implied rate:</span>{' '}
-                  <span className="font-bold text-tines-purple">
-                    €{(month.totalBillEur / month.totalKwh).toFixed(3)}/kWh
-                  </span>
-                </div>
-              )}
-            </div>
-          ))}
+        <h3 className="text-xl font-serif font-semibold text-tines-dark mb-6">Consumption & Tariff Profile</h3>
+        
+        {/* Tariff Type Selector */}
+        <div className="flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => setTariffType('flat')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              tariffType === 'flat'
+                ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Simple (Flat Rate)
+          </button>
+          <button
+            type="button"
+            onClick={() => setTariffType('custom')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              tariffType === 'custom'
+                ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Time-of-Use
+          </button>
         </div>
+
+        {/* Simple Mode - Just totals */}
+        {tariffType === 'flat' && (
+          <div>
+            <p className="text-sm text-slate-500 mb-6">
+              Select two different months (typically one winter, one summer) and enter your actual usage and bill amounts.
+            </p>
+            
+            {/* Standing Charge */}
+            <div className="mb-6">
+              <Field label="Standing Charge (€/day)">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step={0.01}
+                  value={standingCharge}
+                  onChange={(e) => setStandingCharge(Number(e.target.value) || 0)}
+                  placeholder="e.g., 0.90"
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  Daily standing charge from your supplier (typically €0.80-€1.20/day).
+                </p>
+              </Field>
+            </div>
+
+            <div className="space-y-6">
+              {exampleMonths.map((month, idx) => (
+                <div key={idx} className="p-6 rounded-lg border-2 border-slate-200 bg-slate-50">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Field label="Month">
+                      <select
+                        className={selectClass}
+                        value={month.monthIndex}
+                        onChange={(e) => {
+                          const newIndex = Number(e.target.value);
+                          updateExampleMonth(idx, {
+                            monthIndex: newIndex,
+                            monthName: MONTHS[newIndex].name
+                          });
+                        }}
+                      >
+                        {MONTHS.map(m => (
+                          <option key={m.index} value={m.index}>{m.name}</option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="Total kWh">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        step={100}
+                        value={month.totalKwh}
+                        onChange={(e) => updateExampleMonth(idx, { totalKwh: Number(e.target.value) })}
+                        placeholder="e.g., 60000"
+                      />
+                    </Field>
+
+                    <Field label="Total Bill (€)">
+                      <input
+                        className={inputClass}
+                        type="number"
+                        step={10}
+                        value={month.totalBillEur}
+                        onChange={(e) => updateExampleMonth(idx, { totalBillEur: Number(e.target.value) })}
+                        placeholder="e.g., 12000"
+                      />
+                    </Field>
+                  </div>
+
+                  {month.totalKwh > 0 && month.totalBillEur > 0 && (
+                    <div className="mt-4 text-sm text-slate-600 bg-white p-3 rounded border border-slate-200">
+                      <span className="font-medium">Implied rate:</span>{' '}
+                      <span className="font-bold text-tines-purple">
+                        €{(month.totalBillEur / month.totalKwh).toFixed(3)}/kWh
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Time-of-Use Mode - Breakdown by slots */}
+        {tariffType === 'custom' && (
+          <div>
+            <p className="text-sm text-slate-500 mb-6">
+              Define time-of-use tariff slots and enter kWh consumed in each slot for two example months.
+            </p>
+
+            {/* Standing Charge */}
+            <div className="mb-6">
+              <Field label="Standing Charge (€/day)">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step={0.01}
+                  value={standingCharge}
+                  onChange={(e) => setStandingCharge(Number(e.target.value) || 0)}
+                  placeholder="e.g., 0.90"
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  Daily standing charge from your supplier (typically €0.80-€1.20/day).
+                </p>
+              </Field>
+            </div>
+
+            {/* Tariff Slots Definition */}
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-slate-700 mb-4">Tariff Time Slots</h4>
+              <div className="space-y-4">
+                {customSlots.map(slot => (
+                  <div key={slot.id} className="p-4 rounded-lg border border-slate-200 bg-slate-50/50">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <Field label="Slot Name">
+                        <input
+                          className={inputClass}
+                          type="text"
+                          value={slot.name}
+                          onChange={(e) => updateTariffSlot(slot.id, { name: e.target.value })}
+                          placeholder="e.g., Peak"
+                        />
+                      </Field>
+                      <Field label="Start (0-23)">
+                        <input
+                          className={inputClass}
+                          type="number"
+                          min={0} max={23}
+                          value={slot.startHour}
+                          onChange={(e) => updateTariffSlot(slot.id, { startHour: Number(e.target.value) })}
+                        />
+                      </Field>
+                      <Field label="End (0-23)">
+                        <input
+                          className={inputClass}
+                          type="number"
+                          min={0} max={23}
+                          value={slot.endHour}
+                          onChange={(e) => updateTariffSlot(slot.id, { endHour: Number(e.target.value) })}
+                        />
+                      </Field>
+                      <Field label="Rate (€/kWh)">
+                        <input
+                          className={inputClass}
+                          type="number"
+                          step={0.001}
+                          value={slot.ratePerKwh}
+                          onChange={(e) => updateTariffSlot(slot.id, { ratePerKwh: Number(e.target.value) })}
+                        />
+                      </Field>
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <button onClick={() => removeTariffSlot(slot.id)} className="text-xs text-red-600 hover:underline">Remove Slot</button>
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addTariffSlot}
+                  className="w-full py-3 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-indigo-500 hover:text-indigo-600"
+                >
+                  + Add Tariff Slot
+                </button>
+              </div>
+            </div>
+
+            {/* Example Months with kWh breakdown by slot */}
+            <div className="space-y-6">
+              <h4 className="text-sm font-semibold text-slate-700">Example Month Consumption</h4>
+              {exampleMonths.map((month, idx) => {
+                // Calculate auto total from slots
+                const slotTotal = customSlots.reduce((sum, slot) => {
+                  return sum + (month.tariffSlotUsage[slot.id] || 0);
+                }, 0);
+                
+                // Calculate bill from tariff config
+                const calculatedBill = calculateMonthlyBill(
+                  slotTotal,
+                  tariffConfig,
+                  // Convert absolute kWh to fractions for calculation
+                  Object.fromEntries(
+                    customSlots.map(s => [s.id, slotTotal > 0 ? (month.tariffSlotUsage[s.id] || 0) / slotTotal : 0])
+                  ),
+                  month.monthIndex
+                );
+
+                return (
+                  <div key={idx} className="p-6 rounded-lg border-2 border-slate-200 bg-slate-50">
+                    <div className="mb-4">
+                      <Field label="Month">
+                        <select
+                          className={selectClass}
+                          value={month.monthIndex}
+                          onChange={(e) => {
+                            const newIndex = Number(e.target.value);
+                            updateExampleMonth(idx, {
+                              monthIndex: newIndex,
+                              monthName: MONTHS[newIndex].name
+                            });
+                          }}
+                        >
+                          {MONTHS.map(m => (
+                            <option key={m.index} value={m.index}>{m.name}</option>
+                          ))}
+                        </select>
+                      </Field>
+                    </div>
+
+                    {/* kWh breakdown by slot */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                      {customSlots.map(slot => (
+                        <Field key={slot.id} label={`${slot.name} (kWh)`}>
+                          <input
+                            className={inputClass}
+                            type="number"
+                            step={100}
+                            value={month.tariffSlotUsage[slot.id] || 0}
+                            onChange={(e) => updateSlotUsage(month.monthIndex, slot.id, Number(e.target.value))}
+                          />
+                        </Field>
+                      ))}
+                    </div>
+
+                    {/* Auto-calculated totals */}
+                    <div className="mt-4 p-4 bg-white rounded border border-slate-200">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="font-medium text-slate-600">Total kWh:</span>{' '}
+                          <span className="font-bold text-slate-700">{slotTotal.toFixed(0)}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-slate-600">Calculated Bill:</span>{' '}
+                          <span className="font-bold text-tines-purple">€{calculatedBill.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">Bill includes standing charge. Verify this matches your actual bill.</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Navigation */}

@@ -14,15 +14,14 @@ describe('Step1DigitalTwin', () => {
     expect(selects.length).toBeGreaterThan(0);
   });
 
-  it('renders consumption profile section', () => {
+  it('renders consumption and tariff profile section', () => {
     const onNext = vi.fn();
     const onBack = vi.fn();
     render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
 
-    expect(screen.getByText(/Consumption Profile/i)).toBeInTheDocument();
+    expect(screen.getByText(/Consumption.*Tariff Profile/i)).toBeInTheDocument();
   });
 
-  // Tariff configuration section removed from Step 1
 
   it('validates location is required before proceeding', () => {
     const onNext = vi.fn();
@@ -53,8 +52,10 @@ describe('Step1DigitalTwin', () => {
     const callData = onNext.mock.calls[0][0];
     expect(callData.location).toBe('Cavan');
     expect(Array.isArray(callData.exampleMonths)).toBe(true);
-    // tariffConfig and estimatedMonthlyBills removed
     expect(Array.isArray(callData.curvedMonthlyKwh)).toBe(true);
+    // tariffConfig is now included in Step 1
+    expect(callData.tariffConfig).toBeDefined();
+    expect(callData.tariffConfig.type).toBe('flat');
   });
 
   it('calls onBack when back button is clicked', async () => {
@@ -69,5 +70,4 @@ describe('Step1DigitalTwin', () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  // Tariff config tests removed as functionality moved to Step 3
 });
