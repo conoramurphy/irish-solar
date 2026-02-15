@@ -63,8 +63,70 @@ function App() {
     businessType: 'hotel'
   });
 
+  // Billing profile from Step 1
+  const [exampleMonths, setExampleMonths] = useState<ExampleMonth[]>([]);
+  const [tariffConfig, setTariffConfig] = useState<TariffConfiguration | null>(null);
+  const [curvedMonthlyKwh, setCurvedMonthlyKwh] = useState<number[]>([]);
+
   const [tariffId] = useState<string>(tariffsData[0]?.id ?? '');
-  const tariff: Tariff | undefined = useMemo(() => tariffsData.find((t) => t.id === tariffId), [tariffId]);
+  // Base tariff from database (used for defaults/fallbacks like export rates)
+  const baseTariff: Tariff | undefined = useMemo(() => tariffsData.find((t) => t.id === tariffId), [tariffId]);
+
+  // Effective tariff: combines base tariff defaults with user's Step 1 configuration
+  const tariff: Tariff | undefined = useMemo(() => {
+    if (!baseTariff) return undefined;
+    if (!tariffConfig) return baseTariff;
+
+    // 1. Flat Rate Override
+    if (tariffConfig.type === 'flat' && tariffConfig.flatRate) {
+      return {
+        ...baseTariff,
+        id: 'user-custom-flat',
+        supplier: 'User Defined',
+        product: 'Flat Rate',
+        type: '24-hour',
+        // Flat rate mode has no standing charge in input, but we preserve base or use 0?
+        // Step 1 removed standing charge from flat mode UI.
+        // If we want to strictly match "implied rate", we should arguably set standing charge to 0
+        // and let the flat rate cover everything. Or keep it separate.
+        // Given the user says "Total bill 9500", if we calculate rate = 9500/kwh, that rate is "all-inclusive".
+        // So standing charge should be 0 to avoid double counting.
+        standingCharge: 0, 
+        rates: [{ period: 'all-day', rate: tariffConfig.flatRate }]
+      };
+    }
+
+    // 2. Custom Time-of-Use Override
+    if (tariffConfig.type === 'custom' && tariffConfig.customSlots) {
+      const customRates = tariffConfig.customSlots.map(slot => {
+        // Convert integer hours (inclusive 0-23) to "HH:MM-HH:MM" range string (end exclusive)
+        const start = slot.startHour.toString().padStart(2, '0') + ':00';
+        let endH = slot.endHour + 1;
+        // Handle 24:00 as 00:00 for the string format if needed, or 24:00 if parser supports it.
+        // parseTimeRanges splits by :, parseInt. 24 is valid.
+        const end = endH.toString().padStart(2, '0') + ':00';
+        
+        return {
+          period: slot.id, // Use slot ID as period name (e.g. "slot-123")
+          hours: `${start}-${end}`,
+          rate: slot.ratePerKwh
+        };
+      });
+
+      return {
+        ...baseTariff,
+        id: 'user-custom-tou',
+        supplier: 'User Defined',
+        product: 'Time-of-Use',
+        type: 'time-of-use',
+        // User enters €/day in UI. Tariff expects €/day.
+        standingCharge: tariffConfig.standingChargePerDay ?? baseTariff.standingCharge,
+        rates: customRates
+      };
+    }
+
+    return baseTariff;
+  }, [baseTariff, tariffConfig]);
 
   const eligibleGrants = useMemo(() => getEligibleGrants(config.businessType, grantsData), [config.businessType]);
   const [selectedGrantIds, setSelectedGrantIds] = useState<string[]>([]);
@@ -78,10 +140,6 @@ function App() {
   const [trading, setTrading] = useState<TradingConfig>({ enabled: false });
   const [priceTimeseriesData, setPriceTimeseriesData] = useState<ParsedPriceData | null>(null);
 
-  // Billing profile from Step 1
-  const [exampleMonths, setExampleMonths] = useState<ExampleMonth[]>([]);
-  const [tariffConfig, setTariffConfig] = useState<TariffConfiguration | null>(null);
-  const [curvedMonthlyKwh, setCurvedMonthlyKwh] = useState<number[]>([]);
   
   // Estimated monthly bills (derived)
   const estimatedMonthlyBills = useMemo(() => {
