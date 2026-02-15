@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { SystemConfiguration, TradingConfig } from '../../types';
 import type { ExampleMonth, TariffConfiguration, TariffSlot } from '../../types/billing';
 import { type ParsedPriceData, parsePriceTimeseriesCSV } from '../../utils/priceTimeseriesParser';
-import { calculateAverageFlatRate } from '../../utils/billingCalculations';
+import { calculateAverageFlatRate, curveConsumption } from '../../utils/billingCalculations';
 import { Field } from '../Field';
 
 interface Step3Props {
@@ -142,6 +142,14 @@ export function Step3Battery({
     setExampleMonths(newMonths);
   };
 
+  // Calculate average hourly consumption for guidance
+  const avgHourlyKw = useMemo(() => {
+    if (!exampleMonths || exampleMonths.length === 0) return 0;
+    const monthlyKwh = curveConsumption(exampleMonths);
+    const annualKwh = monthlyKwh.reduce((sum, m) => sum + m, 0);
+    return annualKwh / 8760;
+  }, [exampleMonths]);
+
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="text-center mb-10">
@@ -183,6 +191,22 @@ export function Step3Battery({
             <p className="mt-2 text-sm text-slate-500">
               Set to 0 to disable battery.
             </p>
+          </div>
+
+          <div className="bg-slate-50 rounded-lg border border-slate-200 p-6 flex flex-col justify-center">
+             <div className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">
+               Site Load Context
+             </div>
+             <div className="flex items-baseline gap-2">
+               <span className="text-3xl font-bold text-slate-700">
+                 {avgHourlyKw.toFixed(1)}
+               </span>
+               <span className="text-sm font-medium text-slate-500">kW</span>
+             </div>
+             <div className="text-sm text-slate-500 mt-2">
+               Average hourly consumption. <br/>
+               A {Math.round(avgHourlyKw * 2)}-{(Math.round(avgHourlyKw * 4))} kWh battery would cover 2-4 hours of load.
+             </div>
           </div>
         </div>
       </div>

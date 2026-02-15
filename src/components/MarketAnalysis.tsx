@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { HourlyEnergyFlow } from '../types';
 
 interface MarketAnalysisProps {
@@ -13,7 +13,23 @@ function formatMwh(value: number) {
   }).format(value);
 }
 
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+        active 
+          ? 'bg-white text-slate-700 shadow-sm ring-1 ring-slate-200' 
+          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function MarketAnalysis({ hourlyData, year }: MarketAnalysisProps) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'seasonality' | 'arbitrage'>('overview');
   // 1. Filter valid market data and normalize to MWh
   const validData = useMemo(() => {
     // Check if we have enough market price data
@@ -187,50 +203,201 @@ export function MarketAnalysis({ hourlyData, year }: MarketAnalysisProps) {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
-      <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+      <div className="px-8 py-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
         <div>
           <h3 className="text-xl font-serif font-bold text-slate-800">Market Rate Analysis ({year})</h3>
           <p className="text-sm text-slate-500 mt-1">
             Analysis of Day-Ahead Market (DAM) prices. All values in <span className="font-medium text-slate-700">€/MWh</span>.
           </p>
         </div>
+        
+        <div className="flex p-1 bg-slate-100 rounded-lg shrink-0 self-start md:self-auto">
+          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>Overview</TabButton>
+          <TabButton active={activeTab === 'seasonality'} onClick={() => setActiveTab('seasonality')}>Seasonality</TabButton>
+          <TabButton active={activeTab === 'arbitrage'} onClick={() => setActiveTab('arbitrage')}>Arbitrage</TabButton>
+        </div>
       </div>
 
-      <div className="p-8">
-        {/* 1. Headline Numbers */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-10">
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Avg Price</div>
-             <div className="text-2xl font-bold text-slate-700">{formatMwh(analysis.avgPrice)}</div>
-             <div className="text-xs text-slate-400 mt-1">€/MWh</div>
+      <div className="p-8 min-h-[400px]">
+        {/* 1. Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="animate-in fade-in duration-300">
+             <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-10">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Avg Price</div>
+                 <div className="text-2xl font-bold text-slate-700">{formatMwh(analysis.avgPrice)}</div>
+                 <div className="text-xs text-slate-400 mt-1">€/MWh</div>
+              </div>
+              <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                 <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Mean Daily Spread</div>
+                 <div className="text-2xl font-bold text-indigo-700">{formatMwh(analysis.meanDailySpread)}</div>
+                 <div className="text-xs text-indigo-400 mt-1">Best 4h vs Worst 4h</div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Volatility (P95-P5)</div>
+                 <div className="text-2xl font-bold text-slate-700">{formatMwh(analysis.p95p5Range)}</div>
+                 <div className="text-xs text-slate-400 mt-1">Hourly Range</div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Negative Pricing</div>
+                 <div className="text-2xl font-bold text-slate-700">{(analysis.belowZeroPct * 100).toFixed(1)}%</div>
+                 <div className="text-xs text-slate-400 mt-1">Hours &lt; €0/MWh</div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Max Daily Spread</div>
+                 <div className="text-2xl font-bold text-slate-700">{formatMwh(analysis.maxDailySpread)}</div>
+                 <div className="text-xs text-slate-400 mt-1">Extreme Volatility</div>
+              </div>
+            </div>
+            
+            {/* Also show Monthly Breakdown here for quick reference? Or keep separate? */}
+            {/* Let's show the Monthly Table here as well since it's dense data good for overview */}
+             <div>
+               <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-6">Monthly Breakdown</h4>
+               <div className="overflow-hidden rounded-lg border border-slate-200">
+                 <table className="w-full text-sm text-left">
+                   <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                     <tr>
+                       <th className="px-4 py-2">Month</th>
+                       <th className="px-4 py-2 text-right">Mean Spread</th>
+                       <th className="px-4 py-2 text-right">Range (P95-P5)</th>
+                       <th className="px-4 py-2 text-right">% &lt; €0</th>
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-slate-100">
+                     {analysis.months.map((m) => (
+                       <tr key={m.monthIndex} className="hover:bg-slate-50/50">
+                         <td className="px-4 py-2 font-medium text-slate-700">
+                           {new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' })}
+                         </td>
+                         <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatMwh(m.meanSpread)}</td>
+                         <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatMwh(m.p95p5Range)}</td>
+                         <td className={`px-4 py-2 text-right tabular-nums ${m.pctBelowZero > 0 ? 'text-rose-600 font-medium' : 'text-slate-400'}`}>
+                           {m.pctBelowZero > 0 ? `${(m.pctBelowZero * 100).toFixed(1)}%` : '—'}
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+               </div>
+            </div>
           </div>
-          <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-             <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Mean Daily Spread</div>
-             <div className="text-2xl font-bold text-indigo-700">{formatMwh(analysis.meanDailySpread)}</div>
-             <div className="text-xs text-indigo-400 mt-1">Best 4h vs Worst 4h</div>
-          </div>
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Volatility (P95-P5)</div>
-             <div className="text-2xl font-bold text-slate-700">{formatMwh(analysis.p95p5Range)}</div>
-             <div className="text-xs text-slate-400 mt-1">Hourly Range</div>
-          </div>
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Negative Pricing</div>
-             <div className="text-2xl font-bold text-slate-700">{(analysis.belowZeroPct * 100).toFixed(1)}%</div>
-             <div className="text-xs text-slate-400 mt-1">Hours &lt; €0/MWh</div>
-          </div>
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Max Daily Spread</div>
-             <div className="text-2xl font-bold text-slate-700">{formatMwh(analysis.maxDailySpread)}</div>
-             <div className="text-xs text-slate-400 mt-1">Extreme Volatility</div>
-          </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-10">
-          {/* 2. Bucketed Arbitrage Days */}
-          <div>
+        {/* 2. Seasonality Tab */}
+        {activeTab === 'seasonality' && (
+           <div className="animate-in fade-in duration-300">
+             <div className="flex items-center justify-between mb-6">
+               <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Price Seasonality & Volatility</h4>
+               <div className="flex items-center gap-4 text-xs text-slate-500">
+                 <div className="flex items-center gap-1">
+                   <div className="w-3 h-0.5 bg-slate-300"></div>
+                   <span>P5/P95</span>
+                 </div>
+                 <div className="flex items-center gap-1">
+                   <div className="w-3 h-3 bg-indigo-100 border border-indigo-500"></div>
+                   <span>Q1-Q3</span>
+                 </div>
+                 <div className="flex items-center gap-1">
+                   <div className="w-3 h-0.5 bg-indigo-700"></div>
+                   <span>Median</span>
+                 </div>
+               </div>
+             </div>
+             
+             <div className="relative h-96 bg-slate-50/50 rounded-xl border border-slate-100 p-4 mb-8">
+               {/* Y-Axis Labels */}
+               <div className="absolute left-0 top-4 bottom-8 w-12 flex flex-col justify-between text-[10px] text-slate-400 text-right pr-2">
+                 <div>{yMax}</div>
+                 <div>{Math.round((yMax + yMin) / 2)}</div>
+                 <div>{yMin}</div>
+               </div>
+
+               <div className="absolute left-12 right-4 top-4 bottom-8">
+                 <svg width="100%" height="100%" preserveAspectRatio="none" className="overflow-visible">
+                   {/* Grid lines */}
+                   <line x1="0" y1="0" x2="100%" y2="0" stroke="#e2e8f0" strokeDasharray="4 4" />
+                   <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#e2e8f0" strokeDasharray="4 4" />
+                   <line x1="0" y1="100%" x2="100%" y2="100%" stroke="#e2e8f0" strokeDasharray="4 4" />
+                   
+                   {/* Zero line if visible */}
+                   {yMin < 0 && yMax > 0 && (
+                     <line 
+                       x1="0" 
+                       y1={getY(0)} 
+                       x2="100%" 
+                       y2={getY(0)} 
+                       stroke="#94a3b8" 
+                       strokeWidth="1" 
+                       opacity="0.5" 
+                     />
+                   )}
+
+                   {analysis.months.map((m, i) => {
+                     const x = `${(i / 12) * 100 + (100/24)}%`; // Center of month slot
+                     
+                     const yP95 = getY(m.boxPlot.p95);
+                     const yQ3 = getY(m.boxPlot.q3);
+                     const yMedian = getY(m.boxPlot.median);
+                     const yQ1 = getY(m.boxPlot.q1);
+                     const yP5 = getY(m.boxPlot.p5);
+
+                     return (
+                       <g key={m.monthIndex}>
+                         {/* Whiskers */}
+                         <line x1={x} y1={yP95} x2={x} y2={yQ3} stroke="#64748b" strokeWidth="1" />
+                         <line x1={x} y1={yQ1} x2={x} y2={yP5} stroke="#64748b" strokeWidth="1" />
+                         
+                         {/* Whisker caps */}
+                         <line x1={`calc(${x} - 1%)`} y1={yP95} x2={`calc(${x} + 1%)`} y2={yP95} stroke="#64748b" strokeWidth="1" />
+                         <line x1={`calc(${x} - 1%)`} y1={yP5} x2={`calc(${x} + 1%)`} y2={yP5} stroke="#64748b" strokeWidth="1" />
+
+                         {/* Box */}
+                         <rect
+                           x={`calc(${x} - 2%)`}
+                           y={yQ3}
+                           width="4%"
+                           height={Math.max(1, yQ1 - yQ3)}
+                           fill="#e0e7ff"
+                           stroke="#6366f1"
+                           strokeWidth="1"
+                         />
+                         
+                         {/* Median */}
+                         <line
+                           x1={`calc(${x} - 2%)`}
+                           y1={yMedian}
+                           x2={`calc(${x} + 2%)`}
+                           y2={yMedian}
+                           stroke="#4338ca"
+                           strokeWidth="2"
+                         />
+                       </g>
+                     );
+                   })}
+                 </svg>
+               </div>
+               
+               {/* X-Axis Labels */}
+               <div className="absolute left-12 right-4 bottom-0 h-6 flex justify-between text-[10px] text-slate-500 font-medium">
+                  {analysis.months.map(m => (
+                    <div key={m.monthIndex} className="flex-1 text-center">
+                      {new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'narrow' })}
+                    </div>
+                  ))}
+               </div>
+             </div>
+             <p className="text-xs text-slate-400 text-center italic">
+                Box plot shows the distribution of hourly prices for each month (P5, Q1, Median, Q3, P95).
+             </p>
+           </div>
+        )}
+
+        {/* 3. Arbitrage Tab */}
+        {activeTab === 'arbitrage' && (
+           <div className="animate-in fade-in duration-300">
             <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-6">Daily Arbitrage Opportunity Distribution</h4>
-            <div className="h-64 flex items-end justify-between gap-2">
+            <div className="h-64 flex items-end justify-between gap-2 max-w-3xl mx-auto">
               {bucketLabels.map((label) => {
                 const count = analysis.buckets[label];
                 const pct = count / analysis.dailySpreadsCount;
@@ -256,144 +423,11 @@ export function MarketAnalysis({ hourlyData, year }: MarketAnalysisProps) {
                 );
               })}
             </div>
+            <p className="text-xs text-slate-400 text-center mt-6">
+               Number of days where the spread between the 4 cheapest and 4 most expensive hours falls within each range.
+            </p>
           </div>
-
-          {/* 3. Monthly Stats Table */}
-          <div>
-             <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-6">Monthly Breakdown</h4>
-             <div className="overflow-hidden rounded-lg border border-slate-200">
-               <table className="w-full text-sm text-left">
-                 <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                   <tr>
-                     <th className="px-4 py-2">Month</th>
-                     <th className="px-4 py-2 text-right">Mean Spread</th>
-                     <th className="px-4 py-2 text-right">Range (P95-P5)</th>
-                     <th className="px-4 py-2 text-right">% &lt; €0</th>
-                   </tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-100">
-                   {analysis.months.map((m) => (
-                     <tr key={m.monthIndex} className="hover:bg-slate-50/50">
-                       <td className="px-4 py-2 font-medium text-slate-700">
-                         {new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' })}
-                       </td>
-                       <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatMwh(m.meanSpread)}</td>
-                       <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatMwh(m.p95p5Range)}</td>
-                       <td className={`px-4 py-2 text-right tabular-nums ${m.pctBelowZero > 0 ? 'text-rose-600 font-medium' : 'text-slate-400'}`}>
-                         {m.pctBelowZero > 0 ? `${(m.pctBelowZero * 100).toFixed(1)}%` : '—'}
-                       </td>
-                     </tr>
-                   ))}
-                 </tbody>
-               </table>
-             </div>
-          </div>
-        </div>
-
-        {/* 4. Box Plot Chart */}
-        <div>
-           <div className="flex items-center justify-between mb-6">
-             <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Price Seasonality & Volatility</h4>
-             <div className="flex items-center gap-4 text-xs text-slate-500">
-               <div className="flex items-center gap-1">
-                 <div className="w-3 h-0.5 bg-slate-300"></div>
-                 <span>P5/P95</span>
-               </div>
-               <div className="flex items-center gap-1">
-                 <div className="w-3 h-3 bg-indigo-100 border border-indigo-500"></div>
-                 <span>Q1-Q3</span>
-               </div>
-               <div className="flex items-center gap-1">
-                 <div className="w-3 h-0.5 bg-indigo-700"></div>
-                 <span>Median</span>
-               </div>
-             </div>
-           </div>
-           
-           <div className="relative h-64 bg-slate-50/50 rounded-xl border border-slate-100 p-4">
-             {/* Y-Axis Labels */}
-             <div className="absolute left-0 top-4 bottom-8 w-12 flex flex-col justify-between text-[10px] text-slate-400 text-right pr-2">
-               <div>{yMax}</div>
-               <div>{Math.round((yMax + yMin) / 2)}</div>
-               <div>{yMin}</div>
-             </div>
-
-             <div className="absolute left-12 right-4 top-4 bottom-8">
-               <svg width="100%" height="100%" preserveAspectRatio="none" className="overflow-visible">
-                 {/* Grid lines */}
-                 <line x1="0" y1="0" x2="100%" y2="0" stroke="#e2e8f0" strokeDasharray="4 4" />
-                 <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#e2e8f0" strokeDasharray="4 4" />
-                 <line x1="0" y1="100%" x2="100%" y2="100%" stroke="#e2e8f0" strokeDasharray="4 4" />
-                 
-                 {/* Zero line if visible */}
-                 {yMin < 0 && yMax > 0 && (
-                   <line 
-                     x1="0" 
-                     y1={getY(0)} 
-                     x2="100%" 
-                     y2={getY(0)} 
-                     stroke="#94a3b8" 
-                     strokeWidth="1" 
-                     opacity="0.5" 
-                   />
-                 )}
-
-                 {analysis.months.map((m, i) => {
-                   const x = `${(i / 12) * 100 + (100/24)}%`; // Center of month slot
-                   const width = "4%"; // Width of box
-                   
-                   const yP95 = getY(m.boxPlot.p95);
-                   const yQ3 = getY(m.boxPlot.q3);
-                   const yMedian = getY(m.boxPlot.median);
-                   const yQ1 = getY(m.boxPlot.q1);
-                   const yP5 = getY(m.boxPlot.p5);
-
-                   return (
-                     <g key={m.monthIndex}>
-                       {/* Whiskers */}
-                       <line x1={x} y1={yP95} x2={x} y2={yQ3} stroke="#64748b" strokeWidth="1" />
-                       <line x1={x} y1={yQ1} x2={x} y2={yP5} stroke="#64748b" strokeWidth="1" />
-                       
-                       {/* Whisker caps */}
-                       <line x1={`calc(${x} - 1%)`} y1={yP95} x2={`calc(${x} + 1%)`} y2={yP95} stroke="#64748b" strokeWidth="1" />
-                       <line x1={`calc(${x} - 1%)`} y1={yP5} x2={`calc(${x} + 1%)`} y2={yP5} stroke="#64748b" strokeWidth="1" />
-
-                       {/* Box */}
-                       <rect
-                         x={`calc(${x} - 2%)`}
-                         y={yQ3}
-                         width="4%"
-                         height={Math.max(1, yQ1 - yQ3)}
-                         fill="#e0e7ff"
-                         stroke="#6366f1"
-                         strokeWidth="1"
-                       />
-                       
-                       {/* Median */}
-                       <line
-                         x1={`calc(${x} - 2%)`}
-                         y1={yMedian}
-                         x2={`calc(${x} + 2%)`}
-                         y2={yMedian}
-                         stroke="#4338ca"
-                         strokeWidth="2"
-                       />
-                     </g>
-                   );
-                 })}
-               </svg>
-             </div>
-             
-             {/* X-Axis Labels */}
-             <div className="absolute left-12 right-4 bottom-0 h-6 flex justify-between text-[10px] text-slate-500 font-medium">
-                {analysis.months.map(m => (
-                  <div key={m.monthIndex} className="flex-1 text-center">
-                    {new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'narrow' })}
-                  </div>
-                ))}
-             </div>
-           </div>
-        </div>
+        )}
       </div>
     </div>
   );
