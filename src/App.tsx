@@ -91,7 +91,9 @@ function App() {
         // and let the flat rate cover everything. Or keep it separate.
         // Given the user says "Total bill 9500", if we calculate rate = 9500/kwh, that rate is "all-inclusive".
         // So standing charge should be 0 to avoid double counting.
-        standingCharge: 0, 
+        standingCharge: 0,
+        // User enters all-inclusive rates, so PSO levy should be 0 (already included in user's rates)
+        psoLevy: 0,
         rates: [{ period: 'all-day', rate: tariffConfig.flatRate }]
       };
     }
@@ -121,6 +123,8 @@ function App() {
         type: 'time-of-use',
         // User enters €/day in UI. Tariff expects €/day.
         standingCharge: tariffConfig.standingChargePerDay ?? baseTariff.standingCharge,
+        // User enters all-inclusive rates (€/kWh), so PSO levy should be 0 (already included in user's rates)
+        psoLevy: 0,
         rates: customRates
       };
     }
