@@ -18,6 +18,7 @@ export interface TariffConfiguration {
   type: 'flat' | 'custom';
   flatRate?: number; // €/kWh for flat tariff
   customSlots?: TariffSlot[]; // for custom tariff
+  standingChargePerDay?: number; // €/day standing charge
 }
 
 export interface ConsumptionBillingProfile {

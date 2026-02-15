@@ -55,29 +55,41 @@ export function curveConsumption(exampleMonths: ExampleMonth[]): number[] {
 
 /**
  * Calculate estimated bill for a month given kWh and tariff configuration
+ * @param monthIndex - 0-based month index (0=Jan, 1=Feb, etc.)
  */
 export function calculateMonthlyBill(
   monthKwh: number,
   tariffConfig: TariffConfiguration,
-  tariffSlotUsage?: Record<string, number>
+  tariffSlotUsage?: Record<string, number>,
+  monthIndex?: number
 ): number {
+  let energyCost = 0;
+  
   if (tariffConfig.type === 'flat' && tariffConfig.flatRate) {
-    return monthKwh * tariffConfig.flatRate;
-  }
-
-  if (tariffConfig.type === 'custom' && tariffConfig.customSlots && tariffSlotUsage) {
-    let totalBill = 0;
-    
+    energyCost = monthKwh * tariffConfig.flatRate;
+  } else if (tariffConfig.type === 'custom' && tariffConfig.customSlots && tariffSlotUsage) {
     for (const slot of tariffConfig.customSlots) {
       const slotUsageFraction = tariffSlotUsage[slot.id] || 0;
       const slotKwh = monthKwh * slotUsageFraction;
-      totalBill += slotKwh * slot.ratePerKwh;
+      energyCost += slotKwh * slot.ratePerKwh;
     }
-    
-    return totalBill;
   }
+  
+  // Add standing charge if configured
+  const standingChargeCost = tariffConfig.standingChargePerDay 
+    ? tariffConfig.standingChargePerDay * getDaysInMonth(monthIndex)
+    : 0;
+  
+  return energyCost + standingChargeCost;
+}
 
-  return 0;
+/**
+ * Get number of days in a month (assumes non-leap year for simplicity)
+ */
+function getDaysInMonth(monthIndex?: number): number {
+  if (monthIndex === undefined) return 30; // Default fallback
+  const daysPerMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return daysPerMonth[monthIndex] || 30;
 }
 
 /**
@@ -140,6 +152,6 @@ export function estimateAnnualBills(
       return currentDist < closestDist ? example : closest;
     }, exampleMonths[0]);
 
-    return calculateMonthlyBill(monthKwh, tariffConfig, closestExample?.tariffSlotUsage);
+    return calculateMonthlyBill(monthKwh, tariffConfig, closestExample?.tariffSlotUsage, monthIndex);
   });
 }

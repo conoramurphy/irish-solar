@@ -49,6 +49,9 @@ export function Step3Battery({
   const [customSlots, setCustomSlots] = useState<TariffSlot[]>(
     tariffConfig?.customSlots || []
   );
+  const [standingCharge, setStandingCharge] = useState<number>(
+    tariffConfig?.standingChargePerDay ?? 0.9
+  );
 
   // Sync Standard Tariff changes to parent
   useEffect(() => {
@@ -56,15 +59,15 @@ export function Step3Battery({
       if (localTariffType === 'flat') {
         const flatRate = calculateAverageFlatRate(exampleMonths);
         // Only update if changed to avoid loops
-        if (tariffConfig?.type !== 'flat' || Math.abs((tariffConfig.flatRate || 0) - flatRate) > 0.0001) {
-           setTariffConfig({ type: 'flat', flatRate });
+        if (tariffConfig?.type !== 'flat' || Math.abs((tariffConfig.flatRate || 0) - flatRate) > 0.0001 || tariffConfig.standingChargePerDay !== standingCharge) {
+           setTariffConfig({ type: 'flat', flatRate, standingChargePerDay: standingCharge });
         }
       } else {
         // Custom
-        setTariffConfig({ type: 'custom', customSlots });
+        setTariffConfig({ type: 'custom', customSlots, standingChargePerDay: standingCharge });
       }
     }
-  }, [tariffMode, localTariffType, customSlots, exampleMonths, setTariffConfig, tariffConfig]);
+  }, [tariffMode, localTariffType, customSlots, standingCharge, exampleMonths, setTariffConfig, tariffConfig]);
 
   // Auto-load price data when trading is enabled (Market Mode)
   useEffect(() => {
@@ -286,6 +289,23 @@ export function Step3Battery({
               >
                 Time-of-Use
               </button>
+            </div>
+
+            {/* Standing Charge - shown for both flat and custom */}
+            <div className="mb-6">
+              <Field label="Standing Charge (€/day)">
+                <input
+                  className={inputClass}
+                  type="number"
+                  step={0.01}
+                  value={standingCharge}
+                  onChange={(e) => setStandingCharge(Number(e.target.value) || 0)}
+                  placeholder="e.g., 0.90"
+                />
+                <p className="mt-2 text-xs text-slate-400">
+                  Daily standing charge from your supplier (typically €0.80-€1.20/day).
+                </p>
+              </Field>
             </div>
 
             {localTariffType === 'flat' && (
