@@ -9,8 +9,7 @@ import type {
   TradingConfig
 } from '../types';
 import { distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
-import { normalizePriceTimeseries, type ParsedPriceData } from './priceTimeseriesParser';
-import { generateHourlyConsumption } from './hourlyConsumption';
+import type { SimulationContext } from './simulationContext';
 import { simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
 import { estimateSystemCost } from './costEstimation';
 import { calculateGrantAmount } from '../models/grants';
@@ -24,9 +23,8 @@ interface AnalysisContext {
   financing: Financing;
   tariff: Tariff;
   trading: TradingConfig;
-  consumptionProfile?: ConsumptionProfile;
+  simContext: SimulationContext;
   solarTimeseriesData: ParsedSolarData;
-  priceTimeseriesData?: ParsedPriceData;
 }
 
 function computeScenarioMetrics(
@@ -40,12 +38,11 @@ function computeScenarioMetrics(
     financing,
     tariff,
     trading,
-    consumptionProfile,
-    solarTimeseriesData,
-    priceTimeseriesData
+    simContext,
+    solarTimeseriesData
   } = ctx;
 
-  // 1. Financial Setup
+  const { timeStamps, hourlyConsumption, hourlyPrices } = simContext;
   const systemCost = estimateSystemCost(systemSizeKwp, batterySizeKwh);
   const { totalGrant } = calculateGrantAmount(systemCost, grants, { systemSizeKwp });
   const netCost = Math.max(0, systemCost - totalGrant);
@@ -65,24 +62,7 @@ function computeScenarioMetrics(
     : 0;
 
   // 2. Prepare Timesteps
-  const timeStamps = solarTimeseriesData.timesteps.map((ts) => ts.stamp);
-  
-  // Normalize prices if needed
-  let hourlyPrices: number[] | undefined;
-  if (trading.enabled && priceTimeseriesData) {
-    const { normalized } = normalizePriceTimeseries(priceTimeseriesData, solarTimeseriesData.year);
-    hourlyPrices = normalized.timesteps.map(ts => ts.priceEur / 1000);
-  }
-
-  const monthlyConsumption = normalizeConsumptionProfile(consumptionProfile, tariff);
-  // Hourly consumption is constant across years for this simplified analysis
-  // (We ignore load growth/degrowth for now)
-  const hourlyConsumption = generateHourlyConsumption(
-    monthlyConsumption, 
-    tariff, 
-    solarTimeseriesData.timesteps.length, 
-    timeStamps
-  );
+  // (Timesteps, prices, and consumption are provided via simContext)
 
   const batteryConfig: BatteryConfig | undefined = batterySizeKwh > 0 ? {
     capacityKwh: batterySizeKwh,

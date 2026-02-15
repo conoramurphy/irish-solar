@@ -19,7 +19,7 @@ import { aggregateHourlyResultsToMonthly, simulateHourlyEnergyFlow, type Battery
 import { calculateTimeseriesWeights, distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
 import { buildSolarSpillageAnalysis } from './spillageAnalysis';
 import { runSensitivityAnalysis } from './sensitivityAnalysis';
-import { normalizePriceTimeseries, type ParsedPriceData } from './priceTimeseriesParser';
+import { prepareSimulationContext, type SimulationContext } from './simulationContext';
 
 /**
  * Run a full ROI calculation for a single scenario.
@@ -73,22 +73,18 @@ export function runCalculation(
     );
   }
   
-  const solarHours = solarTimeseriesData.timesteps.length;
-  if (solarHours !== 8760 && solarHours !== 8784) {
-    throw new Error(
-      `Solar timeseries must contain exactly 8,760 (non-leap year) or 8,784 (leap year) hourly timesteps. ` +
-      `Received ${solarHours} timesteps.`
-    );
-  }
+  
+  // Prepare simulation context (centralized logic)
+  const simContext = prepareSimulationContext(
+    config,
+    tariff,
+    trading,
+    solarTimeseriesData,
+    consumptionProfile,
+    priceTimeseriesData
+  );
 
-  // Normalize price timeseries if provided and trading enabled
-  let hourlyPrices: number[] | undefined;
-  if (trading.enabled && priceTimeseriesData) {
-    // Normalize prices to match solar year
-    const { normalized } = normalizePriceTimeseries(priceTimeseriesData, solarTimeseriesData.year);
-    // Extract simple array
-    hourlyPrices = normalized.timesteps.map(ts => ts.priceEur / 1000);
-  }
+  const { timeStamps, hourlyConsumption, hourlyPrices } = simContext;
   
   // Always use hourly simulation (audit mode)
   const useHourlySimulation = true;
@@ -109,9 +105,7 @@ export function runCalculation(
   
   if (useHourlySimulation) {
     // Use hour-by-hour simulation with solar timeseries data
-    const timeStamps = solarTimeseriesData!.timesteps.map((ts) => ts.stamp);
     const hourlyGeneration = distributeAnnualProductionTimeseries(baseGeneration, solarTimeseriesData!);
-    const hourlyConsumption = generateHourlyConsumption(monthlyConsumption, tariff, solarTimeseriesData!.timesteps.length, timeStamps, config.businessType);
 
     // Extra mini-analysis: solar-only spillage sensitivity (ignores batteries + € rates).
     // Uses the same hourly consumption profile + irradiance-derived weights.
@@ -130,9 +124,8 @@ export function runCalculation(
       financing,
       tariff,
       trading,
-      consumptionProfile,
+      simContext,
       solarTimeseriesData: solarTimeseriesData!,
-      priceTimeseriesData
     });
     
     const batteryConfig: BatteryConfig | undefined = config.batterySizeKwh > 0 ? {
