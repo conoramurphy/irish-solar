@@ -45,7 +45,7 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
   const tariffConfig: TariffConfiguration = useMemo(() => {
     if (tariffType === 'flat') {
       const flatRate = calculateAverageFlatRate(exampleMonths);
-      return { type: 'flat', flatRate, standingChargePerDay: standingCharge };
+      return { type: 'flat', flatRate }; // No standing charge for flat rate
     }
     return { type: 'custom', customSlots, standingChargePerDay: standingCharge };
   }, [tariffType, exampleMonths, customSlots, standingCharge]);
@@ -189,23 +189,6 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
             <p className="text-sm text-slate-500 mb-6">
               Select two different months (typically one winter, one summer) and enter your actual usage and bill amounts.
             </p>
-            
-            {/* Standing Charge */}
-            <div className="mb-6">
-              <Field label="Standing Charge (€/day)">
-                <input
-                  className={inputClass}
-                  type="number"
-                  step={0.01}
-                  value={standingCharge}
-                  onChange={(e) => setStandingCharge(Number(e.target.value) || 0)}
-                  placeholder="e.g., 0.90"
-                />
-                <p className="mt-2 text-xs text-slate-400">
-                  Daily standing charge from your supplier (typically €0.80-€1.20/day).
-                </p>
-              </Field>
-            </div>
 
             <div className="space-y-6">
               {exampleMonths.map((month, idx) => (
