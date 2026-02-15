@@ -298,6 +298,69 @@ export function ResultsSection({
                 </div>
               </div>
             )}
+
+            {/* Monthly Before/After Table */}
+            {result.audit?.monthly && result.audit.monthly.length === 12 && (
+              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                  <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Monthly Bill Comparison</h3>
+                  <p className="text-xs text-slate-400 mt-1">Before and after solar PV installation</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                      <tr>
+                        <th className="px-6 py-3">Month</th>
+                        <th className="px-6 py-3 text-right">Before</th>
+                        <th className="px-6 py-3 text-right">After</th>
+                        <th className="px-6 py-3 text-right">Savings</th>
+                        <th className="px-6 py-3 text-right">Spill Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {result.audit.monthly.map((m) => {
+                        const monthName = new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' });
+                        const baseline = m.baselineCost ?? 0;
+                        const newBill = m.importCost ?? 0;
+                        const savings = baseline - newBill;
+                        const spillRate = m.generation > 0 ? m.gridExport / m.generation : 0;
+                        const isHighSpill = spillRate > 0.3;
+                        
+                        return (
+                          <tr key={m.monthIndex} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-3 font-medium text-slate-700">{monthName}</td>
+                            <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(baseline)}</td>
+                            <td className="px-6 py-3 text-right text-emerald-600 tabular-nums font-medium">{formatCurrency(newBill)}</td>
+                            <td className="px-6 py-3 text-right text-emerald-600 tabular-nums font-medium">
+                              {formatCurrency(savings)}
+                            </td>
+                            <td className={`px-6 py-3 text-right tabular-nums font-medium ${
+                              isHighSpill ? 'text-amber-600' : 'text-slate-600'
+                            }`}>
+                              {formatPercentFraction(spillRate)}
+                              {isHighSpill && <span className="ml-1 text-xs">⚠️</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
+                      <tr>
+                        <td className="px-6 py-4 text-slate-800">Total</td>
+                        <td className="px-6 py-4 text-right text-slate-700 tabular-nums">{formatCurrency(monthlyTotals.baseline)}</td>
+                        <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">{formatCurrency(monthlyTotals.newBill)}</td>
+                        <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">
+                          {formatCurrency(monthlyTotals.baseline - monthlyTotals.newBill)}
+                        </td>
+                        <td className="px-6 py-4 text-right text-slate-700 tabular-nums">
+                          {formatPercentFraction(result.annualExport / (result.annualGeneration || 1))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
