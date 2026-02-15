@@ -87,7 +87,7 @@ export function runCalculation(
     // Normalize prices to match solar year
     const { normalized } = normalizePriceTimeseries(priceTimeseriesData, solarTimeseriesData.year);
     // Extract simple array
-    hourlyPrices = normalized.timesteps.map(ts => ts.priceEur);
+    hourlyPrices = normalized.timesteps.map(ts => ts.priceEur / 1000);
   }
   
   // Always use hourly simulation (audit mode)

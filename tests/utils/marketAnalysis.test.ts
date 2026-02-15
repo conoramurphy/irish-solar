@@ -124,14 +124,15 @@ describe('Market Analysis Integration', () => {
     expect(result.audit?.hourly.length).toBe(8784); // Leap year
 
     // Check first hour
+    // Note: prices are EUR/MWh in raw data, but converted to EUR/kWh for calculations.
     const firstHour = result.audit!.hourly[0];
     expect(firstHour.marketPrice).toBeDefined();
-    expect(firstHour.marketPrice).toBeCloseTo(0.05, 2);
+    expect(firstHour.marketPrice).toBeCloseTo(0.05 / 1000, 5);
 
     // Check peak hour (hour 18 => 6pm)
     const peakHour = result.audit!.hourly[18];
     expect(peakHour.marketPrice).toBeDefined();
-    expect(peakHour.marketPrice).toBeCloseTo(0.30, 1);
+    expect(peakHour.marketPrice).toBeCloseTo(0.30 / 1000, 4);
   });
 
   it('does NOT include marketPrice when trading is disabled', () => {
