@@ -73,32 +73,22 @@ export function ResultsSection({
   onSaveReport,
   existingReportNames = []
 }: ResultsSectionProps) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'financials' | 'market'>('overview');
   const [auditOpen, setAuditOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
-
-  if (!result) {
-    return (
-      <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 p-10 text-center h-full flex flex-col items-center justify-center text-slate-400">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mb-4 opacity-50">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-        </svg>
-        <p>Run a calculation to generate the ROI report.</p>
-      </div>
-    );
-  }
 
   const reportDate = new Date().toLocaleDateString();
 
   const analyticsYear = useMemo(() => {
-    const y = result.audit?.year;
+    const y = result?.audit?.year;
     if (typeof y === 'number') return y;
-    const hk = result.audit?.hourly?.[0]?.hourKey;
+    const hk = result?.audit?.hourly?.[0]?.hourKey;
     if (hk) {
       const maybeYear = Number(hk.slice(0, 4));
       if (Number.isFinite(maybeYear)) return maybeYear;
     }
     return new Date().getFullYear();
-  }, [result.audit?.hourly, result.audit?.year]);
+  }, [result?.audit?.hourly, result?.audit?.year]);
 
   const { solarYield, batteryYield } = useMemo(() => {
     if (!config || !result) return { solarYield: 0, batteryYield: 0 };
@@ -143,6 +133,17 @@ export function ResultsSection({
     };
   }, [result]);
 
+  if (!result) {
+    return (
+      <div className="bg-slate-50 rounded-xl border border-dashed border-slate-300 p-10 text-center h-full flex flex-col items-center justify-center text-slate-400">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mb-4 opacity-50">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+        </svg>
+        <p>Run a calculation to generate the ROI report.</p>
+      </div>
+    );
+  }
+
   return (
     <section className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
       <div className="px-8 py-7 md:px-10 md:py-8 border-b border-slate-100">
@@ -177,383 +178,435 @@ export function ResultsSection({
       </div>
 
       <div className="p-6 md:p-8">
-        {/* 1. Energy Analytics Chart (Top) */}
-        {result.audit?.hourly && result.audit.hourly.length > 0 && (
-          <div className="mb-8">
-            <EnergyAnalyticsChart hourlyData={result.audit.hourly} year={analyticsYear} />
+        
+        {/* Tab Navigation */}
+        <div className="flex border-b border-slate-200 mb-8">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'overview'
+                ? 'border-indigo-600 text-indigo-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('financials')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'financials'
+                ? 'border-indigo-600 text-indigo-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Financials
+          </button>
+          <button
+            onClick={() => setActiveTab('market')}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'market'
+                ? 'border-indigo-600 text-indigo-700'
+                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+            }`}
+          >
+            Market Analysis
+          </button>
+        </div>
+
+        {/* --- OVERVIEW TAB --- */}
+        {activeTab === 'overview' && (
+          <div className="animate-in fade-in duration-300">
+            {/* 1. Energy Analytics Chart (Top) */}
+            {result.audit?.hourly && result.audit.hourly.length > 0 && (
+              <div className="mb-8">
+                <EnergyAnalyticsChart hourlyData={result.audit.hourly} year={analyticsYear} />
+              </div>
+            )}
+
+            {/* Savings Breakdown Compact Section */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
+                 <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">Total Annual Savings</div>
+                 <div className="text-2xl font-bold text-emerald-700">{formatCurrency(result.annualSavings)}</div>
+                 <div className="text-xs text-emerald-600/80 mt-1">Bill Reduction + Revenue</div>
+              </div>
+              
+              <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Solar Displacement</div>
+                 <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualSolarToLoadSavings)}</div>
+                 <div className="text-xs text-slate-400 mt-1">Direct to Load</div>
+                 {solarYield > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-50 flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Yield</span>
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        {formatPercentFraction(solarYield)}
+                      </span>
+                    </div>
+                 )}
+              </div>
+
+              <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Battery Displacement</div>
+                 <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualBatteryToLoadSavings)}</div>
+                 <div className="text-xs text-slate-400 mt-1">Stored & Discharged</div>
+                 {batteryYield > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-50 flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Yield</span>
+                      <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        {formatPercentFraction(batteryYield)}
+                      </span>
+                    </div>
+                 )}
+              </div>
+
+              <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Export Income</div>
+                 <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualExportRevenue)}</div>
+                 <div className="text-xs text-slate-400 mt-1">Feed-in / Market</div>
+              </div>
+            </div>
+
+            {/* Solar Sizing Sensitivity Analysis */}
+            {result.sensitivityAnalysis && (
+              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Year 1 vs Year 10 cumulative net cash flow. Click a row to simulate that system size.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                      <tr>
+                        <th className="px-6 py-3">PV Size (Annual kWh)</th>
+                        <th className="px-6 py-3 text-right">No Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
+                        <th className="px-6 py-3 text-right">With Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
+                        <th className="px-6 py-3 text-right">Scale Factor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {result.sensitivityAnalysis.rows.map((row) => {
+                        const isCurrent = Math.abs(row.scaleFactor - 1.0) < 0.01;
+                        
+                        const formatProfit = (val: number) => {
+                           const isPos = val >= 0;
+                           return (
+                             <span className={isPos ? 'text-emerald-700 font-bold' : 'text-rose-600 font-medium'}>
+                               {formatSignedCurrency(val)}
+                             </span>
+                           );
+                        };
+
+                        return (
+                          <tr 
+                            key={row.scaleFactor} 
+                            onClick={() => !isCurrent && onSelectSimulation?.(row.annualGenerationKwh)}
+                            className={`transition-colors ${
+                              isCurrent 
+                                ? 'bg-slate-50/80 cursor-default' 
+                                : 'hover:bg-indigo-50 cursor-pointer group'
+                            }`}
+                          >
+                            <td className="px-6 py-3">
+                              <div className="font-medium text-slate-700 group-hover:text-indigo-700 tabular-nums">
+                                {formatNumber(row.annualGenerationKwh)} kWh
+                              </div>
+                              {isCurrent && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 mt-1">
+                                  Current
+                                </span>
+                              )}
+                            </td>
+                            
+                            <td className="px-6 py-3 text-right tabular-nums">
+                               <div className="flex flex-col items-end gap-0.5">
+                                 <div className="text-sm font-medium">{formatProfit(row.noBattery.year1NetCashFlow)}</div>
+                                 <div className="text-xs">{formatProfit(row.noBattery.year10NetCashFlow)}</div>
+                               </div>
+                               <div className="text-[10px] text-slate-400 mt-1">
+                                 Spill: {(row.noBattery.spillageFraction * 100).toFixed(0)}%
+                               </div>
+                            </td>
+
+                            <td className="px-6 py-3 text-right tabular-nums">
+                               <div className="flex flex-col items-end gap-0.5">
+                                 <div className="text-sm font-medium">{formatProfit(row.withBattery.year1NetCashFlow)}</div>
+                                 <div className="text-xs">{formatProfit(row.withBattery.year10NetCashFlow)}</div>
+                               </div>
+                               <div className="text-[10px] text-slate-400 mt-1">
+                                 {formatNumber(row.withBattery.batterySizeKwh)} kWh Battery
+                               </div>
+                            </td>
+
+                            <td className="px-6 py-3 text-right tabular-nums text-slate-500">
+                              {row.scaleFactor}×
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
+                  {result.sensitivityAnalysis.note}
+                </div>
+              </div>
+            )}
+
+            {/* Legacy Solar Spillage Sensitivity Analysis (Fallback) */}
+            {!result.sensitivityAnalysis && result.solarSpillageAnalysis && (
+              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Click a row to simulate that system size.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                      <tr>
+                        <th className="px-6 py-3">PV Size (Annual kWh)</th>
+                        <th className="px-6 py-3 text-right">Scale Factor</th>
+                        <th className="px-6 py-3 text-right">Exported</th>
+                        <th className="px-6 py-3 text-right">Spillage %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {result.solarSpillageAnalysis.curve.map((p) => {
+                        const isCurrent = Math.abs(p.scaleFactor - 1.0) < 0.01;
+                        const isHighSpill = p.spillageFraction > 0.3;
+                        
+                        return (
+                          <tr 
+                            key={p.scaleFactor} 
+                            onClick={() => !isCurrent && onSelectSimulation?.(p.annualGenerationKwh)}
+                            className={`transition-colors ${
+                              isCurrent 
+                                ? 'bg-slate-50/80 font-medium cursor-default' 
+                                : 'hover:bg-indigo-50 cursor-pointer group'
+                            }`}
+                          >
+                            <td className="px-6 py-3 tabular-nums text-slate-700 group-hover:text-indigo-700">
+                              {formatNumber(p.annualGenerationKwh)}
+                              {isCurrent && <span className="ml-2 text-xs font-normal text-tines-purple bg-tines-purple/10 px-2 py-0.5 rounded-full">Current</span>}
+                            </td>
+                            <td className="px-6 py-3 text-right tabular-nums text-slate-600">{p.scaleFactor.toFixed(2)}×</td>
+                            <td className="px-6 py-3 text-right tabular-nums text-slate-600">{formatNumber(p.exportKwh)} kWh</td>
+                            <td className={`px-6 py-3 text-right tabular-nums font-medium ${isHighSpill ? 'text-amber-600' : 'text-slate-700'}`}>
+                              {formatPercentFraction(p.spillageFraction)}
+                              {isHighSpill && <span className="ml-2 text-xs font-normal text-amber-600">⚠️</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- FINANCIALS TAB --- */}
+        {activeTab === 'financials' && (
+          <div className="animate-in fade-in duration-300">
+            {/* 2. Combined Financial & Performance Metrics */}
+            <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">System Performance & Financials</h3>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                {/* Left Column: Financials */}
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Financial Overview</div>
+                  <MetricRow
+                    label="System Cost"
+                    value={formatCurrency(result.systemCost)}
+                    hint="Total installed cost before any grants or financing."
+                  />
+                  <MetricRow
+                    label="Net Cost"
+                    value={formatCurrency(result.netCost)}
+                    hint="Effective cost after eligible grants."
+                  />
+                  {result.year1TaxSavings && result.year1TaxSavings > 0 && (
+                    <MetricRow
+                      label="Tax Relief (Yr 1)"
+                      value={formatCurrency(result.year1TaxSavings)}
+                      hint="Estimated ACA tax savings in Year 1."
+                      valueClassName="text-emerald-600"
+                    />
+                  )}
+                  <MetricRow
+                    label="Annual Savings"
+                    value={formatCurrency(result.annualSavings)}
+                    hint="Estimated Year 1 bill reduction."
+                    valueClassName="text-emerald-600 font-bold"
+                  />
+                  <MetricRow
+                    label="Simple Payback"
+                    value={Number.isFinite(result.simplePayback) ? `${result.simplePayback.toFixed(1)} years` : '∞'}
+                    hint={result.year1TaxSavings ? "Net Cost (less Tax Relief) ÷ Annual Savings." : "Net Cost ÷ Annual Savings."}
+                  />
+                  <MetricRow
+                    label="IRR (25y)"
+                    value={Number.isFinite(result.irr) ? `${(result.irr * 100).toFixed(1)}%` : '—'}
+                    hint="Internal Rate of Return over 25 years."
+                  />
+                  <MetricRow
+                    label="NPV (25y)"
+                    value={formatCurrency(result.npv)}
+                    hint="Net Present Value."
+                  />
+                </div>
+
+                {/* Right Column: Performance */}
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Technical Performance</div>
+                  <MetricRow
+                    label="Annual Generation"
+                    value={`${formatNumber(result.annualGeneration)} kWh`}
+                    hint="Total solar energy produced."
+                  />
+                  {config?.numberOfPanels && (
+                    <MetricRow
+                      label="South-Facing Panels"
+                      value={formatNumber(config.numberOfPanels)}
+                      hint="Number of panels configured."
+                    />
+                  )}
+                  <MetricRow
+                    label="Exported Energy"
+                    value={`${formatNumber(result.annualExport)} kWh`}
+                    hint="Solar energy sent to grid."
+                  />
+                  
+                  {/* Battery Metrics */}
+                  {config?.batterySizeKwh ? (
+                    <>
+                      <MetricRow
+                        label="Battery Capacity"
+                        value={`${formatNumber(config.batterySizeKwh)} kWh`}
+                        hint="Installed energy storage."
+                      />
+                      <MetricRow
+                        label="Self-Consumption"
+                        value={formatPercentFraction(result.annualSelfConsumption / (result.annualGeneration || 1))}
+                        hint="Solar energy used on-site (boosted by battery)."
+                        valueClassName="text-emerald-600 font-bold"
+                      />
+                    </>
+                  ) : (
+                    <MetricRow
+                      label="Self-Consumption"
+                      value={formatPercentFraction(result.annualSelfConsumption / (result.annualGeneration || 1))}
+                      hint="Solar energy used on-site."
+                    />
+                  )}
+
+                  {/* Spillage Callout */}
+                  <MetricRow
+                    label="Export (Spillage) %"
+                    value={(() => {
+                      const spill = result.annualExport / (result.annualGeneration || 1);
+                      const isHigh = spill > 0.3;
+                      return (
+                        <span className={isHigh ? 'text-amber-600 font-bold' : ''}>
+                          {formatPercentFraction(spill)}
+                          {isHigh && <span className="ml-2 text-xs font-normal text-amber-600">(High)</span>}
+                        </span>
+                      );
+                    })()}
+                    hint="Percentage of generation exported. >30% typically indicates oversizing."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Monthly payment vs savings (Year 1) */}
+            {result.audit?.monthly && result.audit.monthly.length === 12 && (
+              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Monthly Cashflow (Year 1)</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Estimated loan payments vs bill savings for the next calendar year.</p>
+                  </div>
+                  <div className="text-xs font-medium text-slate-400">{new Date().getFullYear() + 1}</div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                      <tr>
+                        <th className="px-6 py-3">Month</th>
+                        <th className="px-6 py-3 text-right">Previous Bill</th>
+                        <th className="px-6 py-3 text-right">New Bill (Market Rate)</th>
+                        <th className="px-6 py-3 text-right">Payment</th>
+                        <th className="px-6 py-3 text-right">Savings</th>
+                        <th className="px-6 py-3 text-right">Net Position</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {result.audit.monthly.map((m) => {
+                        const monthName = new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' });
+                        const payment = m.debtPayment ?? 0;
+                        const savings = m.savings ?? 0;
+                        const net = (m.netOutOfPocket ?? (savings - payment));
+                        const isPositive = net >= 0;
+                        const baseline = m.baselineCost ?? 0;
+                        const newBill = m.importCost ?? 0;
+                        
+                        return (
+                          <tr key={m.monthIndex} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-3 font-medium text-slate-700">{monthName}</td>
+                            <td className="px-6 py-3 text-right text-slate-500 tabular-nums">{formatCurrency(baseline)}</td>
+                            <td className="px-6 py-3 text-right text-slate-500 tabular-nums">{formatCurrency(newBill)}</td>
+                            <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(payment)}</td>
+                            <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(savings)}</td>
+                            <td className={`px-6 py-3 text-right font-semibold tabular-nums ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {formatSignedCurrency(net)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {monthlyTotals && (
+                      <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
+                        <tr>
+                          <td className="px-6 py-4 text-slate-800">Total</td>
+                          <td className="px-6 py-4 text-right text-slate-600 tabular-nums">{formatCurrency(monthlyTotals.baseline)}</td>
+                          <td className="px-6 py-4 text-right text-slate-600 tabular-nums">{formatCurrency(monthlyTotals.newBill)}</td>
+                          <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.payment)}</td>
+                          <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.savings)}</td>
+                          <td className={`px-6 py-4 text-right tabular-nums ${monthlyTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {formatSignedCurrency(monthlyTotals.net)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- MARKET TAB --- */}
+        {activeTab === 'market' && result.audit?.hourly && result.audit.hourly.length > 0 && (
+          <div className="mb-8 animate-in fade-in duration-300">
             <MarketAnalysis hourlyData={result.audit.hourly} year={analyticsYear} />
           </div>
         )}
 
-        {/* Savings Breakdown Compact Section */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
-             <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">Total Annual Savings</div>
-             <div className="text-2xl font-bold text-emerald-700">{formatCurrency(result.annualSavings)}</div>
-             <div className="text-xs text-emerald-600/80 mt-1">Bill Reduction + Revenue</div>
-          </div>
-          
-          <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
-             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Solar Displacement</div>
-             <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualSolarToLoadSavings)}</div>
-             <div className="text-xs text-slate-400 mt-1">Direct to Load</div>
-             {solarYield > 0 && (
-                <div className="mt-3 pt-3 border-t border-slate-50 flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Yield</span>
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    {formatPercentFraction(solarYield)}
-                  </span>
-                </div>
-             )}
-          </div>
-
-          <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
-             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Battery Displacement</div>
-             <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualBatteryToLoadSavings)}</div>
-             <div className="text-xs text-slate-400 mt-1">Stored & Discharged</div>
-             {batteryYield > 0 && (
-                <div className="mt-3 pt-3 border-t border-slate-50 flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Yield</span>
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    {formatPercentFraction(batteryYield)}
-                  </span>
-                </div>
-             )}
-          </div>
-
-          <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
-             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Export Income</div>
-             <div className="text-xl font-bold text-slate-700">{formatCurrency(result.annualExportRevenue)}</div>
-             <div className="text-xs text-slate-400 mt-1">Feed-in / Market</div>
-          </div>
-        </div>
-
-        {/* 2. Combined Financial & Performance Metrics */}
-        <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-            <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">System Performance & Financials</h3>
-          </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-            {/* Left Column: Financials */}
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Financial Overview</div>
-              <MetricRow
-                label="System Cost"
-                value={formatCurrency(result.systemCost)}
-                hint="Total installed cost before any grants or financing."
-              />
-              <MetricRow
-                label="Net Cost"
-                value={formatCurrency(result.netCost)}
-                hint="Effective cost after eligible grants."
-              />
-              {result.year1TaxSavings && result.year1TaxSavings > 0 && (
-                <MetricRow
-                  label="Tax Relief (Yr 1)"
-                  value={formatCurrency(result.year1TaxSavings)}
-                  hint="Estimated ACA tax savings in Year 1."
-                  valueClassName="text-emerald-600"
-                />
-              )}
-              <MetricRow
-                label="Annual Savings"
-                value={formatCurrency(result.annualSavings)}
-                hint="Estimated Year 1 bill reduction."
-                valueClassName="text-emerald-600 font-bold"
-              />
-              <MetricRow
-                label="Simple Payback"
-                value={Number.isFinite(result.simplePayback) ? `${result.simplePayback.toFixed(1)} years` : '∞'}
-                hint={result.year1TaxSavings ? "Net Cost (less Tax Relief) ÷ Annual Savings." : "Net Cost ÷ Annual Savings."}
-              />
-              <MetricRow
-                label="IRR (25y)"
-                value={Number.isFinite(result.irr) ? `${(result.irr * 100).toFixed(1)}%` : '—'}
-                hint="Internal Rate of Return over 25 years."
-              />
-              <MetricRow
-                label="NPV (25y)"
-                value={formatCurrency(result.npv)}
-                hint="Net Present Value."
-              />
-            </div>
-
-            {/* Right Column: Performance */}
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Technical Performance</div>
-              <MetricRow
-                label="Annual Generation"
-                value={`${formatNumber(result.annualGeneration)} kWh`}
-                hint="Total solar energy produced."
-              />
-              {config?.numberOfPanels && (
-                <MetricRow
-                  label="South-Facing Panels"
-                  value={formatNumber(config.numberOfPanels)}
-                  hint="Number of panels configured."
-                />
-              )}
-              <MetricRow
-                label="Exported Energy"
-                value={`${formatNumber(result.annualExport)} kWh`}
-                hint="Solar energy sent to grid."
-              />
-              
-              {/* Battery Metrics */}
-              {config?.batterySizeKwh ? (
-                <>
-                  <MetricRow
-                    label="Battery Capacity"
-                    value={`${formatNumber(config.batterySizeKwh)} kWh`}
-                    hint="Installed energy storage."
-                  />
-                  <MetricRow
-                    label="Self-Consumption"
-                    value={formatPercentFraction(result.annualSelfConsumption / (result.annualGeneration || 1))}
-                    hint="Solar energy used on-site (boosted by battery)."
-                    valueClassName="text-emerald-600 font-bold"
-                  />
-                </>
-              ) : (
-                <MetricRow
-                  label="Self-Consumption"
-                  value={formatPercentFraction(result.annualSelfConsumption / (result.annualGeneration || 1))}
-                  hint="Solar energy used on-site."
-                />
-              )}
-
-              {/* Spillage Callout */}
-              <MetricRow
-                label="Export (Spillage) %"
-                value={(() => {
-                  const spill = result.annualExport / (result.annualGeneration || 1);
-                  const isHigh = spill > 0.3;
-                  return (
-                    <span className={isHigh ? 'text-amber-600 font-bold' : ''}>
-                      {formatPercentFraction(spill)}
-                      {isHigh && <span className="ml-2 text-xs font-normal text-amber-600">(High)</span>}
-                    </span>
-                  );
-                })()}
-                hint="Percentage of generation exported. >30% typically indicates oversizing."
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Monthly payment vs savings (Year 1) */}
-        {result.audit?.monthly && result.audit.monthly.length === 12 && (
-          <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Monthly Cashflow (Year 1)</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Estimated loan payments vs bill savings for the next calendar year.</p>
-              </div>
-              <div className="text-xs font-medium text-slate-400">{new Date().getFullYear() + 1}</div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                  <tr>
-                    <th className="px-6 py-3">Month</th>
-                    <th className="px-6 py-3 text-right">Previous Bill</th>
-                    <th className="px-6 py-3 text-right">New Bill (Market Rate)</th>
-                    <th className="px-6 py-3 text-right">Payment</th>
-                    <th className="px-6 py-3 text-right">Savings</th>
-                    <th className="px-6 py-3 text-right">Net Position</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {result.audit.monthly.map((m) => {
-                    const monthName = new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' });
-                    const payment = m.debtPayment ?? 0;
-                    const savings = m.savings ?? 0;
-                    const net = (m.netOutOfPocket ?? (savings - payment));
-                    const isPositive = net >= 0;
-                    const baseline = m.baselineCost ?? 0;
-                    const newBill = m.importCost ?? 0;
-                    
-                    return (
-                      <tr key={m.monthIndex} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-3 font-medium text-slate-700">{monthName}</td>
-                        <td className="px-6 py-3 text-right text-slate-500 tabular-nums">{formatCurrency(baseline)}</td>
-                        <td className="px-6 py-3 text-right text-slate-500 tabular-nums">{formatCurrency(newBill)}</td>
-                        <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(payment)}</td>
-                        <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(savings)}</td>
-                        <td className={`px-6 py-3 text-right font-semibold tabular-nums ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {formatSignedCurrency(net)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                {monthlyTotals && (
-                  <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
-                    <tr>
-                      <td className="px-6 py-4 text-slate-800">Total</td>
-                      <td className="px-6 py-4 text-right text-slate-600 tabular-nums">{formatCurrency(monthlyTotals.baseline)}</td>
-                      <td className="px-6 py-4 text-right text-slate-600 tabular-nums">{formatCurrency(monthlyTotals.newBill)}</td>
-                      <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.payment)}</td>
-                      <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.savings)}</td>
-                      <td className={`px-6 py-4 text-right tabular-nums ${monthlyTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {formatSignedCurrency(monthlyTotals.net)}
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Solar Sizing Sensitivity Analysis */}
-        {result.sensitivityAnalysis && (
-          <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Year 1 vs Year 10 cumulative net cash flow. Click a row to simulate that system size.
-                </p>
-              </div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                  <tr>
-                    <th className="px-6 py-3">PV Size (Annual kWh)</th>
-                    <th className="px-6 py-3 text-right">No Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
-                    <th className="px-6 py-3 text-right">With Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
-                    <th className="px-6 py-3 text-right">Scale Factor</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {result.sensitivityAnalysis.rows.map((row) => {
-                    const isCurrent = Math.abs(row.scaleFactor - 1.0) < 0.01;
-                    
-                    const formatProfit = (val: number) => {
-                       const isPos = val >= 0;
-                       return (
-                         <span className={isPos ? 'text-emerald-700 font-bold' : 'text-rose-600 font-medium'}>
-                           {formatSignedCurrency(val)}
-                         </span>
-                       );
-                    };
-
-                    return (
-                      <tr 
-                        key={row.scaleFactor} 
-                        onClick={() => !isCurrent && onSelectSimulation?.(row.annualGenerationKwh)}
-                        className={`transition-colors ${
-                          isCurrent 
-                            ? 'bg-slate-50/80 cursor-default' 
-                            : 'hover:bg-indigo-50 cursor-pointer group'
-                        }`}
-                      >
-                        <td className="px-6 py-3">
-                          <div className="font-medium text-slate-700 group-hover:text-indigo-700 tabular-nums">
-                            {formatNumber(row.annualGenerationKwh)} kWh
-                          </div>
-                          {isCurrent && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 mt-1">
-                              Current
-                            </span>
-                          )}
-                        </td>
-                        
-                        <td className="px-6 py-3 text-right tabular-nums">
-                           <div className="flex flex-col items-end gap-0.5">
-                             <div className="text-sm font-medium">{formatProfit(row.noBattery.year1NetCashFlow)}</div>
-                             <div className="text-xs">{formatProfit(row.noBattery.year10NetCashFlow)}</div>
-                           </div>
-                           <div className="text-[10px] text-slate-400 mt-1">
-                             Spill: {(row.noBattery.spillageFraction * 100).toFixed(0)}%
-                           </div>
-                        </td>
-
-                        <td className="px-6 py-3 text-right tabular-nums">
-                           <div className="flex flex-col items-end gap-0.5">
-                             <div className="text-sm font-medium">{formatProfit(row.withBattery.year1NetCashFlow)}</div>
-                             <div className="text-xs">{formatProfit(row.withBattery.year10NetCashFlow)}</div>
-                           </div>
-                           <div className="text-[10px] text-slate-400 mt-1">
-                             {formatNumber(row.withBattery.batterySizeKwh)} kWh Battery
-                           </div>
-                        </td>
-
-                        <td className="px-6 py-3 text-right tabular-nums text-slate-500">
-                          {row.scaleFactor}×
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
-              {result.sensitivityAnalysis.note}
-            </div>
-          </div>
-        )}
-
-        {/* Legacy Solar Spillage Sensitivity Analysis (Fallback) */}
-        {!result.sensitivityAnalysis && result.solarSpillageAnalysis && (
-          <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Click a row to simulate that system size.
-                </p>
-              </div>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                  <tr>
-                    <th className="px-6 py-3">PV Size (Annual kWh)</th>
-                    <th className="px-6 py-3 text-right">Scale Factor</th>
-                    <th className="px-6 py-3 text-right">Exported</th>
-                    <th className="px-6 py-3 text-right">Spillage %</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {result.solarSpillageAnalysis.curve.map((p) => {
-                    const isCurrent = Math.abs(p.scaleFactor - 1.0) < 0.01;
-                    const isHighSpill = p.spillageFraction > 0.3;
-                    
-                    return (
-                      <tr 
-                        key={p.scaleFactor} 
-                        onClick={() => !isCurrent && onSelectSimulation?.(p.annualGenerationKwh)}
-                        className={`transition-colors ${
-                          isCurrent 
-                            ? 'bg-slate-50/80 font-medium cursor-default' 
-                            : 'hover:bg-indigo-50 cursor-pointer group'
-                        }`}
-                      >
-                        <td className="px-6 py-3 tabular-nums text-slate-700 group-hover:text-indigo-700">
-                          {formatNumber(p.annualGenerationKwh)}
-                          {isCurrent && <span className="ml-2 text-xs font-normal text-tines-purple bg-tines-purple/10 px-2 py-0.5 rounded-full">Current</span>}
-                        </td>
-                        <td className="px-6 py-3 text-right tabular-nums text-slate-600">{p.scaleFactor.toFixed(2)}×</td>
-                        <td className="px-6 py-3 text-right tabular-nums text-slate-600">{formatNumber(p.exportKwh)} kWh</td>
-                        <td className={`px-6 py-3 text-right tabular-nums font-medium ${isHighSpill ? 'text-amber-600' : 'text-slate-700'}`}>
-                          {formatPercentFraction(p.spillageFraction)}
-                          {isHighSpill && <span className="ml-2 text-xs font-normal text-amber-600">⚠️</span>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
+        {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
           <div>
             {result.audit ? (
