@@ -2,39 +2,9 @@ import { useMemo, useState, useEffect } from 'react';
 import { Field } from '../Field';
 import type { SystemConfiguration, Grant, Financing } from '../../types';
 import { calculateGrantAmount, calculateSingleGrantAmount } from '../../models/grants';
+import { estimateSystemCost } from '../../utils/costEstimation';
 import { logInfo } from '../../utils/logger';
 
-// Soft curve estimation helper
-function estimateSystemCost(kwp: number): number {
-  if (!kwp || kwp <= 0) return 0;
-  
-  // Linear interpolation of price-per-kWp based on upper-bound markers
-  let pricePerKwp = 1500;
-  
-  if (kwp <= 10) {
-    pricePerKwp = 2000;
-  } else if (kwp <= 50) {
-    // Range 10-50 (span 40), Price 2000-1800 (span -200)
-    const progress = (kwp - 10) / 40;
-    pricePerKwp = 2000 - (progress * 200);
-  } else if (kwp <= 150) {
-    // Range 50-150 (span 100), Price 1800-1700 (span -100)
-    const progress = (kwp - 50) / 100;
-    pricePerKwp = 1800 - (progress * 100);
-  } else if (kwp <= 300) {
-    // Range 150-300 (span 150), Price 1700-1600 (span -100)
-    const progress = (kwp - 150) / 150;
-    pricePerKwp = 1700 - (progress * 100);
-  } else if (kwp <= 500) {
-    // Range 300-500 (span 200), Price 1600-1500 (span -100)
-    const progress = (kwp - 300) / 200;
-    pricePerKwp = 1600 - (progress * 100);
-  } else {
-    pricePerKwp = 1500;
-  }
-  
-  return kwp * pricePerKwp;
-}
 
 interface Step4FinanceProps {
   config: SystemConfiguration;
@@ -66,8 +36,8 @@ export function Step4Finance({
   const [vatRate, setVatRate] = useState(0.135);
 
   const estimatedBaseCost = useMemo(() => {
-    return estimateSystemCost(config.systemSizeKwp || 0);
-  }, [config.systemSizeKwp]);
+    return estimateSystemCost(config.systemSizeKwp || 0, config.batterySizeKwh || 0);
+  }, [config.systemSizeKwp, config.batterySizeKwh]);
 
   // Update cost when estimation params change
   useEffect(() => {
