@@ -44,6 +44,7 @@ function calculateBaselineCost(
   consumption: number,
   hourOfDay: number,
   tariff: Tariff,
+  daysInMonth: number,
   hourlyPrice?: number,
   tradingConfig?: TradingConfig
 ): number {
@@ -57,12 +58,12 @@ function calculateBaselineCost(
     unitRate = getTariffRateForHour(hourOfDay, tariff);
   }
 
-  const pso = tariff.psoLevy || 0;
+  const pso = (tariff.psoLevy || 0) / daysInMonth;
   
   // Standing charge is per day, so divide by 24 for hourly cost
-  const standingCharge = tariff.standingCharge / 24;
+  const standingCharge = (tariff.standingCharge + pso) / 24;
   
-  return standingCharge + consumption * (unitRate + pso);
+  return standingCharge + consumption * unitRate;
 }
 
 /**
@@ -192,10 +193,12 @@ export function simulateHourlyEnergyFlow(
     const hourlyPrice = hourlyPrices ? hourlyPrices[hour] : undefined;
 
     const hourOfDay = timeStamps ? timeStamps[hour]!.hour : hour % 24;
+    const monthIndex = timeStamps ? timeStamps[hour]!.monthIndex : new Date(2021, 0, 1 + Math.floor(hour / 24)).getMonth();
+    const daysInMonth = getDaysPerMonthForYear(totalHours)[monthIndex] ?? 30;
 
     // Calculate baseline cost (no solar, for comparison)
     // If trading enabled, baseline uses dynamic price too (fair comparison)
-    const baselineCost = calculateBaselineCost(consumption, hourOfDay, tariff, hourlyPrice, tradingConfig);
+    const baselineCost = calculateBaselineCost(consumption, hourOfDay, tariff, daysInMonth, hourlyPrice, tradingConfig);
     totalBaselineCost += baselineCost;
 
     let gridImport = 0;
