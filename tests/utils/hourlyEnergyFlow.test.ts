@@ -491,6 +491,135 @@ describe('hourlyEnergyFlow', () => {
     });
   });
 
+  describe('simulateHourlyEnergyFlow - grid export cap', () => {
+    it('should limit exports to the specified cap (no battery)', () => {
+      const generation = Array(8760).fill(200); // 200 kW generation
+      const consumption = Array(8760).fill(10); // 10 kW consumption
+
+      // Pass gridExportCapKw via BatteryConfig even when no battery is present
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        flatTariff,
+        { capacityKwh: 0, gridExportCapKw: 100 },
+        true
+      );
+
+      // Without cap, would export 190 kW/hour (200 - 10)
+      // With 100 kW cap, should export exactly 100 kW/hour
+      const maxExport = Math.max(...result.hourlyData!.map(h => h.gridExport));
+      expect(maxExport).toBeCloseTo(100, 1);
+      expect(result.totalGridExport).toBeCloseTo(8760 * 100, 1);
+    });
+
+    it('should not limit exports below the cap (no battery)', () => {
+      const generation = Array(8760).fill(50); // 50 kW generation
+      const consumption = Array(8760).fill(10); // 10 kW consumption
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        flatTariff,
+        { capacityKwh: 0, gridExportCapKw: 100 },
+        true
+      );
+
+      // Export is 40 kW/hour (50 - 10), which is below cap
+      // Should export full 40 kW/hour
+      expect(result.totalGridExport).toBeCloseTo(8760 * 40, 1);
+    });
+
+    it('should allow unlimited exports when no cap is specified', () => {
+      const generation = Array(8760).fill(500); // Very high generation
+      const consumption = Array(8760).fill(10);
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        flatTariff,
+        undefined, // No battery config = no cap (unlimited)
+        true
+      );
+
+      // Should export full 490 kW/hour without any cap
+      const maxExport = Math.max(...result.hourlyData!.map(h => h.gridExport));
+      expect(maxExport).toBeCloseTo(490, 1);
+    });
+
+    it('should limit battery discharge exports to the cap', () => {
+      // Setup: charge battery, then discharge more than cap
+      const generation = Array(8760).fill(0);
+      const consumption = Array(8760).fill(0);
+
+      // First 100 hours: high generation, low consumption (charge battery)
+      for (let i = 0; i < 100; i++) {
+        generation[i] = 200;
+        consumption[i] = 10;
+      }
+
+      // Next hours: no generation, zero consumption (discharge battery to grid)
+      for (let i = 100; i < 8760; i++) {
+        generation[i] = 0;
+        consumption[i] = 0;
+      }
+
+      const battery: BatteryConfig = {
+        capacityKwh: 200,
+        efficiency: 0.9,
+        gridExportCapKw: 50 // Cap at 50 kW
+      };
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        flatTariff,
+        battery,
+        true
+      );
+
+      // Check that no hourly export exceeds the cap
+      const maxExport = Math.max(...result.hourlyData!.map(h => h.gridExport));
+      expect(maxExport).toBeLessThanOrEqual(50.1); // Small tolerance
+    });
+
+    it('should handle zero export cap (no exports allowed)', () => {
+      const generation = Array(8760).fill(100);
+      const consumption = Array(8760).fill(10);
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        flatTariff,
+        { capacityKwh: 0, gridExportCapKw: 0 }, // No exports allowed
+        true
+      );
+
+      // Should have zero exports and zero export revenue
+      expect(result.totalGridExport).toBe(0);
+      expect(result.totalExportRevenue).toBe(0);
+    });
+
+    it('should correctly calculate export revenue with capped exports', () => {
+      const generation = Array(8760).fill(150);
+      const consumption = Array(8760).fill(10);
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        flatTariff,
+        { capacityKwh: 0, gridExportCapKw: 50 },
+        false // Don't need hourly data
+      );
+
+      // Export is capped at 50 kW/hour
+      const expectedExportKwh = 8760 * 50;
+      const expectedRevenue = expectedExportKwh * flatTariff.exportRate;
+
+      expect(result.totalGridExport).toBeCloseTo(expectedExportKwh, 1);
+      expect(result.totalExportRevenue).toBeCloseTo(expectedRevenue, 1);
+    });
+  });
+
   describe('aggregateHourlyResultsToMonthly', () => {
     it('should aggregate to 12 months', () => {
       const generation = Array(8760).fill(5);
