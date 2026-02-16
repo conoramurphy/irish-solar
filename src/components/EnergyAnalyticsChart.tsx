@@ -15,8 +15,8 @@ interface DayData {
   totalGeneration: number;
   totalConsumption: number;
   totalExport: number;
-  brightTimeConsumption: number; // 7am-7pm
-  darkTimeConsumption: number; // 7pm-7am
+  daylightConsumption: number; // During solar generation hours
+  darkConsumption: number; // Outside solar generation hours
   hours: HourlyEnergyFlow[];
 }
 
@@ -65,13 +65,14 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
       const totalConsumption = hours.reduce((sum, h) => sum + h.consumption, 0);
       const totalExport = hours.reduce((sum, h) => sum + h.gridExport, 0);
       
-      // Bright time: 7am-7pm (hours 7-18 inclusive)
-      const brightTimeConsumption = hours
-        .filter(h => (h.hourOfDay ?? 0) >= 7 && (h.hourOfDay ?? 0) < 19)
+      // Determine daylight hours based on when solar is actually generating
+      // Use a threshold of 0.01 kWh to filter out rounding errors
+      const daylightConsumption = hours
+        .filter(h => h.generation > 0.01)
         .reduce((sum, h) => sum + h.consumption, 0);
       
-      // Dark time: 7pm-7am (hours 19-23 and 0-6)
-      const darkTimeConsumption = totalConsumption - brightTimeConsumption;
+      // Dark time: when solar is not generating
+      const darkConsumption = totalConsumption - daylightConsumption;
 
       const firstHour = hours[0];
       const date = firstHour?.hourKey?.split('T')[0] || `Day ${dayOfYear + 1}`;
@@ -82,8 +83,8 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
         totalGeneration,
         totalConsumption,
         totalExport,
-        brightTimeConsumption,
-        darkTimeConsumption,
+        daylightConsumption,
+        darkConsumption,
         hours
       };
     });
@@ -240,11 +241,11 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded" style={{ background: 'rgba(16, 185, 129, 0.35)' }} />
-                <span className="text-slate-600">Bright Time Usage</span>
+                <span className="text-slate-600">Daylight Usage</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded" style={{ background: 'rgba(99, 102, 241, 0.25)' }} />
-                <span className="text-slate-600">Dark Time Usage</span>
+                <span className="text-slate-600">Night Usage</span>
               </div>
             </div>
           </div>
@@ -281,23 +282,23 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 return d.join(' ');
               };
 
-              // Stack order: bright-time usage at the bottom (baseline), dark-time on top.
-              const brightLinePoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.brightTimeConsumption) }));
-              const totalUsagePoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.darkTimeConsumption + d.brightTimeConsumption) }));
+              // Stack order: daylight usage at the bottom (baseline), night usage on top.
+              const daylightLinePoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.daylightConsumption) }));
+              const totalUsagePoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.darkConsumption + d.daylightConsumption) }));
               const genPoints = dailyData.map((d, i) => ({ x: i * stepX, y: yFor(d.totalGeneration) }));
 
-              const brightLine = toSmoothPath(brightLinePoints);
+              const daylightLine = toSmoothPath(daylightLinePoints);
               const totalLine = toSmoothPath(totalUsagePoints);
               const genLine = toSmoothPath(genPoints);
 
               // Areas
-              // Bright-time area: baseline -> bright-time line
-              const brightArea = `${brightLine} L ${w} ${baseY} L 0 ${baseY} Z`;
+              // Daylight area: baseline -> daylight line
+              const daylightArea = `${daylightLine} L ${w} ${baseY} L 0 ${baseY} Z`;
 
-              // Dark-time area: region between total usage line and bright-time line
-              const brightRev = [...brightLinePoints].reverse();
-              const brightRevPath = toSmoothPath(brightRev).replace(/^M/, 'L');
-              const darkArea = `${totalLine} ${brightRevPath} Z`;
+              // Night area: region between total usage line and daylight line
+              const daylightRev = [...daylightLinePoints].reverse();
+              const daylightRevPath = toSmoothPath(daylightRev).replace(/^M/, 'L');
+              const darkArea = `${totalLine} ${daylightRevPath} Z`;
 
               return (
                 <svg width={w} height={h} className="block">
@@ -315,11 +316,11 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                   ))}
 
                   {/* Soft areas */}
-                  <path d={brightArea} fill="rgba(16, 185, 129, 0.22)" />
+                  <path d={daylightArea} fill="rgba(16, 185, 129, 0.22)" />
                   <path d={darkArea} fill="rgba(99, 102, 241, 0.20)" />
 
                   {/* Usage outlines */}
-                  <path d={brightLine} fill="none" stroke="rgba(16, 185, 129, 0.45)" strokeWidth={1.5} />
+                  <path d={daylightLine} fill="none" stroke="rgba(16, 185, 129, 0.45)" strokeWidth={1.5} />
                   <path d={totalLine} fill="none" stroke="rgba(99, 102, 241, 0.35)" strokeWidth={1.5} />
 
                   {/* Generation line (slightly thicker) */}
@@ -330,7 +331,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
           </div>
 
           <p className="mt-2 text-xs text-slate-500 italic">
-            Soft shaded areas show usage (dark vs bright time). The thicker orange line is solar generation.
+            Soft shaded areas show usage during daylight (solar generating) vs night. The thicker orange line is solar generation.
           </p>
         </div>
       )}
@@ -380,25 +381,25 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 const x = 50 + index * 100;
                 const barWidth = 40;
                 const genHeight = (day.totalGeneration / maxDailyConsumption) * 200;
-                const brightHeight = (day.brightTimeConsumption / maxDailyConsumption) * 200;
-                const darkHeight = (day.darkTimeConsumption / maxDailyConsumption) * 200;
+                const daylightHeight = (day.daylightConsumption / maxDailyConsumption) * 200;
+                const darkHeight = (day.darkConsumption / maxDailyConsumption) * 200;
 
                 return (
                   <g key={index}>
-                    {/* Bright time (bottom) */}
+                    {/* Daylight usage (bottom) */}
                     <rect
                       x={x - barWidth / 2}
-                      y={220 - brightHeight}
+                      y={220 - daylightHeight}
                       width={barWidth}
-                      height={brightHeight}
+                      height={daylightHeight}
                       fill="#10b981"
                       opacity="0.8"
                       rx="2"
                     />
-                    {/* Dark time (top) */}
+                    {/* Night usage (top) */}
                     <rect
                       x={x - barWidth / 2}
-                      y={220 - brightHeight - darkHeight}
+                      y={220 - daylightHeight - darkHeight}
                       width={barWidth}
                       height={darkHeight}
                       fill="#6366f1"
@@ -491,7 +492,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 const consHeight = (hour.consumption / maxHourlyConsumption) * 200;
                 const hourOfDay = hour.hourOfDay ?? index;
 
-                const isBrightTime = hourOfDay >= 7 && hourOfDay < 19;
+                const isDaylight = hour.generation > 0.01;
 
                 return (
                   <g key={index}>
@@ -501,7 +502,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                       y={220 - consHeight}
                       width={barWidth}
                       height={consHeight}
-                      fill={isBrightTime ? '#10b981' : '#6366f1'}
+                      fill={isDaylight ? '#10b981' : '#6366f1'}
                       opacity="0.7"
                       rx="2"
                     />
