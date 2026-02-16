@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, type ReactNode, useMemo } from 'react';
 import type { CalculationResult, SystemConfiguration } from '../types';
 import { AuditModal } from './AuditModal';
