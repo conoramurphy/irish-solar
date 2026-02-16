@@ -91,16 +91,41 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
   };
 
   const handleContinue = () => {
+    // The `tariffSlotUsage` state stores absolute kWh for easy editing in the UI.
+    // However, the rest of the app expects fractional usage (0-1).
+    // We must normalize it before passing it to the next step to prevent calculation errors.
+    const normalizedExampleMonths = exampleMonths.map(month => {
+      if (tariffType !== 'custom' || !customSlots.length) {
+        return { ...month, tariffSlotUsage: {} }; // Clear usage if not applicable
+      }
+      
+      const totalSlotKwh = customSlots.reduce((sum, slot) => {
+        return sum + (month.tariffSlotUsage[slot.id] || 0);
+      }, 0);
+
+      const normalizedSlotUsage: Record<string, number> = {};
+      for (const slot of customSlots) {
+        const kwh = month.tariffSlotUsage[slot.id] || 0;
+        normalizedSlotUsage[slot.id] = totalSlotKwh > 0 ? kwh / totalSlotKwh : 0;
+      }
+
+      return {
+        ...month,
+        totalKwh: totalSlotKwh, // Also update the month's total kWh to match the sum of slots
+        tariffSlotUsage: normalizedSlotUsage
+      };
+    });
+
     logInfo('ui', 'Step 1 (Digital Twin) continue clicked', {
       location,
-      exampleMonths,
+      exampleMonths: normalizedExampleMonths,
       curvedMonthlyKwhTotal: curvedMonthlyKwh.reduce((a, b) => a + b, 0),
       tariffConfig
     });
 
     onNext({
       location,
-      exampleMonths,
+      exampleMonths: normalizedExampleMonths,
       curvedMonthlyKwh,
       tariffConfig
     });
