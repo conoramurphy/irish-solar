@@ -162,9 +162,16 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
     });
   };
 
+  // Validation depends on tariff type:
+  // - Flat rate: User enters both kWh and bill, so check both
+  // - Time-of-Use: Bill is auto-calculated, only check kWh and slots
   const canContinue = location && 
     exampleMonths.length >= 2 && 
-    exampleMonths.every(m => m.totalKwh > 0 && m.totalBillEur > 0);
+    (
+      tariffType === 'flat' 
+        ? exampleMonths.every(m => m.totalKwh > 0 && m.totalBillEur > 0)
+        : (customSlots.length > 0 && exampleMonths.every(m => m.totalKwh > 0))
+    );
 
   return (
     <div className="max-w-4xl mx-auto">
