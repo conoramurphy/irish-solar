@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { SystemConfiguration, TradingConfig } from '../../types';
 import type { ExampleMonth } from '../../types/billing';
 import { type ParsedPriceData, parsePriceTimeseriesCSV } from '../../utils/priceTimeseriesParser';

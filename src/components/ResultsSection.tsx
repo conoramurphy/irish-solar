@@ -344,19 +344,21 @@ export function ResultsSection({
                         );
                       })}
                     </tbody>
-                    <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
-                      <tr>
-                        <td className="px-6 py-4 text-slate-800">Total</td>
-                        <td className="px-6 py-4 text-right text-slate-700 tabular-nums">{formatCurrency(monthlyTotals.baseline)}</td>
-                        <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">{formatCurrency(monthlyTotals.newBill)}</td>
-                        <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">
-                          {formatCurrency(monthlyTotals.baseline - monthlyTotals.newBill)}
-                        </td>
-                        <td className="px-6 py-4 text-right text-slate-700 tabular-nums">
-                          {formatPercentFraction(result.annualExport / (result.annualGeneration || 1))}
-                        </td>
-                      </tr>
-                    </tfoot>
+                    {monthlyTotals && (
+                      <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
+                        <tr>
+                          <td className="px-6 py-4 text-slate-800">Total</td>
+                          <td className="px-6 py-4 text-right text-slate-700 tabular-nums">{formatCurrency(monthlyTotals.baseline)}</td>
+                          <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">{formatCurrency(monthlyTotals.newBill)}</td>
+                          <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">
+                            {formatCurrency(monthlyTotals.baseline - monthlyTotals.newBill)}
+                          </td>
+                          <td className="px-6 py-4 text-right text-slate-700 tabular-nums">
+                            {formatPercentFraction(result.annualExport / (result.annualGeneration || 1))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               </div>

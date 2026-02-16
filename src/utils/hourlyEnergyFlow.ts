@@ -24,6 +24,8 @@ export interface BatteryConfig {
   maxChargeRateKw?: number;
   /** Maximum discharge rate (kW), default to capacity (1C) */
   maxDischargeRateKw?: number;
+  /** Grid Export Cap (kW). Default is unlimited (Infinity) if not set. */
+  gridExportCapKw?: number;
 }
 
 /**
@@ -162,6 +164,11 @@ export function simulateHourlyEnergyFlow(
     maxDischargeRate: Math.max(0, batteryConfig.maxDischargeRateKw ?? batteryConfig.capacityKwh)
   } : null;
 
+  // Use the export cap from batteryConfig or default to infinity (no limit)
+  // Even if no battery is present, we might want to respect this, but currently it's passed in BatteryConfig.
+  // Ideally, it should be a top-level parameter, but let's extract it safely.
+  const gridExportCapKw = batteryConfig?.gridExportCapKw ?? Infinity;
+
   let totalGridImport = 0;
   let totalGridExport = 0;
   let totalSelfConsumption = 0;
@@ -265,9 +272,10 @@ export function simulateHourlyEnergyFlow(
           // Solar surplus used
           const solarUsed = effectiveInputFromSolar;
           
-          // Remaining solar -> Export
-          const remainingSolar = surplus - solarUsed;
-          gridExport = Math.max(0, remainingSolar);
+          // Remaining solar -> Export (subject to cap)
+          const potentialExport = surplus - solarUsed;
+          // If we hit the cap, the excess is curtailed (lost)
+          gridExport = Math.min(potentialExport, gridExportCapKw);
           
           // 2. Top up from Grid (Force Charge) if space remains
           const spaceRemaining = battery.capacity - battery.soc;
@@ -309,49 +317,25 @@ export function simulateHourlyEnergyFlow(
         if (netEnergy < 0) {
            // Surplus (Solar > Load)
            // Solar covers load.
-           // Solar export = surplus.
+           // Solar export = surplus (subject to cap).
+           const potentialSolarExport = Math.abs(netEnergy);
+           // We will add battery export to this later, so let's track total export for this hour
+           let currentHourExport = 0;
            
-           gridExport += Math.abs(netEnergy);
+           const allowedSolarExport = Math.min(potentialSolarExport, gridExportCapKw);
+           currentHourExport += allowedSolarExport;
+           gridExport += allowedSolarExport;
            
            // Battery Dump
            // Output max discharge rate or available energy
            // We assume maxDischargeRate is "output energy".
            const maxOutput = battery.maxDischargeRate;
-           const dischargeAmount = Math.min(availableEnergy, maxOutput); // Output energy
            
-           // Discharge logic in previous code:
-           // "dischargeAmount = min(deficit, available * eff)" -> SOC -= dischargeAmount / eff
-           // Wait, previous code: "dischargeAmount = min(deficit, available * eff)"
-           // This implies "dischargeAmount" is ENERGY DELIVERED (after efficiency loss on output?)
-           // Or is efficiency only on input?
-           // Standard simple models: Eff is usually round-trip. Often split sqrt(eff) in, sqrt(eff) out.
-           // Previous code implementation:
-           // "energyToStore = surplus * eff" (Loss on Input)
-           // "dischargeAmount = min(deficit, available * eff)" (Loss on Output???)
-           // If available is SOC, and we discharge, usually SOC decreases by X, and we get X * eff out?
-           // Or SOC decreases by X/eff to get X out?
-           // The previous code: "soc -= dischargeAmount / eff" implies:
-           // To deliver Y, we remove Y/eff from SOC.
-           // This effectively applies efficiency TWICE if we charged with eff too?
-           // Let's check "round-trip efficiency" definition.
-           // Usually: E_out / E_in = Eff.
-           // If we do E_stored = E_in * Eff_in
-           // And E_out = E_stored * Eff_out
-           // Then E_out = E_in * Eff_in * Eff_out = E_in * Eff_roundtrip.
-           // If `efficiency` parameter is 0.9 (roundtrip), we should take sqrt(0.9) ~ 0.95 for each leg?
-           // OR apply it all on one leg.
-           // Previous code applied it on BOTH legs:
-           // 1. Charge: stored = input * eff. (SOC = Input * 0.9)
-           // 2. Discharge: soc -= output / eff. (SOC reduced by Output / 0.9)
-           //    => Output = SOC_delta * 0.9.
-           //    => Output = (Input * 0.9) * 0.9 = Input * 0.81.
-           // So the previous code implements `efficiency^2` round trip if `efficiency` is 0.9.
-           // That's 81% RTE. That's probably acceptable for a simple model, but slightly aggressive loss.
-           // But I will STICK TO THE EXISTING LOGIC to avoid breaking behavior, unless I see it's clearly broken.
-           // It says "Round-trip efficiency (0-1), default 0.9".
-           // If it means RTE, applying 0.9 twice yields 0.81.
-           // I'll stick to the pattern but maybe relax it to sqrt?
-           // No, stick to pattern for consistency.
+           // Check remaining export headroom
+           const remainingExportCap = Math.max(0, gridExportCapKw - currentHourExport);
+           
+           // Discharge is limited by: Available Energy, Max Discharge Rate, AND Remaining Export Cap
+           const dischargeAmount = Math.min(availableEnergy, maxOutput, remainingExportCap); // Output energy
            
            batteryDischarge = dischargeAmount;
            battery.soc -= dischargeAmount / battery.efficiency;
@@ -389,12 +373,56 @@ export function simulateHourlyEnergyFlow(
            gridImport += remainingDeficit;
            
            // If we still have discharge capacity and energy, dump it to grid?
-           // SIGNAL IS DISCHARGE. So yes, dump the rest.
+           // SIGNAL IS DISCHARGE. So yes, dump the rest (subject to cap).
            const outputRemaining = targetOutput - coveredByBattery;
+           
+           // We are exporting the remaining battery output.
+           // Check if we have export headroom.
+           // In this branch, Grid Import > 0 (to cover remaining deficit), so Net Grid Flow is Import.
+           // Wait, you can't import and export simultaneously on a single meter usually.
+           // If we still have deficit, we are importing.
+           // So we can't "dump to grid" while importing for load.
+           // The "DISCHARGE" signal implies "Use battery to reduce load, then export".
+           // If we are still importing, we consumed everything locally.
+           // So NO export here.
+           
+           // HOWEVER, previous code logic was:
+           // "gridImport += remainingDeficit"
+           // "gridExport += outputRemaining"
+           // This implies simultaneous import/export which is physically impossible on a single phase/meter
+           // unless it's a specific setup.
+           // BUT, `targetOutput` was calculated based on `maxOutput`.
+           // `coveredByBattery` used some of that.
+           // `outputRemaining` is what's left of the battery's *capacity* to discharge.
+           // If we are in deficit, the load ate it all. 
+           // Why would there be `outputRemaining`?
+           // Ah, `targetOutput = min(maxPossible, maxOutput)`.
+           // `coveredByBattery = min(deficit, targetOutput)`.
+           // If deficit > targetOutput, then covered = targetOutput, remaining = 0.
+           // If deficit < targetOutput, then covered = deficit, remaining > 0.
+           // If deficit < targetOutput, it means the battery COVERS the load and has EXTRA.
+           // In that case, we should NOT have `remainingDeficit > 0`.
+           // Let's re-verify the logic block.
+           
+           // Case A: Battery < Deficit. 
+           // covered = targetOutput. remaining = 0.
+           // remainingDeficit = deficit - targetOutput > 0.
+           // gridImport > 0.
+           // Correct. No export.
+           
+           // Case B: Battery > Deficit.
+           // covered = deficit.
+           // remainingDeficit = 0.
+           // gridImport = 0.
+           // outputRemaining > 0.
+           // NOW we can export `outputRemaining` (subject to cap).
+           
            if (outputRemaining > 0) {
-              batteryDischarge += outputRemaining;
-              battery.soc -= outputRemaining / battery.efficiency;
-              gridExport += outputRemaining;
+              const allowedExport = Math.min(outputRemaining, gridExportCapKw);
+              
+              batteryDischarge += allowedExport;
+              battery.soc -= allowedExport / battery.efficiency;
+              gridExport += allowedExport;
            }
         }
         
@@ -420,9 +448,10 @@ export function simulateHourlyEnergyFlow(
           batteryCharge = energyToStore;
           battery.soc += energyToStore;
           
-          // Export remainder
-          const exported = surplus - effectiveInput;
-          gridExport = Math.max(0, exported);
+          // Export remainder (subject to cap)
+          const potentialExport = surplus - effectiveInput;
+          const allowedExport = Math.min(potentialExport, gridExportCapKw);
+          gridExport = Math.max(0, allowedExport);
           
         } else if (netEnergy > 0) {
           // Deficit: discharge battery first, then import
@@ -450,7 +479,16 @@ export function simulateHourlyEnergyFlow(
     } else {
       // No battery: direct import/export
       if (netEnergy < 0) {
-        gridExport = Math.abs(netEnergy);
+        const potentialExport = Math.abs(netEnergy);
+        // Apply export cap even without battery
+        // We need to pass gridExportCapKw to this function even if batteryConfig is undefined?
+        // Currently it's inside batteryConfig. 
+        // We defined `gridExportCapKw` at top of function scope from batteryConfig?.gridExportCapKw.
+        // If batteryConfig is undefined, it defaults to Infinity.
+        // If the user has NO battery but wants to cap export (e.g. 100kW limit), 
+        // they must pass a dummy batteryConfig or we need a top-level param.
+        // For now, `gridExportCapKw` handles it if passed.
+        gridExport = Math.min(potentialExport, gridExportCapKw);
       } else if (netEnergy > 0) {
         gridImport = netEnergy;
       }

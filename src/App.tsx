@@ -35,7 +35,7 @@ import { Step2Solar } from './components/steps/Step2Solar';
 import { Step3Battery } from './components/steps/Step3Battery';
 import { Step4Finance } from './components/steps/Step4Finance';
 import { ResultsSection } from './components/ResultsSection';
-import { estimateAnnualBills, calculateAverageFlatRate } from './utils/billingCalculations';
+import { estimateAnnualBills } from './utils/billingCalculations';
 import type { ExampleMonth, TariffConfiguration } from './types/billing';
 import { loadSolarData } from './utils/solarDataLoader';
 import { endSpan as endSolarSpan, logError as logSolarError, logInfo as logSolarInfo, logWarn, startSpan as startSolarSpan } from './utils/logger';
@@ -56,11 +56,11 @@ function App() {
   const [, setBuildingTypeSelection] = useState<BuildingTypeSelection | null>(null);
 
   const [config, setConfig] = useState<SystemConfiguration>({
-    annualProductionKwh: 22500,
-    batterySizeKwh: 10,
-    installationCost: 35000,
+    annualProductionKwh: 0,
+    batterySizeKwh: 0,
+    installationCost: 0,
     location: '',
-    businessType: 'hotel'
+    businessType: 'hotel' // Updated by Step 0
   });
 
   // Billing profile from Step 1
@@ -136,7 +136,7 @@ function App() {
   const [selectedGrantIds, setSelectedGrantIds] = useState<string[]>([]);
 
   const [financing, setFinancing] = useState<Financing>({
-    equity: 15000,
+    equity: 0,
     interestRate: 0.05,
     termYears: 10
   });

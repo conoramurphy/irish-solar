@@ -43,6 +43,10 @@ describe('Step1DigitalTwin', () => {
     const locationSelect = selects[0];
     await user.selectOptions(locationSelect, 'Cavan');
 
+    // Load example data to satisfy validation (consumption > 0)
+    const loadExampleButton = screen.getByRole('button', { name: /Load Example Data/i });
+    await user.click(loadExampleButton);
+
     const continueButton = screen.getByRole('button', { name: /Continue to Solar Configuration/i });
     expect(continueButton).not.toBeDisabled();
 

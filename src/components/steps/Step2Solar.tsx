@@ -166,6 +166,25 @@ export function Step2Solar({
                 Used for grant calculations (e.g. SEAI Non-Domestic Microgen Solar PV).
               </p>
             </Field>
+
+            <Field label="Grid Export Cap (kW)">
+              <input
+                className={inputClass}
+                type="number"
+                step={1}
+                value={config.gridExportCapKw ?? 100}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    gridExportCapKw: e.target.value ? Number(e.target.value) : 100
+                  })
+                }
+                placeholder="e.g., 100"
+              />
+              <p className="mt-2 text-xs text-slate-400 italic">
+                Maximum power you can export to the grid (MEC). Default is 100 kW. Check <a href="https://www.esbnetworks.ie/new-connections/generator-connections-group/network-capacity-heatmap" target="_blank" rel="noreferrer" className="text-tines-purple hover:underline">ESB Heatmap</a> for local limits.
+              </p>
+            </Field>
           </div>
 
           {(externalLoading || loading) && (

@@ -13,13 +13,12 @@ import { applyDegradation } from '../models/solar';
 import { calculateGrantAmount } from '../models/grants';
 import { calculateTradingRevenue } from '../models/trading';
 import { calculateIRR, calculateLoanPayment, calculateNPV, calculateSimplePayback } from '../models/financial';
-import { normalizeConsumptionProfile } from './consumption';
-import { generateHourlyConsumption } from './hourlyConsumption';
 import { aggregateHourlyResultsToMonthly, simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
 import { calculateTimeseriesWeights, distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
+import { type ParsedPriceData } from './priceTimeseriesParser';
 import { buildSolarSpillageAnalysis } from './spillageAnalysis';
 import { runSensitivityAnalysis } from './sensitivityAnalysis';
-import { prepareSimulationContext, type SimulationContext } from './simulationContext';
+import { prepareSimulationContext } from './simulationContext';
 
 /**
  * Run a full ROI calculation for a single scenario.
@@ -61,8 +60,6 @@ export function runCalculation(
 
   // Use the pre-calculated annual production directly
   const baseGeneration = config.annualProductionKwh;
-  
-  const monthlyConsumption = normalizeConsumptionProfile(consumptionProfile, tariff);
   
   // REQUIRED: Solar timeseries data must be provided for audit mode
   if (!solarTimeseriesData) {

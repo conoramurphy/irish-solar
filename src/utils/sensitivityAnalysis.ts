@@ -1,5 +1,4 @@
 import type {
-  ConsumptionProfile,
   Financing,
   Grant,
   SensitivityAnalysis,
@@ -15,7 +14,6 @@ import { estimateSystemCost } from './costEstimation';
 import { calculateGrantAmount } from '../models/grants';
 import { calculateLoanPayment } from '../models/financial';
 import { applyDegradation } from '../models/solar';
-import { normalizeConsumptionProfile } from './consumption';
 
 interface AnalysisContext {
   config: SystemConfiguration;

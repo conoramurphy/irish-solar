@@ -27,11 +27,19 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
   // Location
   const [location, setLocation] = useState<string>('');
 
-  // Example months (default: January and July)
+  // Example months (default: January and July, initially empty)
   const [exampleMonths, setExampleMonths] = useState<ExampleMonth[]>([
-    { monthIndex: 0, monthName: 'January', totalKwh: 60000, totalBillEur: 12000, tariffSlotUsage: {} },
-    { monthIndex: 6, monthName: 'July', totalKwh: 45000, totalBillEur: 9000, tariffSlotUsage: {} }
+    { monthIndex: 0, monthName: 'January', totalKwh: 0, totalBillEur: 0, tariffSlotUsage: {} },
+    { monthIndex: 6, monthName: 'July', totalKwh: 0, totalBillEur: 0, tariffSlotUsage: {} }
   ]);
+
+  const loadExampleData = () => {
+    setExampleMonths([
+      { monthIndex: 0, monthName: 'January', totalKwh: 60000, totalBillEur: 12000, tariffSlotUsage: {} },
+      { monthIndex: 6, monthName: 'July', totalKwh: 45000, totalBillEur: 9000, tariffSlotUsage: {} }
+    ]);
+    setTariffType('flat');
+  };
 
   // Tariff configuration
   const [tariffType, setTariffType] = useState<'flat' | 'custom'>('flat');
@@ -234,9 +242,18 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
         {/* Simple Mode - Just totals */}
         {tariffType === 'flat' && (
           <div>
-            <p className="text-sm text-slate-500 mb-6">
-              Select two different months (typically one winter, one summer) and enter your actual usage and bill amounts.
-            </p>
+            <div className="flex justify-between items-center mb-6">
+              <p className="text-sm text-slate-500">
+                Select two different months (typically one winter, one summer) and enter your actual usage and bill amounts.
+              </p>
+              <button
+                type="button"
+                onClick={loadExampleData}
+                className="text-xs text-tines-purple hover:underline font-medium"
+              >
+                Load Example Data
+              </button>
+            </div>
 
             <div className="space-y-6">
               {exampleMonths.map((month, idx) => (

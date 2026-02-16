@@ -6,7 +6,7 @@
     "type": "24-hour",
     "standingCharge": 0.9,
     "rates": [{ "period": "all-day", "rate": 0.295 }],
-    "exportRate": 0.21,
+    "exportRate": 0.14,
     "psoLevy": 0.0234
   },
   {
@@ -21,7 +21,7 @@
       { "period": "peak", "hours": "17:00-19:00,07:00-09:00", "rate": 0.42 },
       { "period": "other", "rate": 0.28 }
     ],
-    "exportRate": 0.21,
+    "exportRate": 0.14,
     "psoLevy": 0.0234
   }
 ]

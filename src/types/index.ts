@@ -8,6 +8,8 @@ export interface SystemConfiguration {
   /** Installed DC capacity (kWp). Needed for some grant calculations (e.g. SEAI Non-Domestic Microgen). */
   systemSizeKwp?: number;
   batterySizeKwh: number;
+  /** Maximum Export Capacity (MEC) in kW. Grid limit for exports. */
+  gridExportCapKw?: number;
   installationCost: number;
   location: string;
   businessType: BusinessType;
