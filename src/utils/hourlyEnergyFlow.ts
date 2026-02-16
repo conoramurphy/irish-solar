@@ -171,6 +171,7 @@ export function simulateHourlyEnergyFlow(
 
   let totalGridImport = 0;
   let totalGridExport = 0;
+  let totalGridExportCurtailed = 0; // Energy that would be exported but is above cap (unpaid)
   let totalSelfConsumption = 0;
   let totalImportCost = 0;
   let totalExportRevenue = 0;
@@ -276,6 +277,8 @@ export function simulateHourlyEnergyFlow(
           const potentialExport = surplus - solarUsed;
           // If we hit the cap, the excess is curtailed (lost)
           gridExport = Math.min(potentialExport, gridExportCapKw);
+          const curtailed = Math.max(0, potentialExport - gridExport);
+          totalGridExportCurtailed += curtailed;
           
           // 2. Top up from Grid (Force Charge) if space remains
           const spaceRemaining = battery.capacity - battery.soc;
@@ -323,6 +326,8 @@ export function simulateHourlyEnergyFlow(
            let currentHourExport = 0;
            
            const allowedSolarExport = Math.min(potentialSolarExport, gridExportCapKw);
+           const solarCurtailed = Math.max(0, potentialSolarExport - allowedSolarExport);
+           totalGridExportCurtailed += solarCurtailed;
            currentHourExport += allowedSolarExport;
            gridExport += allowedSolarExport;
            
@@ -335,7 +340,10 @@ export function simulateHourlyEnergyFlow(
            const remainingExportCap = Math.max(0, gridExportCapKw - currentHourExport);
            
            // Discharge is limited by: Available Energy, Max Discharge Rate, AND Remaining Export Cap
-           const dischargeAmount = Math.min(availableEnergy, maxOutput, remainingExportCap); // Output energy
+           const potentialDischarge = Math.min(availableEnergy, maxOutput);
+           const dischargeAmount = Math.min(potentialDischarge, remainingExportCap); // Output energy
+           const batteryCurtailed = Math.max(0, potentialDischarge - dischargeAmount);
+           totalGridExportCurtailed += batteryCurtailed;
            
            batteryDischarge = dischargeAmount;
            battery.soc -= dischargeAmount / battery.efficiency;
@@ -419,6 +427,8 @@ export function simulateHourlyEnergyFlow(
            
            if (outputRemaining > 0) {
               const allowedExport = Math.min(outputRemaining, gridExportCapKw);
+              const batteryCurtailed = Math.max(0, outputRemaining - allowedExport);
+              totalGridExportCurtailed += batteryCurtailed;
               
               batteryDischarge += allowedExport;
               battery.soc -= allowedExport / battery.efficiency;
@@ -451,6 +461,8 @@ export function simulateHourlyEnergyFlow(
           // Export remainder (subject to cap)
           const potentialExport = surplus - effectiveInput;
           const allowedExport = Math.min(potentialExport, gridExportCapKw);
+          const curtailed = Math.max(0, potentialExport - allowedExport);
+          totalGridExportCurtailed += curtailed;
           gridExport = Math.max(0, allowedExport);
           
         } else if (netEnergy > 0) {
@@ -489,6 +501,8 @@ export function simulateHourlyEnergyFlow(
         // they must pass a dummy batteryConfig or we need a top-level param.
         // For now, `gridExportCapKw` handles it if passed.
         gridExport = Math.min(potentialExport, gridExportCapKw);
+        const curtailed = Math.max(0, potentialExport - gridExport);
+        totalGridExportCurtailed += curtailed;
       } else if (netEnergy > 0) {
         gridImport = netEnergy;
       }
@@ -574,6 +588,7 @@ export function simulateHourlyEnergyFlow(
   return {
     totalGridImport,
     totalGridExport,
+    totalGridExportCurtailed,
     totalSelfConsumption,
     totalImportCost,
     totalExportRevenue,

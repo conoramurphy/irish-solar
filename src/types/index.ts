@@ -168,8 +168,10 @@ export interface HourlyEnergyFlow {
 export interface HourlySimulationResult {
   /** Total energy imported from grid (kWh) */
   totalGridImport: number;
-  /** Total energy exported to grid (kWh) */
+  /** Total energy exported to grid (kWh) - actual paid exports */
   totalGridExport: number;
+  /** Total energy curtailed due to export cap (kWh) - unpaid spill */
+  totalGridExportCurtailed: number;
   /** Total self-consumed solar (kWh) */
   totalSelfConsumption: number;
   /** Total cost of grid imports (EUR) */
