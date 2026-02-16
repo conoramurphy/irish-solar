@@ -131,7 +131,9 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
 
   // Calculate max values for scaling
   const maxDailyConsumption = Math.max(...dailyData.map(d => d.totalConsumption));
-  const maxHourlyConsumption = Math.max(...(selectedDay?.hours.map(h => h.consumption) || [1]));
+  const maxHourlyValue = Math.max(
+    ...(selectedDay?.hours.map(h => Math.max(h.consumption, h.generation)) || [1])
+  );
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-6 md:p-8">
@@ -488,8 +490,8 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
               {selectedDay.hours.map((hour, index) => {
                 const x = index * 40;
                 const barWidth = 35;
-                const genHeight = (hour.generation / maxHourlyConsumption) * 200;
-                const consHeight = (hour.consumption / maxHourlyConsumption) * 200;
+                const genHeight = (hour.generation / maxHourlyValue) * 200;
+                const consHeight = (hour.consumption / maxHourlyValue) * 200;
                 const hourOfDay = hour.hourOfDay ?? index;
 
                 const isDaylight = hour.generation > 0.01;
