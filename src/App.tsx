@@ -608,25 +608,6 @@ function App() {
               onSelectYear={(y) => {
                 setSelectedYear(y);
               }}
-              onSelectSimulation={(newKwh) => {
-                if (config.annualProductionKwh <= 0) return;
-                const ratio = newKwh / config.annualProductionKwh;
-                
-                const newConfig: SystemConfiguration = {
-                  ...config,
-                  annualProductionKwh: newKwh,
-                  // Scale system size and cost linearly as a first-order approximation
-                  systemSizeKwp: config.systemSizeKwp ? Number((config.systemSizeKwp * ratio).toFixed(1)) : undefined,
-                  numberOfPanels: config.numberOfPanels ? Math.round(config.numberOfPanels * ratio) : undefined,
-                  installationCost: Number((config.installationCost * ratio).toFixed(0))
-                };
-                
-                setConfig(newConfig);
-                handleCalculate(newConfig);
-                
-                // Scroll to top to show updated results
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
               onBack={handleBackFromResults}
               onSaveReport={handleSaveReport}
               existingReportNames={reports.map(r => r.name)}

@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { useState, type ReactNode, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { CalculationResult, SystemConfiguration } from '../types';
 import { AuditModal } from './AuditModal';
 import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
@@ -15,7 +14,6 @@ interface ResultsSectionProps {
   availableYears?: number[];
   selectedYear?: number;
   onSelectYear?: (year: number) => void;
-  onSelectSimulation?: (annualProduction: number) => void;
   onBack?: () => void;
   onSaveReport?: (name: string) => void;
   existingReportNames?: string[];
@@ -23,10 +21,6 @@ interface ResultsSectionProps {
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('en-IE', { maximumFractionDigits: 0 }).format(value);
 }
 
 function formatSignedCurrency(value: number) {
@@ -40,30 +34,6 @@ function formatPercentFraction(fraction: number, digits = 1) {
   return `${(f * 100).toFixed(digits)}%`;
 }
 
-function MetricRow({
-  label,
-  value,
-  hint,
-  valueClassName
-}: {
-  label: string;
-  value: ReactNode;
-  hint?: string;
-  valueClassName?: string;
-}) {
-  return (
-    <div className="py-4">
-      <div className="flex items-baseline justify-between gap-4">
-        <div className="text-sm font-medium text-slate-700 leading-snug">{label}</div>
-        <div className={`shrink-0 text-right text-lg font-semibold text-slate-900 tabular-nums whitespace-nowrap ${valueClassName ?? ''}`}>
-          {value}
-        </div>
-      </div>
-      {hint && <div className="mt-2 text-xs text-slate-400 leading-snug">{hint}</div>}
-    </div>
-  );
-}
-
 export function ResultsSection({ 
   standardResult,
   marketResult,
@@ -71,7 +41,6 @@ export function ResultsSection({
   availableYears = [], 
   selectedYear, 
   onSelectYear, 
-  onSelectSimulation, 
   onBack,
   onSaveReport,
   existingReportNames = []
@@ -227,7 +196,7 @@ export function ResultsSection({
         </div>
 
         {/* --- STANDARD ANALYSIS TAB (combines overview + financials) --- */}
-        {(activeTab === 'standard' || activeTab === 'market') && (
+        {(activeTab === 'standard' || activeTab === 'market') && activeResult && (
           <div className="animate-in fade-in duration-300">
             {/* 1. Energy Analytics Chart (Top) */}
             {activeResult.audit?.hourly && activeResult.audit.hourly.length > 0 && (
@@ -379,339 +348,126 @@ export function ResultsSection({
           </div>
         )}
 
-        {/* Financials content now merged into standard/market tab above */}
-        {false && (
+        {/* --- COMPARISON TAB --- */}
+        {activeTab === 'comparison' && standardResult && marketResult && (
           <div className="animate-in fade-in duration-300">
-            {/* 2. Combined Financial & Performance Metrics */}
             <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">System Performance & Financials</h3>
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Scenario Comparison</h3>
+                <p className="text-xs text-slate-400 mt-1">Standard Tariff vs Market Rate Analysis</p>
               </div>
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                {/* Left Column: Financials */}
-                <div className="space-y-1">
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Financial Overview</div>
-                  <MetricRow
-                    label="System Cost"
-                    value={formatCurrency(activeResult.systemCost)}
-                    hint="Total installed cost before any grants or financing."
-                  />
-                  <MetricRow
-                    label="Net Cost"
-                    value={formatCurrency(activeResult.netCost)}
-                    hint="Effective cost after eligible grants."
-                  />
-                  {activeResult.year1TaxSavings && result.year1TaxSavings > 0 && (
-                    <MetricRow
-                      label="Tax Relief (Yr 1)"
-                      value={formatCurrency(activeResult.year1TaxSavings)}
-                      hint="Estimated ACA tax savings in Year 1."
-                      valueClassName="text-emerald-600"
-                    />
-                  )}
-                  <MetricRow
-                    label="Annual Savings"
-                    value={formatCurrency(activeResult.annualSavings)}
-                    hint="Estimated Year 1 bill reduction."
-                    valueClassName="text-emerald-600 font-bold"
-                  />
-                  <MetricRow
-                    label="Simple Payback"
-                    value={Number.isFinite(activeResult.simplePayback) ? `${activeResult.simplePayback.toFixed(1)} years` : '∞'}
-                    hint={activeResult.year1TaxSavings ? "Net Cost (less Tax Relief) ÷ Annual Savings." : "Net Cost ÷ Annual Savings."}
-                  />
-                  <MetricRow
-                    label="IRR (25y)"
-                    value={Number.isFinite(activeResult.irr) ? `${(result.irr * 100).toFixed(1)}%` : '—'}
-                    hint="Internal Rate of Return over 25 years."
-                  />
-                  <MetricRow
-                    label="NPV (25y)"
-                    value={formatCurrency(activeResult.npv)}
-                    hint="Net Present Value."
-                  />
-                </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Standard Result Card */}
+                  <div className="bg-slate-50 rounded-lg p-5 border border-slate-200">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Standard Tariff</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-xs text-slate-500">Annual Savings</div>
+                        <div className="text-lg font-bold text-emerald-600">{formatCurrency(standardResult.annualSavings)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">Payback Period</div>
+                        <div className="text-lg font-bold text-slate-700">
+                          {Number.isFinite(standardResult.simplePayback) ? `${standardResult.simplePayback.toFixed(1)} years` : '∞'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">IRR (25y)</div>
+                        <div className="text-lg font-bold text-slate-700">
+                          {Number.isFinite(standardResult.irr) ? `${(standardResult.irr * 100).toFixed(1)}%` : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">NPV (25y)</div>
+                        <div className="text-lg font-bold text-slate-700">{formatCurrency(standardResult.npv)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">Export Revenue</div>
+                        <div className="text-sm font-semibold text-slate-600">{formatCurrency(standardResult.annualExportRevenue)}</div>
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Right Column: Performance */}
-                <div className="space-y-1">
-                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Technical Performance</div>
-                  <MetricRow
-                    label="Annual Generation"
-                    value={`${formatNumber(activeResult.annualGeneration)} kWh`}
-                    hint="Total solar energy produced."
-                  />
-                  {config?.numberOfPanels && (
-                    <MetricRow
-                      label="South-Facing Panels"
-                      value={formatNumber(config.numberOfPanels)}
-                      hint="Number of panels configured."
-                    />
-                  )}
-                  <MetricRow
-                    label="Exported Energy"
-                    value={`${formatNumber(activeResult.annualExport)} kWh`}
-                    hint="Solar energy sent to grid."
-                  />
-                  
-                  {/* Battery Metrics */}
-                  {config?.batterySizeKwh ? (
-                    <>
-                      <MetricRow
-                        label="Battery Capacity"
-                        value={`${formatNumber(config.batterySizeKwh)} kWh`}
-                        hint="Installed energy storage."
-                      />
-                      <MetricRow
-                        label="Self-Consumption"
-                        value={formatPercentFraction(result.annualSelfConsumption / (activeResult.annualGeneration || 1))}
-                        hint="Solar energy used on-site (boosted by battery)."
-                        valueClassName="text-emerald-600 font-bold"
-                      />
-                    </>
-                  ) : (
-                    <MetricRow
-                      label="Self-Consumption"
-                      value={formatPercentFraction(result.annualSelfConsumption / (activeResult.annualGeneration || 1))}
-                      hint="Solar energy used on-site."
-                    />
-                  )}
+                  {/* Delta Card */}
+                  <div className="bg-indigo-50 rounded-lg p-5 border border-indigo-200 flex flex-col justify-center">
+                    <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-4 text-center">Market Rate Difference</h4>
+                    <div className="space-y-3">
+                      <div className="text-center">
+                        <div className="text-xs text-indigo-600">Δ Annual Savings</div>
+                        <div className="text-xl font-bold text-indigo-700">
+                          {formatSignedCurrency(marketResult.annualSavings - standardResult.annualSavings)}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-indigo-600">Δ Payback</div>
+                        <div className="text-xl font-bold text-indigo-700">
+                          {(() => {
+                            const delta = marketResult.simplePayback - standardResult.simplePayback;
+                            if (!Number.isFinite(delta)) return '—';
+                            const sign = delta >= 0 ? '+' : '−';
+                            return `${sign}${Math.abs(delta).toFixed(1)}y`;
+                          })()}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-indigo-600">Δ IRR</div>
+                        <div className="text-xl font-bold text-indigo-700">
+                          {(() => {
+                            const delta = (marketResult.irr - standardResult.irr) * 100;
+                            if (!Number.isFinite(delta)) return '—';
+                            const sign = delta >= 0 ? '+' : '−';
+                            return `${sign}${Math.abs(delta).toFixed(1)}%`;
+                          })()}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xs text-indigo-600">Δ NPV</div>
+                        <div className="text-lg font-bold text-indigo-700">
+                          {formatSignedCurrency(marketResult.npv - standardResult.npv)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                  {/* Spillage Callout */}
-                  <MetricRow
-                    label="Export (Spillage) %"
-                    value={(() => {
-                      const spill = activeResult.annualExport / (activeResult.annualGeneration || 1);
-                      const isHigh = spill > 0.3;
-                      return (
-                        <span className={isHigh ? 'text-amber-600 font-bold' : ''}>
-                          {formatPercentFraction(spill)}
-                          {isHigh && <span className="ml-2 text-xs font-normal text-amber-600">(High)</span>}
-                        </span>
-                      );
-                    })()}
-                    hint="Percentage of generation exported. >30% typically indicates oversizing."
-                  />
+                  {/* Market Result Card */}
+                  <div className="bg-slate-50 rounded-lg p-5 border border-slate-200">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Market Rate</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <div className="text-xs text-slate-500">Annual Savings</div>
+                        <div className="text-lg font-bold text-emerald-600">{formatCurrency(marketResult.annualSavings)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">Payback Period</div>
+                        <div className="text-lg font-bold text-slate-700">
+                          {Number.isFinite(marketResult.simplePayback) ? `${marketResult.simplePayback.toFixed(1)} years` : '∞'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">IRR (25y)</div>
+                        <div className="text-lg font-bold text-slate-700">
+                          {Number.isFinite(marketResult.irr) ? `${(marketResult.irr * 100).toFixed(1)}%` : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">NPV (25y)</div>
+                        <div className="text-lg font-bold text-slate-700">{formatCurrency(marketResult.npv)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-500">Export Revenue</div>
+                        <div className="text-sm font-semibold text-slate-600">{formatCurrency(marketResult.annualExportRevenue)}</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-
-            {/* Monthly payment vs savings (Year 1) */}
-            {activeResult.audit?.monthly && activeResult.audit.monthly.length === 12 && (
-              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Monthly Cashflow (Year 1)</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Estimated loan payments vs bill savings for the next calendar year.</p>
-                  </div>
-                  <div className="text-xs font-medium text-slate-400">{new Date().getFullYear() + 1}</div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                      <tr>
-                        <th className="px-6 py-3">Month</th>
-                        <th className="px-6 py-3 text-right">Previous Bill</th>
-                        <th className="px-6 py-3 text-right">New Bill (Market Rate)</th>
-                        <th className="px-6 py-3 text-right">Payment</th>
-                        <th className="px-6 py-3 text-right">Savings</th>
-                        <th className="px-6 py-3 text-right">Net Position</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {activeResult.audit.monthly.map((m) => {
-                        const monthName = new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' });
-                        const payment = m.debtPayment ?? 0;
-                        const savings = m.savings ?? 0;
-                        const net = (m.netOutOfPocket ?? (savings - payment));
-                        const isPositive = net >= 0;
-                        const baseline = m.baselineCost ?? 0;
-                        const newBill = m.importCost ?? 0;
-                        
-                        return (
-                          <tr key={m.monthIndex} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-6 py-3 font-medium text-slate-700">{monthName}</td>
-                            <td className="px-6 py-3 text-right text-slate-500 tabular-nums">{formatCurrency(baseline)}</td>
-                            <td className="px-6 py-3 text-right text-slate-500 tabular-nums">{formatCurrency(newBill)}</td>
-                            <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(payment)}</td>
-                            <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(savings)}</td>
-                            <td className={`px-6 py-3 text-right font-semibold tabular-nums ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                              {formatSignedCurrency(net)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    {monthlyTotals && (
-                      <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
-                        <tr>
-                          <td className="px-6 py-4 text-slate-800">Total</td>
-                          <td className="px-6 py-4 text-right text-slate-600 tabular-nums">{formatCurrency(monthlyTotals.baseline)}</td>
-                          <td className="px-6 py-4 text-right text-slate-600 tabular-nums">{formatCurrency(monthlyTotals.newBill)}</td>
-                          <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.payment)}</td>
-                          <td className="px-6 py-4 text-right text-slate-800 tabular-nums">{formatCurrency(monthlyTotals.savings)}</td>
-                          <td className={`px-6 py-4 text-right tabular-nums ${monthlyTotals.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                            {formatSignedCurrency(monthlyTotals.net)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Solar Sizing Sensitivity Analysis */}
-            {activeResult.sensitivityAnalysis && (
-              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Year 1 vs Year 10 cumulative net cash flow. Click a row to simulate that system size.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                      <tr>
-                        <th className="px-6 py-3">PV Size (Annual kWh)</th>
-                        <th className="px-6 py-3 text-right">No Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
-                        <th className="px-6 py-3 text-right">With Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
-                        <th className="px-6 py-3 text-right">Scale Factor</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {activeResult.sensitivityAnalysis.rows.map((row) => {
-                        const isCurrent = Math.abs(row.scaleFactor - 1.0) < 0.01;
-                        
-                        const formatProfit = (val: number) => {
-                           const isPos = val >= 0;
-                           return (
-                             <span className={isPos ? 'text-emerald-700 font-bold' : 'text-rose-600 font-medium'}>
-                               {formatSignedCurrency(val)}
-                             </span>
-                           );
-                        };
-
-                        return (
-                          <tr 
-                            key={row.scaleFactor} 
-                            onClick={() => !isCurrent && onSelectSimulation?.(row.annualGenerationKwh)}
-                            className={`transition-colors ${
-                              isCurrent 
-                                ? 'bg-slate-50/80 cursor-default' 
-                                : 'hover:bg-indigo-50 cursor-pointer group'
-                            }`}
-                          >
-                            <td className="px-6 py-3">
-                              <div className="font-medium text-slate-700 group-hover:text-indigo-700 tabular-nums">
-                                {formatNumber(row.annualGenerationKwh)} kWh
-                              </div>
-                              {isCurrent && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 mt-1">
-                                  Current
-                                </span>
-                              )}
-                            </td>
-                            
-                            <td className="px-6 py-3 text-right tabular-nums">
-                               <div className="flex flex-col items-end gap-0.5">
-                                 <div className="text-sm font-medium">{formatProfit(row.noBattery.year1NetCashFlow)}</div>
-                                 <div className="text-xs">{formatProfit(row.noBattery.year10NetCashFlow)}</div>
-                               </div>
-                               <div className="text-[10px] text-slate-400 mt-1">
-                                 Spill: {(row.noBattery.spillageFraction * 100).toFixed(0)}%
-                               </div>
-                            </td>
-
-                            <td className="px-6 py-3 text-right tabular-nums">
-                               <div className="flex flex-col items-end gap-0.5">
-                                 <div className="text-sm font-medium">{formatProfit(row.withBattery.year1NetCashFlow)}</div>
-                                 <div className="text-xs">{formatProfit(row.withBattery.year10NetCashFlow)}</div>
-                               </div>
-                               <div className="text-[10px] text-slate-400 mt-1">
-                                 {formatNumber(row.withBattery.batterySizeKwh)} kWh Battery
-                               </div>
-                            </td>
-
-                            <td className="px-6 py-3 text-right tabular-nums text-slate-500">
-                              {row.scaleFactor}×
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
-                  {activeResult.sensitivityAnalysis.note}
-                </div>
-              </div>
-            )}
-
-            {/* Legacy Solar Spillage Sensitivity Analysis (Fallback) */}
-            {!result.sensitivityAnalysis && result.solarSpillageAnalysis && (
-              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Click a row to simulate that system size.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                      <tr>
-                        <th className="px-6 py-3">PV Size (Annual kWh)</th>
-                        <th className="px-6 py-3 text-right">Scale Factor</th>
-                        <th className="px-6 py-3 text-right">Exported</th>
-                        <th className="px-6 py-3 text-right">Spillage %</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {activeResult.solarSpillageAnalysis.curve.map((p) => {
-                        const isCurrent = Math.abs(p.scaleFactor - 1.0) < 0.01;
-                        const isHighSpill = p.spillageFraction > 0.3;
-                        
-                        return (
-                          <tr 
-                            key={p.scaleFactor} 
-                            onClick={() => !isCurrent && onSelectSimulation?.(p.annualGenerationKwh)}
-                            className={`transition-colors ${
-                              isCurrent 
-                                ? 'bg-slate-50/80 font-medium cursor-default' 
-                                : 'hover:bg-indigo-50 cursor-pointer group'
-                            }`}
-                          >
-                            <td className="px-6 py-3 tabular-nums text-slate-700 group-hover:text-indigo-700">
-                              {formatNumber(p.annualGenerationKwh)}
-                              {isCurrent && <span className="ml-2 text-xs font-normal text-tines-purple bg-tines-purple/10 px-2 py-0.5 rounded-full">Current</span>}
-                            </td>
-                            <td className="px-6 py-3 text-right tabular-nums text-slate-600">{p.scaleFactor.toFixed(2)}×</td>
-                            <td className="px-6 py-3 text-right tabular-nums text-slate-600">{formatNumber(p.exportKwh)} kWh</td>
-                            <td className={`px-6 py-3 text-right tabular-nums font-medium ${isHighSpill ? 'text-amber-600' : 'text-slate-700'}`}>
-                              {formatPercentFraction(p.spillageFraction)}
-                              {isHighSpill && <span className="ml-2 text-xs font-normal text-amber-600">⚠️</span>}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
         {/* --- MARKET TAB --- */}
-        {activeTab === 'market' && activeResult.audit?.hourly && activeResult.audit.hourly.length > 0 && (
+        {activeTab === 'market' && activeResult && activeResult.audit?.hourly && activeResult.audit.hourly.length > 0 && (
           <div className="mb-8 animate-in fade-in duration-300">
             <MarketAnalysis hourlyData={activeResult.audit.hourly} year={analyticsYear} />
           </div>
@@ -720,7 +476,7 @@ export function ResultsSection({
         {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">
           <div>
-            {activeResult.audit ? (
+            {activeResult && activeResult.audit ? (
               <button
                 type="button"
                 className="text-sm font-medium text-slate-500 hover:text-tines-purple transition-colors"
@@ -767,7 +523,7 @@ export function ResultsSection({
           </div>
         </div>
 
-        {auditOpen && activeResult.audit && <AuditModal audit={activeResult.audit} onClose={() => setAuditOpen(false)} />}
+        {auditOpen && activeResult && activeResult.audit && <AuditModal audit={activeResult.audit} onClose={() => setAuditOpen(false)} />}
         
         <SaveReportModal
           isOpen={saveModalOpen}
