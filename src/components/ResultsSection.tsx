@@ -414,7 +414,10 @@ export function ResultsSection({
                                  <div className="text-xs">{formatProfit(row.noBattery.year10NetCashFlow)}</div>
                                </div>
                                <div className="text-[10px] text-slate-400 mt-1">
-                                 Spill: {(row.noBattery.spillageFraction * 100).toFixed(0)}%
+                                 Export: {(row.noBattery.exportPaidFraction * 100).toFixed(0)}% paid
+                                 {row.noBattery.exportUnpaidFraction > 0.01 && (
+                                   <span className="text-amber-600"> + {(row.noBattery.exportUnpaidFraction * 100).toFixed(0)}% unpaid</span>
+                                 )}
                                </div>
                             </td>
 
@@ -424,7 +427,10 @@ export function ResultsSection({
                                  <div className="text-xs">{formatProfit(row.withBattery.year10NetCashFlow)}</div>
                                </div>
                                <div className="text-[10px] text-slate-400 mt-1">
-                                 {formatNumber(row.withBattery.batterySizeKwh)} kWh Battery
+                                 {formatNumber(row.withBattery.batterySizeKwh)} kWh | Export: {(row.withBattery.exportPaidFraction * 100).toFixed(0)}%
+                                 {row.withBattery.exportUnpaidFraction > 0.01 && (
+                                   <span className="text-amber-600"> +{(row.withBattery.exportUnpaidFraction * 100).toFixed(0)}%</span>
+                                 )}
                                </div>
                             </td>
 

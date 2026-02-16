@@ -218,6 +218,8 @@ export interface SensitivityScenario {
     year1NetCashFlow: number;
     year10NetCashFlow: number;
     spillageFraction: number;
+    exportPaidFraction: number; // Fraction of generation exported AND paid for
+    exportUnpaidFraction: number; // Fraction of generation spilled above cap (unpaid)
   };
   
   // Scenario 2: With Comparable Battery
@@ -229,6 +231,8 @@ export interface SensitivityScenario {
     year1NetCashFlow: number;
     year10NetCashFlow: number;
     spillageFraction: number;
+    exportPaidFraction: number; // Fraction of generation exported AND paid for
+    exportUnpaidFraction: number; // Fraction of generation spilled above cap (unpaid)
   };
 }
 

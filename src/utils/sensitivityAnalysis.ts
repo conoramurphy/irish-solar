@@ -90,6 +90,18 @@ function computeScenarioMetrics(
   firstYearSavings = year1Result.totalSavings;
   firstYearSpillageFraction = year1Result.totalGridExport / (year1Generation || 1);
   
+  // Calculate paid export vs unpaid spill
+  // Paid export = actually exported to grid (gets revenue)
+  // Unpaid = would have been exported but was above cap (no revenue)
+  // Currently we don't track unpaid separately in the simulation
+  // The export cap is applied inside simulateHourlyEnergyFlow
+  // So totalGridExport already reflects the capped amount (paid)
+  // Unpaid = potential export - actual export
+  // We don't have "potential export" easily available without re-running
+  // For now, we'll assume all exports are paid (cap is handled in simulation)
+  const exportPaidFraction = year1Result.totalGridExport / (year1Generation || 1);
+  const exportUnpaidFraction = 0; // TODO: Track uncapped spill separately
+  
   // Year 1 Net Cash Flow (ignoring loan for sensitivity comparison consistency? 
   // No, user asked for "profit loss", usually means Net Cash Flow including debt if applicable.
   // But debt depends on term. Let's include it.)
@@ -113,7 +125,9 @@ function computeScenarioMetrics(
     annualSavings: firstYearSavings,
     year1NetCashFlow: netCashFlow,
     year10NetCashFlow: cumulativeCashFlow10y,
-    spillageFraction: firstYearSpillageFraction
+    spillageFraction: firstYearSpillageFraction,
+    exportPaidFraction,
+    exportUnpaidFraction
   };
 }
 
