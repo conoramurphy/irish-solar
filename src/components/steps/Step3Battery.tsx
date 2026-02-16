@@ -154,9 +154,9 @@ export function Step3Battery({
               className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
             />
             <div className="ml-3 flex-1">
-              <div className="font-semibold text-slate-700">Also model market rate</div>
+              <div className="font-semibold text-slate-700">Also analyze market rate scenario</div>
               <p className="text-sm text-slate-500 mt-1">
-                Enable day-ahead market pricing for battery arbitrage. The system will optimize charging/discharging based on hourly market prices.
+                Enables a separate market rate analysis alongside your standard tariff analysis for comparison. Battery will optimize charging/discharging based on hourly day-ahead market prices.
               </p>
             </div>
           </label>

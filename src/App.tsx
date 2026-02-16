@@ -196,7 +196,8 @@ function App() {
     };
   }, [curvedMonthlyKwh, bucketKeys]);
 
-  const [result, setResult] = useState<CalculationResult | null>(null);
+  const [standardResult, setStandardResult] = useState<CalculationResult | null>(null);
+  const [marketResult, setMarketResult] = useState<CalculationResult | null>(null);
 
   // Step management - starts at 0 (building type)
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -216,14 +217,16 @@ function App() {
   );
 
   const handleCalculate = (configOverride?: SystemConfiguration) => {
-    setResult(null);
+    setStandardResult(null);
+    setMarketResult(null);
     const cfg = configOverride || config;
 
     logInfo('ui', 'Generate report clicked', {
       currentStep,
       hasSolarTimeseries: !!solarTimeseriesData,
       hasConsumptionProfile: curvedMonthlyKwh.length === 12,
-      isOverride: !!configOverride
+      isOverride: !!configOverride,
+      marketRateEnabled: trading.enabled
     });
 
     if (!tariff) {
@@ -231,15 +234,17 @@ function App() {
       return;
     }
 
-    const spanId = startSpan('engine', 'Run calculation', {
+    const spanId = startSpan('engine', 'Run calculations', {
       analysisYears: 25,
-      location: cfg.location
+      location: cfg.location,
+      dual: trading.enabled && !!priceTimeseriesData
     });
 
     try {
+      // Always run standard calculation (with tariff, no market prices)
       logInfo(
         'engine',
-        'runCalculation start',
+        'runCalculation (standard) start',
         {
           annualProductionKwh: cfg.annualProductionKwh,
           batterySizeKwh: cfg.batterySizeKwh,
@@ -250,33 +255,72 @@ function App() {
         { spanId }
       );
 
-      const r = runCalculation(
+      const standardConfig: TradingConfig = { enabled: false };
+      const standard = runCalculation(
         cfg,
         selectedGrants,
         financing,
         tariff,
-        trading,
+        standardConfig,
         historicalSolarData as any,
         historicalTariffData as any,
         25,
         consumptionProfile,
         solarTimeseriesData || undefined,
-        priceTimeseriesData || undefined
+        undefined // No price data for standard
       );
-      setResult(r);
+      setStandardResult(standard);
       logInfo(
         'engine',
-        'runCalculation success',
+        'runCalculation (standard) success',
         {
-          annualGeneration: r.annualGeneration,
-          annualSavings: r.annualSavings,
-          audit: r.audit ? { mode: r.audit.mode, totalHours: r.audit.totalHours } : null
+          annualGeneration: standard.annualGeneration,
+          annualSavings: standard.annualSavings,
+          audit: standard.audit ? { mode: standard.audit.mode, totalHours: standard.audit.totalHours } : null
         },
         { spanId }
       );
 
-      if (r.audit?.corrections?.warnings?.length) {
-        logInfo('engine', 'Solar timeseries normalization warnings', r.audit.corrections, { spanId });
+      if (standard.audit?.corrections?.warnings?.length) {
+        logInfo('engine', 'Solar timeseries normalization warnings (standard)', standard.audit.corrections, { spanId });
+      }
+
+      // If market rate enabled and price data available, also run market calculation
+      if (trading.enabled && priceTimeseriesData) {
+        logInfo(
+          'engine',
+          'runCalculation (market) start',
+          {
+            annualProductionKwh: cfg.annualProductionKwh,
+            batterySizeKwh: cfg.batterySizeKwh
+          },
+          { spanId }
+        );
+
+        const market = runCalculation(
+          cfg,
+          selectedGrants,
+          financing,
+          tariff,
+          trading,
+          historicalSolarData as any,
+          historicalTariffData as any,
+          25,
+          consumptionProfile,
+          solarTimeseriesData || undefined,
+          priceTimeseriesData
+        );
+        setMarketResult(market);
+        logInfo(
+          'engine',
+          'runCalculation (market) success',
+          {
+            annualGeneration: market.annualGeneration,
+            annualSavings: market.annualSavings,
+            audit: market.audit ? { mode: market.audit.mode, totalHours: market.audit.totalHours } : null
+          },
+          { spanId }
+        );
       }
 
       endSpan(spanId, 'success');
@@ -345,15 +389,17 @@ function App() {
     }
   }, [rawSolarData, selectedYear, config.location]);
 
-  // Auto-recalculate when solar data changes (e.g. year selection) IF we already have a result
+  // Auto-recalculate when solar data changes (e.g. year selection) IF we already have results
   useEffect(() => {
-    if (result && solarTimeseriesData) {
+    if ((standardResult || marketResult) && solarTimeseriesData) {
       // Check if we need to update based on year mismatch
-      if (result.audit?.year !== solarTimeseriesData.year) {
+      const needsUpdate = standardResult?.audit?.year !== solarTimeseriesData.year ||
+                         marketResult?.audit?.year !== solarTimeseriesData.year;
+      if (needsUpdate) {
          handleCalculate();
       }
     }
-  }, [solarTimeseriesData, result]);
+  }, [solarTimeseriesData, standardResult, marketResult]);
 
   const handleNextStep = (step: number, data?: any) => {
     logInfo('ui', `Step ${step} completed`, { step });
@@ -461,10 +507,12 @@ function App() {
     // State updates are async. We can't call handleCalculate immediately with old state.
     // Option A: Just set result from saved snapshot (if available)
     if (saved.result) {
-      setResult(saved.result);
+      setStandardResult(saved.result);
+      setMarketResult(null); // Saved reports from before dual-calc don't have marketResult
     } else {
       // If no result snapshot, user has to click "Generate"
-      setResult(null);
+      setStandardResult(null);
+      setMarketResult(null);
     }
     
     // 5. If we have a location, we need to ensure solar data loads.
@@ -486,7 +534,7 @@ function App() {
   };
 
   const handleSaveReport = (name: string) => {
-    if (!result) return;
+    if (!standardResult) return;
 
     saveReport({
         name,
@@ -500,14 +548,15 @@ function App() {
         curvedMonthlyKwh,
         estimatedMonthlyBills,
         selectedYear,
-        result // Snapshot
+        result: standardResult // Snapshot (save standard result for now)
     });
     
     logInfo('ui', 'Saved report', { name });
   };
 
   const handleBackFromResults = () => {
-    setResult(null);
+    setStandardResult(null);
+    setMarketResult(null);
     // Go back to the last step (Finance)
     setCurrentStep(4);
     // Ensure it's marked as completed so we can navigate freely
@@ -541,17 +590,18 @@ function App() {
 
       <main className="mx-auto max-w-7xl px-6 py-10 -mt-10 relative z-20">
       {/* Step Indicator (hide on Step 0 and when report is generated) */}
-        {!result && currentStep > 0 && (
+        {!standardResult && currentStep > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
             <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
           </div>
         )}
 
         {/* Full-page report */}
-        {result ? (
+        {standardResult ? (
           <div className="max-w-5xl mx-auto">
             <ResultsSection 
-              result={result} 
+              standardResult={standardResult}
+              marketResult={marketResult}
               config={config} 
               availableYears={availableYears}
               selectedYear={selectedYear}
