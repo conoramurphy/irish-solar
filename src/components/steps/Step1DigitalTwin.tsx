@@ -70,24 +70,47 @@ export function Step1DigitalTwin({ onNext, onBack }: Step1DigitalTwinProps) {
   };
 
   const removeTariffSlot = (id: string) => {
-    setCustomSlots(prev => prev.filter(s => s.id !== id));
-    // Remove usage from months
-    const newMonths = exampleMonths.map(m => ({
-      ...m,
-      tariffSlotUsage: Object.fromEntries(
+    // 1. Remove the slot definition
+    const newSlots = customSlots.filter(s => s.id !== id);
+    setCustomSlots(newSlots);
+
+    // 2. Remove usage from months and recalculate totals
+    const newMonths = exampleMonths.map(m => {
+      const newUsage = Object.fromEntries(
         Object.entries(m.tariffSlotUsage).filter(([slotId]) => slotId !== id)
-      )
-    }));
+      );
+      
+      // Recalculate totalKwh based on remaining slots
+      const newTotal = newSlots.reduce((sum, slot) => {
+        return sum + (newUsage[slot.id] || 0);
+      }, 0);
+
+      return {
+        ...m,
+        tariffSlotUsage: newUsage,
+        totalKwh: newTotal
+      };
+    });
     setExampleMonths(newMonths);
   };
 
   const updateSlotUsage = (monthIndex: number, slotId: string, kwhValue: number) => {
-    const newMonths = exampleMonths.map(m => 
-      m.monthIndex === monthIndex 
-        ? { ...m, tariffSlotUsage: { ...m.tariffSlotUsage, [slotId]: kwhValue } }
-        : m
-    );
-    setExampleMonths(newMonths);
+    setExampleMonths(prev => prev.map(m => {
+      if (m.monthIndex !== monthIndex) return m;
+      
+      const newUsage = { ...m.tariffSlotUsage, [slotId]: kwhValue };
+      
+      // Auto-update totalKwh when slot usage changes
+      const newTotal = customSlots.reduce((sum, slot) => {
+        return sum + (newUsage[slot.id] || 0);
+      }, 0);
+
+      return { 
+        ...m, 
+        tariffSlotUsage: newUsage,
+        totalKwh: newTotal 
+      };
+    }));
   };
 
   const handleContinue = () => {
