@@ -1,3 +1,5 @@
+import 'fake-indexeddb/auto';
+
 // Mock localStorage for jsdom environment
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
@@ -19,6 +21,8 @@ const localStorageMock = (() => {
 
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
+  configurable: true,
+  writable: true
 });
 
 import '@testing-library/jest-dom/vitest';

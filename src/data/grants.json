@@ -1,5 +1,17 @@
 [
   {
+    "id": "seai-domestic-solar-pv",
+    "name": "SEAI Domestic Solar PV Grant",
+    "type": "SEAI",
+    "percentage": 0,
+    "maxAmount": 1800,
+    "eligibleFor": ["house"],
+    "description": "Domestic grant for homes built pre-2021. €700/kWp up to 2kWp, €200/kWp up to 4kWp. Capped at €1,800.",
+    "sourceUrls": ["https://www.seai.ie/grants/home-energy-grants/solar-electricity-grant/"],
+    "lastVerified": "2025-02-22",
+    "calculation": { "method": "seai-domestic-solar-pv" }
+  },
+  {
     "id": "seai-ndmg-solar-pv",
     "name": "SEAI Non-Domestic Microgen Grant (Solar PV)",
     "type": "SEAI",

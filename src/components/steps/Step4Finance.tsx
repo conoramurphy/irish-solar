@@ -50,6 +50,31 @@ export function Step4Finance({
     }
   }, [useEstimatedCost, vatRate, estimatedBaseCost, config, setConfig]);
 
+  // Auto-fill defaults for House mode
+  useEffect(() => {
+    if (config.businessType === 'house') {
+      // Guide price: €10,000 for 16 panels (~6.4kWp) + 8kWh battery
+      // Only set if we haven't manually modified it yet (or just force it for MVP convenience?)
+      // Let's set it if cost is 0.
+      if (config.installationCost === 0) {
+        setConfig(prev => ({
+          ...prev,
+          installationCost: 10000,
+          systemSizeKwp: 6.4,
+          batterySizeKwh: 8
+        }));
+        // Also force manual cost mode so we don't overwrite it with commercial estimator
+        setUseEstimatedCost(false);
+      }
+      
+      // Auto-select domestic grant
+      const domesticGrantId = 'seai-domestic-solar-pv';
+      if (eligibleGrants.some(g => g.id === domesticGrantId) && !selectedGrantIds.includes(domesticGrantId)) {
+        setSelectedGrantIds([domesticGrantId]);
+      }
+    }
+  }, [config.businessType]); // Run once when businessType changes (or on mount if already house)
+
   // Auto-select eligible grants if none selected (e.g. initial load)
   useEffect(() => {
     if (eligibleGrants.length > 0 && selectedGrantIds.length === 0) {

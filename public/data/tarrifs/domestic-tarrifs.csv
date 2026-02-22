@@ -1,0 +1,21 @@
+Supplier,Plan Name / Type,24hr / Day (c/kWh),Night Rate (c/kWh),Peak (5-7pm) (c/kWh),EV / Boost Rate (c/kWh),EV Slot / Time,Standing Charge (€/yr)
+Yuno Energy,12m Fixed (Flat),31.33c,20.64c,N/A,N/A,N/A,€219.22
+Yuno Energy,12m Fixed (EV),32.70c,20.64c,N/A,10.79c,2am – 6am,€334.19
+Yuno Energy,Standard Smart,37.51c,23.64c,43.19c,N/A,N/A,€264.72
+Electric Ireland,Home Electric+ (Smart),28.14c,14.79c,30.02c,N/A,N/A,€250.77
+Electric Ireland,Night Boost (EV),30.53c,15.05c,N/A,8.84c,2am – 4am,€328.58
+Electric Ireland,Weekend Free (Smart),35.27c,17.49c,N/A,0.00c,Sat/Sun 8-11,€250.77
+Bord Gáis,Smart All Day (32%),28.36c,22.30c,36.86c,N/A,N/A,€244.78
+Bord Gáis,Smart EV Plan,29.22c,22.30c,36.86c,7.45c,2am – 5am,€244.76
+Bord Gáis,Nightsaver (D/N),30.40c,15.05c,N/A,N/A,N/A,€321.84
+Energia,Smart Data (36% Disc),26.96c,14.82c,30.28c,N/A,N/A,€264.97
+Energia,Smart Drive (EV),38.93c,23.99c,51.08c,9.42c,2am – 6am,€265.01
+Energia,24hr Standard (Flat),27.30c,14.05c,N/A,N/A,N/A,€265.01
+SSE Airtricity,Smart Saver (35% Disc),28.29c,18.18c,31.69c,N/A,N/A,€242.07
+SSE Airtricity,Smart Saver EV,41.74c,23.44c,49.73c,9.05c,2am – 5am,€334.74
+SSE Airtricity,1yr Fixed (Flat),31.52c,19.98c,N/A,N/A,N/A,€240.98
+Community Power,Standard Variable,28.80c,19.15c,39.84c,N/A,N/A,€238.71
+Flogas,Fixed Electricity,24.09c,16.50c*,N/A,N/A,N/A,€275.39
+Flogas,Smart 30% Discount,27.75c,20.48c,33.56c,N/A,N/A,€275.39
+Pinergy,Smart Standard,38.32c,31.77c,41.77c,25.06c,7pm – 12am,€260.06
+PrepayPower,Classic Pay,36.73c,18.38c,N/A,N/A,N/A,€342.67

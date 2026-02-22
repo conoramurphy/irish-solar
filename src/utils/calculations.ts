@@ -42,7 +42,8 @@ export function runCalculation(
   analysisYears = 25,
   consumptionProfile?: ConsumptionProfile,
   solarTimeseriesData?: ParsedSolarData,
-  priceTimeseriesData?: ParsedPriceData
+  priceTimeseriesData?: ParsedPriceData,
+  hourlyConsumptionOverride?: number[]
 ): CalculationResult {
   const systemCost = Math.max(0, config.installationCost);
 
@@ -78,7 +79,8 @@ export function runCalculation(
     trading,
     solarTimeseriesData,
     consumptionProfile,
-    priceTimeseriesData
+    priceTimeseriesData,
+    hourlyConsumptionOverride
   );
 
   const { timeStamps, hourlyConsumption, hourlyPrices } = simContext;

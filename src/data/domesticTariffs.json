@@ -1,0 +1,561 @@
+[
+  {
+    "id": "yuno-energy-12m-fixed-flat",
+    "supplier": "Yuno Energy",
+    "product": "12m Fixed (Flat)",
+    "type": "time-of-use",
+    "standingCharge": 0.6006027397260274,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.2064
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.31329999999999997
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.2064
+  },
+  {
+    "id": "yuno-energy-12m-fixed-ev",
+    "supplier": "Yuno Energy",
+    "product": "12m Fixed (EV)",
+    "type": "ev",
+    "standingCharge": 0.9155890410958905,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.2064
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.327
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.2064,
+    "evRate": 0.1079,
+    "evTimeWindow": {
+      "description": "2am – 6am",
+      "hourRanges": [
+        {
+          "start": 2,
+          "end": 6
+        }
+      ]
+    }
+  },
+  {
+    "id": "yuno-energy-standard-smart",
+    "supplier": "Yuno Energy",
+    "product": "Standard Smart",
+    "type": "time-of-use",
+    "standingCharge": 0.7252602739726028,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.2364
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.43189999999999995
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.3751
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.2364,
+    "peakRate": 0.43189999999999995
+  },
+  {
+    "id": "electric-ireland-home-electric-smart",
+    "supplier": "Electric Ireland",
+    "product": "Home Electric+ (Smart)",
+    "type": "time-of-use",
+    "standingCharge": 0.687041095890411,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.1479
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.3002
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.2814
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.1479,
+    "peakRate": 0.3002
+  },
+  {
+    "id": "electric-ireland-night-boost-ev",
+    "supplier": "Electric Ireland",
+    "product": "Night Boost (EV)",
+    "type": "ev",
+    "standingCharge": 0.9002191780821918,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.1505
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.3053
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.1505,
+    "evRate": 0.08839999999999999,
+    "evTimeWindow": {
+      "description": "2am – 4am",
+      "hourRanges": [
+        {
+          "start": 2,
+          "end": 4
+        }
+      ]
+    }
+  },
+  {
+    "id": "electric-ireland-weekend-free-smart",
+    "supplier": "Electric Ireland",
+    "product": "Weekend Free (Smart)",
+    "type": "ev",
+    "standingCharge": 0.687041095890411,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.17489999999999997
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.3527
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.17489999999999997,
+    "freeElectricityWindow": {
+      "description": "Sat/Sun 8-11",
+      "hourRanges": [
+        {
+          "start": 8,
+          "end": 11
+        }
+      ],
+      "daysOfWeek": [
+        0,
+        6
+      ]
+    }
+  },
+  {
+    "id": "bord-g-is-smart-all-day-32",
+    "supplier": "Bord Gáis",
+    "product": "Smart All Day (32%)",
+    "type": "time-of-use",
+    "standingCharge": 0.6706301369863014,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.223
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.3686
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.2836
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.223,
+    "peakRate": 0.3686
+  },
+  {
+    "id": "bord-g-is-smart-ev-plan",
+    "supplier": "Bord Gáis",
+    "product": "Smart EV Plan",
+    "type": "ev",
+    "standingCharge": 0.6705753424657535,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.223
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.3686
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.2922
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.223,
+    "peakRate": 0.3686,
+    "evRate": 0.0745,
+    "evTimeWindow": {
+      "description": "2am – 5am",
+      "hourRanges": [
+        {
+          "start": 2,
+          "end": 5
+        }
+      ]
+    }
+  },
+  {
+    "id": "bord-g-is-nightsaver-d-n",
+    "supplier": "Bord Gáis",
+    "product": "Nightsaver (D/N)",
+    "type": "time-of-use",
+    "standingCharge": 0.8817534246575341,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.1505
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.304
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.1505
+  },
+  {
+    "id": "energia-smart-data-36-disc",
+    "supplier": "Energia",
+    "product": "Smart Data (36% Disc)",
+    "type": "time-of-use",
+    "standingCharge": 0.7259452054794522,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.1482
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.3028
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.2696
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.1482,
+    "peakRate": 0.3028
+  },
+  {
+    "id": "energia-smart-drive-ev",
+    "supplier": "Energia",
+    "product": "Smart Drive (EV)",
+    "type": "ev",
+    "standingCharge": 0.7260547945205479,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.23989999999999997
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.5108
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.3893
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.23989999999999997,
+    "peakRate": 0.5108,
+    "evRate": 0.0942,
+    "evTimeWindow": {
+      "description": "2am – 6am",
+      "hourRanges": [
+        {
+          "start": 2,
+          "end": 6
+        }
+      ]
+    }
+  },
+  {
+    "id": "energia-24hr-standard-flat",
+    "supplier": "Energia",
+    "product": "24hr Standard (Flat)",
+    "type": "time-of-use",
+    "standingCharge": 0.7260547945205479,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.1405
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.273
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.1405
+  },
+  {
+    "id": "sse-airtricity-smart-saver-35-disc",
+    "supplier": "SSE Airtricity",
+    "product": "Smart Saver (35% Disc)",
+    "type": "time-of-use",
+    "standingCharge": 0.6632054794520548,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.1818
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.3169
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.2829
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.1818,
+    "peakRate": 0.3169
+  },
+  {
+    "id": "sse-airtricity-smart-saver-ev",
+    "supplier": "SSE Airtricity",
+    "product": "Smart Saver EV",
+    "type": "ev",
+    "standingCharge": 0.917095890410959,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.23440000000000003
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.49729999999999996
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.4174
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.23440000000000003,
+    "peakRate": 0.49729999999999996,
+    "evRate": 0.09050000000000001,
+    "evTimeWindow": {
+      "description": "2am – 5am",
+      "hourRanges": [
+        {
+          "start": 2,
+          "end": 5
+        }
+      ]
+    }
+  },
+  {
+    "id": "sse-airtricity-1yr-fixed-flat",
+    "supplier": "SSE Airtricity",
+    "product": "1yr Fixed (Flat)",
+    "type": "time-of-use",
+    "standingCharge": 0.6602191780821918,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.1998
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.3152
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.1998
+  },
+  {
+    "id": "community-power-standard-variable",
+    "supplier": "Community Power",
+    "product": "Standard Variable",
+    "type": "time-of-use",
+    "standingCharge": 0.654,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.19149999999999998
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.39840000000000003
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.28800000000000003
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.19149999999999998,
+    "peakRate": 0.39840000000000003
+  },
+  {
+    "id": "flogas-fixed-electricity",
+    "supplier": "Flogas",
+    "product": "Fixed Electricity",
+    "type": "time-of-use",
+    "standingCharge": 0.7544931506849315,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.165
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.2409
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.165
+  },
+  {
+    "id": "flogas-smart-30-discount",
+    "supplier": "Flogas",
+    "product": "Smart 30% Discount",
+    "type": "time-of-use",
+    "standingCharge": 0.7544931506849315,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.2048
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.3356
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.2775
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.2048,
+    "peakRate": 0.3356
+  },
+  {
+    "id": "pinergy-smart-standard",
+    "supplier": "Pinergy",
+    "product": "Smart Standard",
+    "type": "ev",
+    "standingCharge": 0.7124931506849315,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.3177
+      },
+      {
+        "period": "peak",
+        "hours": "17:00-19:00",
+        "rate": 0.4177
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.3832
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.3177,
+    "peakRate": 0.4177,
+    "evRate": 0.2506,
+    "evTimeWindow": {
+      "description": "7pm – 12am",
+      "hourRanges": [
+        {
+          "start": 19,
+          "end": 0
+        }
+      ]
+    }
+  },
+  {
+    "id": "prepaypower-classic-pay",
+    "supplier": "PrepayPower",
+    "product": "Classic Pay",
+    "type": "time-of-use",
+    "standingCharge": 0.9388219178082192,
+    "rates": [
+      {
+        "period": "night",
+        "hours": "23:00-08:00",
+        "rate": 0.1838
+      },
+      {
+        "period": "day",
+        "hours": "08:00-23:00",
+        "rate": 0.36729999999999996
+      }
+    ],
+    "exportRate": 0,
+    "nightRate": 0.1838
+  }
+]

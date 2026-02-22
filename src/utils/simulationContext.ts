@@ -31,7 +31,8 @@ export function prepareSimulationContext(
   trading: TradingConfig,
   solarTimeseriesData: ParsedSolarData,
   consumptionProfile?: ConsumptionProfile,
-  priceTimeseriesData?: ParsedPriceData
+  priceTimeseriesData?: ParsedPriceData,
+  hourlyConsumptionOverride?: number[]
 ): SimulationContext {
   const totalHours = solarTimeseriesData.timesteps.length;
   if (totalHours !== 8760 && totalHours !== 8784) {
@@ -44,14 +45,28 @@ export function prepareSimulationContext(
   const timeStamps = solarTimeseriesData.timesteps.map((ts) => ts.stamp);
 
   // 1. Prepare Consumption
-  const monthlyConsumption = normalizeConsumptionProfile(consumptionProfile, tariff);
-  const hourlyConsumption = generateHourlyConsumption(
-    monthlyConsumption,
-    tariff,
-    totalHours,
-    timeStamps,
-    config.businessType
-  );
+  let hourlyConsumption: number[];
+
+  if (hourlyConsumptionOverride) {
+    // Use override if provided (Domestic Real Usage Mode)
+    if (hourlyConsumptionOverride.length !== totalHours) {
+      throw new Error(
+        `Hourly consumption override must have exactly ${totalHours} timesteps. ` +
+        `Received ${hourlyConsumptionOverride.length}.`
+      );
+    }
+    hourlyConsumption = hourlyConsumptionOverride;
+  } else {
+    // Generate from monthly profile (Commercial/Estimated Mode)
+    const monthlyConsumption = normalizeConsumptionProfile(consumptionProfile, tariff);
+    hourlyConsumption = generateHourlyConsumption(
+      monthlyConsumption,
+      tariff,
+      totalHours,
+      timeStamps,
+      config.businessType
+    );
+  }
 
   // 2. Prepare Prices
   let hourlyPrices: number[] | undefined;

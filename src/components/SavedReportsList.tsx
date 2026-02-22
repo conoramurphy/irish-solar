@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { SavedReport } from '../types/savedReports';
 
 interface SavedReportsListProps {
   reports: SavedReport[];
   onLoad: (report: SavedReport) => void;
   onDelete: (id: string) => void;
+  onClearAll: () => void;
+  onImport: (reports: SavedReport[]) => void;
   onClose: () => void;
   isOpen: boolean;
 }
@@ -13,16 +15,80 @@ export function SavedReportsList({
   reports,
   onLoad,
   onDelete,
+  onClearAll,
+  onImport,
   onClose,
   isOpen
 }: SavedReportsListProps) {
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const exportFilename = useMemo(() => {
+    const date = new Date().toISOString().slice(0, 10);
+    return `solar-roi-saved-reports-${date}.json`;
+  }, []);
+
+  const handleExport = () => {
+    setImportError(null);
+
+    const json = JSON.stringify(reports, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    try {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = exportFilename;
+      a.click();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleChooseImportFile = () => {
+    setImportError(null);
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile = async (file: File) => {
+    setImportError(null);
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as unknown;
+
+      if (!Array.isArray(parsed)) {
+        setImportError('Import failed: expected a JSON array.');
+        return;
+      }
+
+      // Best-effort: assume it was exported from this app.
+      onImport(parsed as SavedReport[]);
+    } catch {
+      setImportError('Import failed: invalid JSON file.');
+    } finally {
+      // Allow selecting the same file again.
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh]">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleImportFile(file);
+        }}
+      />
+      <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[80vh]">
         <div className="flex items-center justify-between bg-slate-50/50 px-6 py-4 border-b border-slate-100 shrink-0">
           <h3 className="text-lg font-serif font-bold text-slate-800">Saved Reports</h3>
           <button 
@@ -36,6 +102,12 @@ export function SavedReportsList({
         </div>
 
         <div className="p-6 overflow-y-auto flex-1">
+          {importError && (
+            <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {importError}
+            </div>
+          )}
+
           {reports.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 mx-auto mb-3 opacity-50">
@@ -120,14 +192,64 @@ export function SavedReportsList({
           )}
         </div>
         
-        <div className="bg-slate-50 border-t border-slate-100 p-4 text-center">
+        <div className="bg-slate-50 border-t border-slate-100 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
             <button
-                onClick={onClose}
-                className="text-sm text-slate-500 hover:text-slate-800 font-medium"
+              onClick={handleExport}
+              disabled={reports.length === 0}
+              className="text-xs font-medium text-slate-700 bg-white border border-slate-200 px-3 py-1.5 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                Close
+              Export JSON
             </button>
+            <button
+              onClick={handleChooseImportFile}
+              className="text-xs font-medium text-slate-700 bg-white border border-slate-200 px-3 py-1.5 rounded-md hover:bg-slate-50"
+            >
+              Import JSON
+            </button>
+            <button
+              onClick={() => setConfirmClearAll(true)}
+              disabled={reports.length === 0}
+              className="text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-md hover:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Delete all
+            </button>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="text-sm text-slate-500 hover:text-slate-800 font-medium"
+          >
+            Close
+          </button>
         </div>
+
+        {/* Clear All Confirmation Overlay */}
+        {confirmClearAll && (
+          <div className="absolute inset-0 bg-white/95 backdrop-blur-[1px] flex items-center justify-center p-6 z-20 border-t border-slate-100 animate-in fade-in duration-200">
+            <div className="text-center w-full max-w-sm">
+              <p className="text-sm font-medium text-slate-800 mb-2">Delete all saved reports?</p>
+              <p className="text-xs text-slate-500 mb-4">This cannot be undone.</p>
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setConfirmClearAll(false)}
+                  className="px-3 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onClearAll();
+                    setConfirmClearAll(false);
+                  }}
+                  className="px-3 py-1 text-xs font-medium text-white bg-rose-600 rounded hover:bg-rose-700 shadow-sm"
+                >
+                  Delete all
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

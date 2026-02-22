@@ -38,6 +38,23 @@ function calculateSeaiNonDomesticMicrogenSolarPvGrant(systemSizeKwp: number): nu
   return a + b + c + d + e + f;
 }
 
+function calculateSeaiDomesticSolarGrant(systemSizeKwp: number): number {
+  // SEAI Domestic Solar PV Scheme (2025):
+  // €700 per kWp up to 2kWp
+  // €200 per kWp for each additional kWp up to 4kWp
+  // Capped at €1,800
+  const kwp = Math.max(0, systemSizeKwp);
+  
+  if (kwp <= 2) {
+    return kwp * 700;
+  }
+  
+  const first2 = 2 * 700; // 1400
+  const additional = Math.min(kwp - 2, 2) * 200; // max 2 extra kWp * 200
+  
+  return Math.min(first2 + additional, 1800);
+}
+
 export function calculateSingleGrantAmount(
   systemCost: number,
   grant: Grant,
@@ -46,6 +63,13 @@ export function calculateSingleGrantAmount(
   if (!Number.isFinite(systemCost) || systemCost <= 0) return 0;
 
   const method = grant.calculation?.method ?? 'percentage-of-cost';
+
+  if (method === 'seai-domestic-solar-pv') {
+    const kwp = context.systemSizeKwp;
+    // Allow 0/undefined to return 0 gracefully
+    if (!kwp || kwp <= 0) return 0;
+    return calculateSeaiDomesticSolarGrant(kwp);
+  }
 
   if (method === 'seai-non-domestic-microgen-solar-pv') {
     const kwp = context.systemSizeKwp;

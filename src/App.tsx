@@ -49,7 +49,7 @@ const historicalTariffData = rawHistoricalTariffData as unknown as HistoricalTar
 
 function App() {
   // Saved Reports
-  const { reports, saveReport, deleteReport } = useSavedReports();
+  const { reports, saveReport, deleteReport, clearReports, importReports } = useSavedReports();
   const [showSavedReports, setShowSavedReports] = useState(false);
 
   // Building type selection (Step 0)
@@ -67,6 +67,8 @@ function App() {
   const [exampleMonths, setExampleMonths] = useState<ExampleMonth[]>([]);
   const [tariffConfig, setTariffConfig] = useState<TariffConfiguration | null>(null);
   const [curvedMonthlyKwh, setCurvedMonthlyKwh] = useState<number[]>([]);
+  const [hourlyConsumptionOverride, setHourlyConsumptionOverride] = useState<number[] | undefined>(undefined);
+  const [selectedDomesticTariff, setSelectedDomesticTariff] = useState<Tariff | undefined>(undefined);
 
   const [tariffId] = useState<string>(tariffsData[0]?.id ?? '');
   // Base tariff from database (used for defaults/fallbacks like export rates)
@@ -74,6 +76,11 @@ function App() {
 
   // Effective tariff: combines base tariff defaults with user's Step 1 configuration
   const tariff: Tariff | undefined = useMemo(() => {
+    // For domestic house mode, use selected domestic tariff if available
+    if (config.businessType === 'house' && selectedDomesticTariff) {
+      return selectedDomesticTariff;
+    }
+    
     if (!baseTariff) return undefined;
     if (!tariffConfig) return baseTariff;
 
@@ -256,7 +263,7 @@ function App() {
       );
 
       const standardConfig: TradingConfig = { enabled: false };
-      const standard = runCalculation(
+        const standard = runCalculation(
         cfg,
         selectedGrants,
         financing,
@@ -267,7 +274,8 @@ function App() {
         25,
         consumptionProfile,
         solarTimeseriesData || undefined,
-        undefined // No price data for standard
+        undefined, // No price data for standard
+        hourlyConsumptionOverride
       );
       setStandardResult(standard);
       logInfo(
@@ -308,7 +316,8 @@ function App() {
           25,
           consumptionProfile,
           solarTimeseriesData || undefined,
-          priceTimeseriesData
+          priceTimeseriesData,
+          hourlyConsumptionOverride
         );
         setMarketResult(market);
         logInfo(
@@ -434,6 +443,17 @@ function App() {
       setCurvedMonthlyKwh(data.curvedMonthlyKwh);
       setTariffConfig(data.tariffConfig);
       
+      // If we have an override (Domestic mode), store it.
+      // If not, clear it so we don't accidentally carry it over if user switches type.
+      setHourlyConsumptionOverride(data.hourlyConsumptionOverride);
+      
+      // Store selected domestic tariff if provided (house mode)
+      if (data.selectedDomesticTariff) {
+        setSelectedDomesticTariff(data.selectedDomesticTariff);
+      } else {
+        setSelectedDomesticTariff(undefined);
+      }
+      
       setCompletedSteps(prev => new Set(prev).add(step));
       setCurrentStep(2);
       return;
@@ -489,6 +509,12 @@ function App() {
     setExampleMonths(saved.exampleMonths);
     setTariffConfig(saved.tariffConfig);
     setCurvedMonthlyKwh(saved.curvedMonthlyKwh);
+    // TODO: We might want to save/load hourlyConsumptionOverride too if we support saving domestic reports.
+    // For now, it's not in the saved schema, so it will be undefined on load.
+    // This implies Domestic reports won't reload perfectly yet unless we update schema.
+    // Let's at least clear it to be safe.
+    setHourlyConsumptionOverride(undefined);
+    
     // estimatedMonthlyBills is derived, no need to set
     
     if (saved.selectedYear) {
@@ -586,6 +612,8 @@ function App() {
         onClose={() => setShowSavedReports(false)}
         onLoad={handleLoadReport}
         onDelete={deleteReport}
+        onClearAll={clearReports}
+        onImport={importReports}
       />
 
       <main className="mx-auto max-w-7xl px-6 py-10 -mt-10 relative z-20">
@@ -642,6 +670,7 @@ function App() {
 
               {currentStep === 1 && (
                 <Step1DigitalTwin
+                  businessType={config.businessType}
                   onNext={(data) => handleNextStep(1, data)}
                   onBack={handleBackStep}
                 />

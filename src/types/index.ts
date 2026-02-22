@@ -1,4 +1,4 @@
-export type BusinessType = 'hotel' | 'farm' | 'commercial' | 'other';
+export type BusinessType = 'hotel' | 'farm' | 'commercial' | 'other' | 'house';
 
 export type BuildingTypeSelection = 'hotel-year-round' | 'house' | 'farm' | 'hotel-seasonal';
 
@@ -37,7 +37,7 @@ export interface Grant {
 
   /** Optional override for how to compute this grant. */
   calculation?: {
-    method: 'percentage-of-cost' | 'seai-non-domestic-microgen-solar-pv';
+    method: 'percentage-of-cost' | 'seai-non-domestic-microgen-solar-pv' | 'seai-domestic-solar-pv';
   };
 }
 
@@ -63,11 +63,21 @@ export interface TariffRate {
   rate: number;
 }
 
+/** Time window for special tariff rates (EV charging, free electricity, etc.) */
+export interface TimeWindow {
+  /** Human-readable description (e.g., "2am - 6am", "Sat/Sun 8-11") */
+  description: string;
+  /** Hour ranges [startHour, endHour) in 24h format. Multiple ranges for complex windows. */
+  hourRanges?: Array<{ start: number; end: number }>;
+  /** Optional day-of-week constraint (0=Sun, 1=Mon, ..., 6=Sat) */
+  daysOfWeek?: number[];
+}
+
 export interface Tariff {
   id: string;
   supplier: string;
   product: string;
-  type: '24-hour' | 'time-of-use' | 'smart';
+  type: '24-hour' | 'time-of-use' | 'smart' | 'ev' | 'flat';
   /** EUR per day */
   standingCharge: number;
   rates: TariffRate[];
@@ -75,6 +85,20 @@ export interface Tariff {
   exportRate: number;
   /** Optional extra levy (EUR per kWh) */
   psoLevy?: number;
+  
+  // Domestic-specific features
+  /** EV or boost rate (EUR per kWh) */
+  evRate?: number;
+  /** Time window when EV rate applies */
+  evTimeWindow?: TimeWindow;
+  /** Free electricity window (0 rate during specified times) */
+  freeElectricityWindow?: TimeWindow;
+  /** 24-hour flat rate (EUR per kWh) for simple tariffs */
+  flatRate?: number;
+  /** Night rate (EUR per kWh) for day/night tariffs */
+  nightRate?: number;
+  /** Peak rate (EUR per kWh) for time-of-use tariffs */
+  peakRate?: number;
 }
 
 export interface TradingConfig {

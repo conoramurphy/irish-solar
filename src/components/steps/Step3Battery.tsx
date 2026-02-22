@@ -124,7 +124,8 @@ export function Step3Battery({
         </div>
       </div>
 
-      {/* Market Rate Toggle */}
+      {/* Market Rate Toggle - Only for commercial/non-house business types */}
+      {config.businessType !== 'house' && (
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mr-2 text-emerald-600">
@@ -211,6 +212,7 @@ export function Step3Battery({
           </div>
         )}
       </div>
+      )}
 
       <div className="flex justify-between pt-6">
         <button

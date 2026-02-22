@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSavedReports } from '../../src/hooks/useSavedReports';
+import { clearAllSavedReports, listSavedReports } from '../../src/db/savedReportsDb';
 
-
-// Mock localStorage
+// Mock localStorage (used for one-time migration behaviour)
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
   return {
@@ -16,18 +16,21 @@ const localStorageMock = (() => {
     }),
     removeItem: vi.fn((key: string) => {
       delete store[key];
-    }),
+    })
   };
 })();
 
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
+  configurable: true,
+  writable: true
 });
 
 describe('useSavedReports', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     localStorage.clear();
+    await clearAllSavedReports();
   });
 
   afterEach(() => {
@@ -57,56 +60,75 @@ describe('useSavedReports', () => {
     estimatedMonthlyBills: [],
   };
 
-  it('should initialize with empty reports if localStorage is empty', () => {
+  it('should initialize with empty reports if localStorage is empty', async () => {
     const { result } = renderHook(() => useSavedReports());
-    expect(result.current.reports).toEqual([]);
+
+    await waitFor(() => {
+      expect(result.current.reports).toEqual([]);
+    });
   });
 
-  it('should save a new report', () => {
+  it('should save a new report (IndexedDB)', async () => {
     const { result } = renderHook(() => useSavedReports());
 
     act(() => {
-      // @ts-ignore - partial mock for test
+      // @ts-expect-error -- partial mock for test (intentionally omits id/createdAt)
       result.current.saveReport(mockReport);
     });
 
-    expect(result.current.reports).toHaveLength(1);
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(1);
+    });
+
     expect(result.current.reports[0].name).toBe('Test Report');
     expect(result.current.reports[0].id).toBeDefined();
     expect(result.current.reports[0].createdAt).toBeDefined();
-    
-    // Check localStorage
-    const stored = JSON.parse(localStorage.getItem('solar-roi-saved-reports') || '[]');
+
+    const stored = await listSavedReports();
     expect(stored).toHaveLength(1);
     expect(stored[0].name).toBe('Test Report');
   });
 
-  it('should overwrite a report with the same name', () => {
+  it('should overwrite a report with the same name (preserve ID)', async () => {
     const { result } = renderHook(() => useSavedReports());
 
     act(() => {
-       // @ts-ignore
+      // @ts-expect-error -- partial mock for test (intentionally omits id/createdAt)
       result.current.saveReport(mockReport);
+    });
+
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(1);
     });
 
     const firstId = result.current.reports[0].id;
 
     act(() => {
-       // @ts-ignore
+      // @ts-expect-error -- partial mock for test (intentionally omits id/createdAt)
       result.current.saveReport({ ...mockReport, config: { ...mockReport.config, annualProductionKwh: 20000 } });
     });
 
-    expect(result.current.reports).toHaveLength(1);
-    expect(result.current.reports[0].id).toBe(firstId); // ID should be preserved
-    expect(result.current.reports[0].config.annualProductionKwh).toBe(20000);
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(1);
+      expect(result.current.reports[0].id).toBe(firstId);
+      expect(result.current.reports[0].config.annualProductionKwh).toBe(20000);
+    });
+
+    const stored = await listSavedReports();
+    expect(stored).toHaveLength(1);
+    expect(stored[0].id).toBe(firstId);
   });
 
-  it('should delete a report', () => {
+  it('should delete a report (IndexedDB)', async () => {
     const { result } = renderHook(() => useSavedReports());
 
     act(() => {
-       // @ts-ignore
+      // @ts-expect-error -- partial mock for test (intentionally omits id/createdAt)
       result.current.saveReport(mockReport);
+    });
+
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(1);
     });
 
     const reportId = result.current.reports[0].id;
@@ -115,17 +137,30 @@ describe('useSavedReports', () => {
       result.current.deleteReport(reportId);
     });
 
-    expect(result.current.reports).toEqual([]);
-    expect(localStorage.getItem('solar-roi-saved-reports')).toBe('[]');
+    await waitFor(() => {
+      expect(result.current.reports).toEqual([]);
+    });
+
+    const stored = await listSavedReports();
+    expect(stored).toEqual([]);
   });
 
-  it('should load reports from localStorage on mount', () => {
+  it('should migrate legacy reports from localStorage on mount', async () => {
     const existingReports = [{ ...mockReport, id: '123', createdAt: '2023-01-01' }];
     localStorage.setItem('solar-roi-saved-reports', JSON.stringify(existingReports));
 
     const { result } = renderHook(() => useSavedReports());
 
-    expect(result.current.reports).toHaveLength(1);
-    expect(result.current.reports[0].id).toBe('123');
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(1);
+      expect(result.current.reports[0].id).toBe('123');
+    });
+
+    // Migration should remove the legacy key.
+    expect(localStorage.removeItem).toHaveBeenCalledWith('solar-roi-saved-reports');
+
+    const stored = await listSavedReports();
+    expect(stored).toHaveLength(1);
+    expect(stored[0].id).toBe('123');
   });
 });
