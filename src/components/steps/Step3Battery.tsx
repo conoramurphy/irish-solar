@@ -12,6 +12,7 @@ interface Step3Props {
   priceData: ParsedPriceData | null;
   setPriceData: (data: ParsedPriceData | null) => void;
   exampleMonths: ExampleMonth[];
+  annualConsumptionKwh?: number; // Optional for house mode
   onNext: () => void;
   onBack: () => void;
 }
@@ -24,6 +25,7 @@ export function Step3Battery({
   priceData,
   setPriceData,
   exampleMonths,
+  annualConsumptionKwh,
   onNext,
   onBack
 }: Step3Props) {
@@ -57,11 +59,17 @@ export function Step3Battery({
 
   // Calculate average hourly consumption for guidance
   const avgHourlyKw = useMemo(() => {
+    // House mode: Use annual consumption directly if available
+    if (annualConsumptionKwh && annualConsumptionKwh > 0) {
+      return annualConsumptionKwh / 8760;
+    }
+    
+    // Commercial mode: Calculate from example months
     if (!exampleMonths || exampleMonths.length === 0) return 0;
     const monthlyKwh = curveConsumption(exampleMonths);
     const annualKwh = monthlyKwh.reduce((sum, m) => sum + m, 0);
     return annualKwh / 8760;
-  }, [exampleMonths]);
+  }, [exampleMonths, annualConsumptionKwh]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

@@ -157,11 +157,38 @@ function App() {
   
   // Estimated monthly bills (derived)
   const estimatedMonthlyBills = useMemo(() => {
-    if (curvedMonthlyKwh.length !== 12 || !tariffConfig || exampleMonths.length === 0) {
+    if (curvedMonthlyKwh.length !== 12) {
+      return [];
+    }
+    
+    // House mode: Calculate bills using selected domestic tariff
+    if (config.businessType === 'house' && selectedDomesticTariff) {
+      return curvedMonthlyKwh.map((monthKwh, monthIndex) => {
+        // Get days in month
+        const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][monthIndex];
+        
+        // Standing charge cost
+        const standingChargeCost = selectedDomesticTariff.standingCharge * daysInMonth;
+        
+        // Energy cost using flat rate (most domestic tariffs use this)
+        // For simplicity, we'll use the first rate or flatRate if available
+        const rate = selectedDomesticTariff.flatRate || 
+                    (selectedDomesticTariff.rates[0]?.rate ?? 0.25);
+        const energyCost = monthKwh * rate;
+        
+        // PSO levy if applicable
+        const psoLevy = (selectedDomesticTariff.psoLevy || 0) * monthKwh;
+        
+        return standingChargeCost + energyCost + psoLevy;
+      });
+    }
+    
+    // Commercial mode: Use tariff configuration and example months
+    if (!tariffConfig || exampleMonths.length === 0) {
       return [];
     }
     return estimateAnnualBills(curvedMonthlyKwh, tariffConfig, exampleMonths);
-  }, [curvedMonthlyKwh, tariffConfig, exampleMonths]);
+  }, [curvedMonthlyKwh, tariffConfig, exampleMonths, config.businessType, selectedDomesticTariff]);
 
   // Solar timeseries data - loaded in App when location is set in Step 1
   const [rawSolarData, setRawSolarData] = useState<ParsedSolarData | null>(null);
@@ -738,6 +765,7 @@ function App() {
                   priceData={priceTimeseriesData}
                   setPriceData={setPriceTimeseriesData}
                   exampleMonths={exampleMonths}
+                  annualConsumptionKwh={curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined}
                   onNext={() => handleNextStep(3)}
                   onBack={handleBackStep}
                 />
