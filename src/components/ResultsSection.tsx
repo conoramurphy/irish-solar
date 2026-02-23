@@ -309,10 +309,12 @@ export function ResultsSection({
                       {activeResult.audit.monthly.map((m) => {
                         const monthName = new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' });
                         const baseline = m.baselineCost ?? 0;
-                        const newBill = m.importCost ?? 0;
+                        const importCost = m.importCost ?? 0;
                         const exportRevenue = m.exportRevenue ?? 0;
-                        // Savings = Baseline - Import cost + Export revenue (total financial benefit)
-                        const savings = baseline - newBill + exportRevenue;
+                        // Net bill = Import cost - Export revenue (can be negative for credits)
+                        const netBill = importCost - exportRevenue;
+                        // Savings = Baseline - Net bill (total financial benefit)
+                        const savings = baseline - netBill;
                         const spillRate = m.generation > 0 ? m.gridExport / m.generation : 0;
                         const isHighSpill = spillRate > 0.3;
                         
@@ -320,7 +322,12 @@ export function ResultsSection({
                           <tr key={m.monthIndex} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-6 py-3 font-medium text-slate-700">{monthName}</td>
                             <td className="px-6 py-3 text-right text-slate-600 tabular-nums">{formatCurrency(baseline)}</td>
-                            <td className="px-6 py-3 text-right text-emerald-600 tabular-nums font-medium">{formatCurrency(newBill)}</td>
+                            <td className={`px-6 py-3 text-right tabular-nums font-medium ${
+                              netBill < 0 ? 'text-emerald-700' : 'text-emerald-600'
+                            }`}>
+                              {formatCurrency(Math.max(0, netBill))}
+                              {netBill < 0 && <span className="ml-1 text-xs">(€{Math.abs(netBill).toFixed(0)} credit)</span>}
+                            </td>
                             <td className="px-6 py-3 text-right text-emerald-600 tabular-nums font-medium">
                               {formatCurrency(savings)}
                             </td>
