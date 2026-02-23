@@ -241,6 +241,7 @@ function calculateTradingSignals(
  * @param timeStamps Optional timestamps for accurate hour-of-day/month mapping
  * @param hourlyPrices Optional array of hourly prices (EUR/kWh) for dynamic pricing
  * @param tradingConfig Optional trading configuration
+ * @param useDomesticOptimization Whether to use domestic tariff optimization (smart charging for TOU tariffs)
  */
 export function simulateHourlyEnergyFlow(
   hourlyGeneration: number[],
@@ -250,7 +251,8 @@ export function simulateHourlyEnergyFlow(
   includeHourlyDetail = false,
   timeStamps?: HourStamp[],
   hourlyPrices?: number[],
-  tradingConfig?: TradingConfig
+  tradingConfig?: TradingConfig,
+  useDomesticOptimization = false
 ): HourlySimulationResult {
   if (hourlyGeneration.length !== hourlyConsumption.length) {
     throw new Error('Generation and consumption arrays must have the same number of hours');
@@ -296,11 +298,11 @@ export function simulateHourlyEnergyFlow(
   if (useTrading) {
     // Commercial mode with market trading: use price-based signals
     optimizationSignals = calculateTradingSignals(hourlyPrices!, tradingConfig!, totalHours);
-  } else if (battery) {
-    // Domestic/commercial with fixed tariff: use rate-based signals if multi-rate tariff
+  } else if (battery && useDomesticOptimization) {
+    // Domestic mode (house): use rate-based smart charging for TOU tariffs
     optimizationSignals = calculateDomesticTariffSignals(tariff, timeStamps, totalHours);
   } else {
-    // No battery: no optimization needed
+    // Commercial/farm without trading, or flat tariffs: use AUTO (self-consumption only)
     optimizationSignals = new Array(totalHours).fill('AUTO');
   }
 
@@ -395,18 +397,24 @@ export function simulateHourlyEnergyFlow(
           const curtailed = Math.max(0, potentialExport - gridExport);
           totalGridExportCurtailed += curtailed;
           
-          // 2. Top up from Grid (Force Charge) if space remains
-          const spaceRemaining = battery.capacity - battery.soc;
-          const chargeRateRemaining = maxInput - solarUsed; // Remaining input bandwidth
-          
-          if (spaceRemaining > 0 && chargeRateRemaining > 0) {
-             const maxGridInput = Math.min(chargeRateRemaining, spaceRemaining / battery.efficiency);
-             const gridInput = maxGridInput;
-             
-             batteryCharge += gridInput * battery.efficiency;
-             battery.soc += gridInput * battery.efficiency;
-             gridImport += gridInput; // Import for battery
+          // For trading mode: Top up battery from grid to maximize capacity
+          // For domestic tariffs: DO NOT charge from grid when solar surplus exists
+          // (solar self-consumption always takes priority for home/small business)
+          if (useTrading) {
+            // 2. Top up from Grid (Force Charge for trading arbitrage)
+            const spaceRemaining = battery.capacity - battery.soc;
+            const chargeRateRemaining = maxInput - solarUsed; // Remaining input bandwidth
+            
+            if (spaceRemaining > 0 && chargeRateRemaining > 0) {
+               const maxGridInput = Math.min(chargeRateRemaining, spaceRemaining / battery.efficiency);
+               const gridInput = maxGridInput;
+               
+               batteryCharge += gridInput * battery.efficiency;
+               battery.soc += gridInput * battery.efficiency;
+               gridImport += gridInput; // Import for battery
+            }
           }
+          // For domestic tariffs, solar surplus charging is sufficient - no grid top-up
           
         } else {
           // Deficit scenario (Solar < Load)

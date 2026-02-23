@@ -41,18 +41,27 @@ describe('Domestic Battery Optimization', () => {
       hourlyConsumption.concat(new Array(8760 - 24).fill(2)),
       evTariff,
       batteryConfig,
-      true
+      true,
+      undefined,
+      undefined,
+      undefined,
+      true // Enable domestic optimization
     );
 
     // Check first 24 hours
     const first24Hours = result.hourlyData!.slice(0, 24);
     
-    // Hours 2-5 (EV window): Battery should be CHARGING from grid
-    for (let hour = 2; hour < 6; hour++) {
-      const hourData = first24Hours[hour];
-      expect(hourData.batteryCharge).toBeGreaterThan(0); // Battery charging
-      expect(hourData.gridImport).toBeGreaterThan(hourData.consumption); // Importing for load + battery
-    }
+    // Hours 2-5 (EV window): Battery should charge from grid during cheap window
+    // Battery may become full before end of window, so check that SOME charging occurs
+    const evWindowHours = first24Hours.slice(2, 6);
+    const chargingInEvWindow = evWindowHours.filter(h => h.batteryCharge > 0);
+    
+    expect(chargingInEvWindow.length).toBeGreaterThan(0); // At least some hours should charge
+    
+    // During charging hours, grid import should exceed consumption (importing for load + battery)
+    chargingInEvWindow.forEach(h => {
+      expect(h.gridImport).toBeGreaterThan(h.consumption);
+    });
     
     // Hours 7-22 (expensive day rate): Battery should be DISCHARGING if it has energy
     // Check a few hours in the expensive window
@@ -74,7 +83,11 @@ describe('Domestic Battery Optimization', () => {
       hourlyConsumption.concat(new Array(8760 - 24).fill(2)),
       evTariff,
       fullBatteryConfig,
-      true
+      true,
+      undefined,
+      undefined,
+      undefined,
+      true // Enable domestic optimization
     );
 
     const first24Hours = result.hourlyData!.slice(0, 24);
@@ -95,11 +108,21 @@ describe('Domestic Battery Optimization', () => {
   });
 
   it('should prioritize solar self-consumption over charging from grid', () => {
-    // Solar during early morning (cheaper rate window), consumption constant
-    // Use hours 2-6 (EV window) for solar to avoid DISCHARGE signals during expensive day hours
+    // This test ensures AUTO mode (self-consumption) works correctly
+    // Use a flat tariff so there are no CHARGE/DISCHARGE signals
+    const flatTariff: Tariff = {
+      id: 'test-flat',
+      supplier: 'Test',
+      product: 'Flat',
+      type: 'flat',
+      standingCharge: 0.5,
+      rates: [{ period: 'all-day', rate: 0.25 }],
+      exportRate: 0.15
+    };
+    
     const hourlyGeneration = new Array(24).fill(0).map((_, i) => {
-      // Solar 2am-6am (hours 2-5) - coincides with cheap EV rate
-      if (i >= 2 && i < 6) return 3; // 3 kWh/hr
+      // Solar 12pm-4pm (hours 12-15)
+      if (i >= 12 && i < 16) return 3; // 3 kWh/hr
       return 0;
     });
     const hourlyConsumption = new Array(24).fill(2);
@@ -107,24 +130,29 @@ describe('Domestic Battery Optimization', () => {
     const result = simulateHourlyEnergyFlow(
       hourlyGeneration.concat(new Array(8760 - 24).fill(0)),
       hourlyConsumption.concat(new Array(8760 - 24).fill(2)),
-      evTariff,
+      flatTariff,
       batteryConfig,
-      true
+      true,
+      undefined,
+      undefined,
+      undefined,
+      false // Flat tariff uses AUTO mode
     );
 
     const first24Hours = result.hourlyData!.slice(0, 24);
     
-    // During solar hours (2-5), battery should charge from solar surplus
-    const solarHours = first24Hours.slice(2, 6);
+    // During solar hours (12-15), battery should charge from solar surplus
+    const solarHours = first24Hours.slice(12, 16);
     const solarChargingHours = solarHours.filter(h => h.batteryCharge > 0);
     
     expect(solarChargingHours.length).toBeGreaterThan(0);
     
-    // Grid import during solar hours should be minimal or for battery charging only
-    // Since generation (3) > consumption (2), we have 1 kWh surplus per hour
+    // Since generation (3) > consumption (2), solar covers load with 1 kWh surplus
+    // Grid import should be 0 (solar covers entire load)
     solarHours.forEach(h => {
-      // Grid import should be 0 (solar covers load) or positive only for battery charging
-      expect(h.gridImport).toBeLessThanOrEqual(h.consumption); // Not importing more than load needs
+      expect(h.gridImport).toBe(0); // Solar fully covers consumption
+      const selfConsumption = h.generation - h.gridExport;
+      expect(selfConsumption).toBeGreaterThan(0); // Solar used for load
     });
   });
 
@@ -147,7 +175,11 @@ describe('Domestic Battery Optimization', () => {
       hourlyConsumption,
       flatTariff,
       batteryConfig,
-      true
+      true,
+      undefined,
+      undefined,
+      undefined,
+      false // Flat tariff uses AUTO mode
     );
 
     // With flat tariff, battery should not charge from grid aggressively
@@ -189,11 +221,66 @@ describe('Domestic Battery Optimization', () => {
       hourlyConsumption,
       freeElectricityTariff,
       batteryConfig,
-      false // Don't need detailed hourly data for this test
+      false,
+      undefined,
+      undefined,
+      undefined,
+      true // Enable domestic optimization for smart tariff
     );
-
+    
     // Just verify it runs without error
     expect(result).toBeDefined();
     expect(result.totalGridImport).toBeGreaterThan(0);
+  });
+
+  it('should never dual-charge battery from both solar and grid simultaneously', () => {
+    // This test ensures that when solar surplus exists, the battery charges from solar ONLY
+    // and does NOT also pull from the grid at the same time, even during cheap rate windows
+    
+    const hourlyGeneration = new Array(24).fill(0).map((_, i) => {
+      // Solar during EV window hours (2-5am): 4 kWh/hr generation
+      if (i >= 2 && i < 6) return 4;
+      return 0;
+    });
+    const hourlyConsumption = new Array(24).fill(2); // Constant 2 kWh/hr
+    
+    const result = simulateHourlyEnergyFlow(
+      hourlyGeneration.concat(new Array(8760 - 24).fill(0)),
+      hourlyConsumption.concat(new Array(8760 - 24).fill(2)),
+      evTariff,
+      batteryConfig,
+      true,
+      undefined,
+      undefined,
+      undefined,
+      true // Enable domestic optimization
+    );
+
+    const first24Hours = result.hourlyData!.slice(0, 24);
+    
+    // During hours 2-5: we have 4 kWh solar, 2 kWh consumption = 2 kWh surplus
+    // This coincides with the cheap EV rate window
+    const solarAndCheapHours = first24Hours.slice(2, 6);
+    
+    solarAndCheapHours.forEach((h, idx) => {
+      if (h.batteryCharge > 0) {
+        // If battery is charging, verify it's ONLY from solar surplus
+        // Solar surplus = generation - consumption - export
+        const solarSurplus = h.generation - h.selfConsumption - h.gridExport;
+        
+        // Battery should charge from solar surplus only
+        // Grid import should only cover consumption (if any), not battery charging
+        expect(h.gridImport).toBeLessThanOrEqual(h.consumption);
+        
+        // More specifically: if we have solar surplus, grid import should be 0
+        if (solarSurplus > 0.01) {
+          expect(h.gridImport).toBe(0);
+        }
+      }
+    });
+    
+    // Verify that battery did charge (test is meaningful)
+    const totalBatteryCharge = solarAndCheapHours.reduce((sum, h) => sum + h.batteryCharge, 0);
+    expect(totalBatteryCharge).toBeGreaterThan(0);
   });
 });

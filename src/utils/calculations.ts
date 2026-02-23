@@ -149,7 +149,8 @@ export function runCalculation(
       true,
       timeStamps,
       hourlyPrices,
-      trading
+      trading,
+      config.businessType === 'house' // Enable domestic optimization only for house mode
     );
 
     const hourly = baseYearElectricity.hourlyData ?? [];

@@ -148,11 +148,15 @@ describe('runCalculation', () => {
     // With smart charging, battery actively participates in energy management:
     // 1. Capturing solar exports for later use (traditional self-consumption)
     // 2. Grid arbitrage (charging during cheap rates, discharging during expensive rates)
-    // Verify battery is being utilized
+    // Verify battery is being utilized (check audit exists)
+    expect(withBattery.audit).toBeDefined();
+    expect(withBattery.audit?.hourly).toBeDefined();
+    expect(withBattery.audit?.hourly.length).toBeGreaterThan(0);
     expect(withBattery.audit?.hourly.some(h => h.batteryCharge > 0)).toBe(true);
     expect(withBattery.audit?.hourly.some(h => h.batteryDischarge > 0)).toBe(true);
-    // Verify battery changes energy flows compared to no battery
-    expect(withBattery.totalGridImport).not.toBe(base.totalGridImport);
+    // Verify battery provides economic value
+    // Battery should provide savings through load shifting and reducing import costs
+    expect(withBattery.annualBatteryToLoadSavings).toBeGreaterThan(0);
   });
 
   describe('empty/zero consumption edge cases', () => {
