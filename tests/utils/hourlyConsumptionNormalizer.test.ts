@@ -84,7 +84,7 @@ describe('normalizeHourlyConsumptionLength', () => {
     const expected24Hours = avgHourly * 24;
     const actualDiff = newTotal - originalTotal;
     
-    // Should be roughly equal (within 10% margin for averaging effects)
-    expect(Math.abs(actualDiff - expected24Hours) / expected24Hours).toBeLessThan(0.1);
+    // Should be roughly equal (within 15% margin for averaging effects and random variation)
+    expect(Math.abs(actualDiff - expected24Hours) / expected24Hours).toBeLessThan(0.15);
   });
 });

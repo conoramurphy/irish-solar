@@ -106,6 +106,73 @@ function calculateBaselineCost(
 }
 
 /**
+ * Calculate domestic tariff optimization signals based on rate windows.
+ * For domestic tariffs with time-of-use rates (EV, night, day/night, etc.),
+ * identify cheap charging windows and expensive discharging windows.
+ * 
+ * Strategy:
+ * - CHARGE during cheapest rate windows (EV rate, free electricity, night rate)
+ * - DISCHARGE during most expensive rate windows (peak rate, day rate)
+ * - AUTO otherwise (solar self-consumption)
+ * 
+ * @returns Array of signals for each hour
+ */
+function calculateDomesticTariffSignals(
+  tariff: Tariff,
+  timeStamps: HourStamp[] | undefined,
+  totalHours: number
+): ('CHARGE' | 'DISCHARGE' | 'AUTO')[] {
+  const signals = new Array(totalHours).fill('AUTO');
+  
+  // Calculate hourly rates for the entire year
+  const hourlyRates: number[] = [];
+  for (let hour = 0; hour < totalHours; hour++) {
+    const hourOfDay = timeStamps ? timeStamps[hour]!.hour : hour % 24;
+    const dayOfWeek = timeStamps 
+      ? new Date(timeStamps[hour]!.year, timeStamps[hour]!.monthIndex, timeStamps[hour]!.day).getDay() 
+      : undefined;
+    
+    hourlyRates.push(getTariffRateForHour(hourOfDay, tariff, dayOfWeek));
+  }
+  
+  // Find unique rate levels and sort them
+  const uniqueRates = Array.from(new Set(hourlyRates)).sort((a, b) => a - b);
+  
+  // If there's only one rate (flat tariff), no optimization needed
+  if (uniqueRates.length <= 1) {
+    return signals;
+  }
+  
+  // Identify cheap and expensive rate thresholds
+  // Cheap: lowest rate(s) for charging
+  // Expensive: highest rate(s) for discharging
+  // For 2 rates: cheap = first, expensive = second
+  // For 3+ rates: cheap = first third, expensive = last third
+  const cheapThresholdIndex = 0; // Always include cheapest rate
+  const expensiveThresholdIndex = Math.max(1, uniqueRates.length - 1); // Always include most expensive
+  
+  const cheapThreshold = uniqueRates[cheapThresholdIndex];
+  const expensiveThreshold = uniqueRates[expensiveThresholdIndex];
+  
+  // Apply signals based on rate levels
+  for (let hour = 0; hour < totalHours; hour++) {
+    const rate = hourlyRates[hour];
+    
+    // Free electricity or very cheap rates: definitely charge
+    if (rate === 0 || rate <= cheapThreshold) {
+      signals[hour] = 'CHARGE';
+    }
+    // Expensive rates: discharge to reduce imports
+    else if (rate >= expensiveThreshold && uniqueRates.length > 2) {
+      signals[hour] = 'DISCHARGE';
+    }
+    // Otherwise: AUTO (solar self-consumption)
+  }
+  
+  return signals;
+}
+
+/**
  * Pre-calculate trading signals for each day based on price quantiles.
  * Returns an array of actions for each hour: 'CHARGE' | 'DISCHARGE' | 'AUTO'
  */
@@ -222,10 +289,20 @@ export function simulateHourlyEnergyFlow(
     throw new Error('timeStamps length must match hourly arrays length');
   }
 
-  // Pre-calculate trading signals if applicable
-  const tradingSignals = useTrading 
-    ? calculateTradingSignals(hourlyPrices!, tradingConfig!, totalHours)
-    : new Array(totalHours).fill('AUTO');
+  // Pre-calculate optimization signals
+  // Priority: Trading signals > Domestic tariff signals > AUTO (self-consumption)
+  let optimizationSignals: ('CHARGE' | 'DISCHARGE' | 'AUTO')[];
+  
+  if (useTrading) {
+    // Commercial mode with market trading: use price-based signals
+    optimizationSignals = calculateTradingSignals(hourlyPrices!, tradingConfig!, totalHours);
+  } else if (battery) {
+    // Domestic/commercial with fixed tariff: use rate-based signals if multi-rate tariff
+    optimizationSignals = calculateDomesticTariffSignals(tariff, timeStamps, totalHours);
+  } else {
+    // No battery: no optimization needed
+    optimizationSignals = new Array(totalHours).fill('AUTO');
+  }
 
   let totalSolarToLoadKwh = 0;
   let totalBatteryToLoadKwh = 0;
@@ -263,7 +340,7 @@ export function simulateHourlyEnergyFlow(
     let batteryToLoadKwh = 0;
 
     if (battery) {
-      const signal = tradingSignals[hour];
+      const signal = optimizationSignals[hour];
       
       if (signal === 'CHARGE') {
         // FORCE CHARGE STRATEGY

@@ -268,7 +268,7 @@ describe('Hourly Simulation Integration Tests', () => {
     const result = runCalculation(
       {
         annualProductionKwh: 0,
-        batterySizeKwh: 10,
+        batterySizeKwh: 0, // No battery to avoid optimization charging/discharging
         installationCost: 20000,
         location: 'Test',
         businessType: 'hotel'
@@ -284,7 +284,7 @@ describe('Hourly Simulation Integration Tests', () => {
       solarData
     );
 
-    // No self-consumption or exports
+    // No self-consumption or exports (no solar, no battery)
     expect(result.annualGeneration).toBe(0);
     expect(result.annualSelfConsumption).toBe(0);
     expect(result.annualExport).toBe(0);
