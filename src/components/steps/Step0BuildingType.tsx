@@ -38,7 +38,7 @@ export function Step0BuildingType({ onNext }: Step0BuildingTypeProps) {
       id: 'farm',
       title: 'Farm',
       description: 'Agricultural operation with seasonal patterns',
-      enabled: true,
+      enabled: false,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5 10.5 6.75m6.75 10.5L24 10.5m-7.5-3.75L10.5 13.5m-6.75 3L10.5 24m0-17.25v10.5m6.75-3.75-6.75 6.75M3 9.75V6a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 6v3.75M3 13.5h18" />

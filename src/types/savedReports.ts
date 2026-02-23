@@ -23,6 +23,8 @@ export interface SavedReport {
   tariffConfig: TariffConfiguration | null;
   curvedMonthlyKwh: number[];
   estimatedMonthlyBills: number[];
+  hourlyConsumptionOverride?: number[];
+  selectedDomesticTariffId?: string;
 
   // Solar simulation context
   selectedYear?: number;

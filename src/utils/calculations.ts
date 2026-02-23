@@ -45,6 +45,14 @@ export function runCalculation(
   priceTimeseriesData?: ParsedPriceData,
   hourlyConsumptionOverride?: number[]
 ): CalculationResult {
+  // Guard: Trading must not be enabled for house mode
+  if (config.businessType === 'house' && trading.enabled) {
+    throw new Error(
+      'Trading cannot be enabled for house mode. ' +
+      'Domestic customers use fixed tariffs and are not eligible for day-ahead market trading.'
+    );
+  }
+  
   const systemCost = Math.max(0, config.installationCost);
 
   const { totalGrant } = calculateGrantAmount(systemCost, grants, {

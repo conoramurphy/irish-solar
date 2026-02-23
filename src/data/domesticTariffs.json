@@ -17,7 +17,7 @@
         "rate": 0.31329999999999997
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.2064
   },
   {
@@ -38,7 +38,7 @@
         "rate": 0.327
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.2064,
     "evRate": 0.1079,
     "evTimeWindow": {
@@ -74,7 +74,7 @@
         "rate": 0.3751
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.2364,
     "peakRate": 0.43189999999999995
   },
@@ -101,7 +101,7 @@
         "rate": 0.2814
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.1479,
     "peakRate": 0.3002
   },
@@ -123,7 +123,7 @@
         "rate": 0.3053
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.1505,
     "evRate": 0.08839999999999999,
     "evTimeWindow": {
@@ -154,7 +154,7 @@
         "rate": 0.3527
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.17489999999999997,
     "freeElectricityWindow": {
       "description": "Sat/Sun 8-11",
@@ -193,7 +193,7 @@
         "rate": 0.2836
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.223,
     "peakRate": 0.3686
   },
@@ -220,7 +220,7 @@
         "rate": 0.2922
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.223,
     "peakRate": 0.3686,
     "evRate": 0.0745,
@@ -252,7 +252,7 @@
         "rate": 0.304
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.1505
   },
   {
@@ -278,7 +278,7 @@
         "rate": 0.2696
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.1482,
     "peakRate": 0.3028
   },
@@ -305,7 +305,7 @@
         "rate": 0.3893
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.23989999999999997,
     "peakRate": 0.5108,
     "evRate": 0.0942,
@@ -337,7 +337,7 @@
         "rate": 0.273
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.1405
   },
   {
@@ -363,7 +363,7 @@
         "rate": 0.2829
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.1818,
     "peakRate": 0.3169
   },
@@ -390,7 +390,7 @@
         "rate": 0.4174
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.23440000000000003,
     "peakRate": 0.49729999999999996,
     "evRate": 0.09050000000000001,
@@ -422,7 +422,7 @@
         "rate": 0.3152
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.1998
   },
   {
@@ -448,7 +448,7 @@
         "rate": 0.28800000000000003
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.19149999999999998,
     "peakRate": 0.39840000000000003
   },
@@ -470,7 +470,7 @@
         "rate": 0.2409
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.165
   },
   {
@@ -496,7 +496,7 @@
         "rate": 0.2775
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.2048,
     "peakRate": 0.3356
   },
@@ -523,7 +523,7 @@
         "rate": 0.3832
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.3177,
     "peakRate": 0.4177,
     "evRate": 0.2506,
@@ -555,7 +555,7 @@
         "rate": 0.36729999999999996
       }
     ],
-    "exportRate": 0,
+    "exportRate": 0.21,
     "nightRate": 0.1838
   }
 ]

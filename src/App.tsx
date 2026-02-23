@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
 import rawTariffsData from './data/tariffs.json';
+import domesticTariffsData from './data/domesticTariffs.json';
 import rawHistoricalSolarData from './data/historical/solar-irradiance.json';
 import rawHistoricalTariffData from './data/historical/tariff-history.json';
 import { getEligibleGrants } from './models/grants';
@@ -44,6 +45,7 @@ import type { BuildingTypeSelection } from './types';
 
 const grantsData = rawGrantsData as unknown as Grant[];
 const tariffsData = rawTariffsData as unknown as Tariff[];
+const domesticTariffs = domesticTariffsData as Tariff[];
 const historicalSolarData = rawHistoricalSolarData as unknown as Record<string, HistoricalSolarData>;
 const historicalTariffData = rawHistoricalTariffData as unknown as HistoricalTariffData[];
 
@@ -69,6 +71,7 @@ function App() {
   const [curvedMonthlyKwh, setCurvedMonthlyKwh] = useState<number[]>([]);
   const [hourlyConsumptionOverride, setHourlyConsumptionOverride] = useState<number[] | undefined>(undefined);
   const [selectedDomesticTariff, setSelectedDomesticTariff] = useState<Tariff | undefined>(undefined);
+  const [previousBusinessType, setPreviousBusinessType] = useState<SystemConfiguration['businessType']>(config.businessType);
 
   const [tariffId] = useState<string>(tariffsData[0]?.id ?? '');
   // Base tariff from database (used for defaults/fallbacks like export rates)
@@ -398,6 +401,39 @@ function App() {
     }
   }, [rawSolarData, selectedYear, config.location]);
 
+  // Clear mode-specific state when businessType changes
+  useEffect(() => {
+    if (config.businessType !== previousBusinessType) {
+      logInfo('ui', 'Business type changed, clearing mode-specific state', {
+        from: previousBusinessType,
+        to: config.businessType
+      });
+      
+      // Clear state that's mode-specific
+      if (config.businessType === 'house') {
+        // Switching TO house mode: clear commercial data
+        setExampleMonths([]);
+        setTariffConfig(null);
+      } else {
+        // Switching FROM house mode: clear domestic data
+        setHourlyConsumptionOverride(undefined);
+        setSelectedDomesticTariff(undefined);
+      }
+      
+      // Disable trading when switching to house mode
+      if (config.businessType === 'house' && trading.enabled) {
+        setTrading({ enabled: false });
+        logInfo('ui', 'Disabled trading for house mode');
+      }
+      
+      // Clear any calculation results
+      setStandardResult(null);
+      setMarketResult(null);
+      
+      setPreviousBusinessType(config.businessType);
+    }
+  }, [config.businessType, previousBusinessType, trading.enabled]);
+
   // Auto-recalculate when solar data changes (e.g. year selection) IF we already have results
   useEffect(() => {
     if ((standardResult || marketResult) && solarTimeseriesData) {
@@ -425,8 +461,7 @@ function App() {
       } else if (data.buildingType === 'commercial') {
         businessType = 'commercial';
       } else if (data.buildingType === 'house') {
-        // Not officially supported in type yet but fallback
-        businessType = 'other';
+        businessType = 'house';
       }
       
       setConfig(prev => ({ ...prev, businessType }));
@@ -509,11 +544,15 @@ function App() {
     setExampleMonths(saved.exampleMonths);
     setTariffConfig(saved.tariffConfig);
     setCurvedMonthlyKwh(saved.curvedMonthlyKwh);
-    // TODO: We might want to save/load hourlyConsumptionOverride too if we support saving domestic reports.
-    // For now, it's not in the saved schema, so it will be undefined on load.
-    // This implies Domestic reports won't reload perfectly yet unless we update schema.
-    // Let's at least clear it to be safe.
-    setHourlyConsumptionOverride(undefined);
+    
+    // Restore house mode data if available
+    setHourlyConsumptionOverride(saved.hourlyConsumptionOverride);
+    if (saved.selectedDomesticTariffId) {
+      const found = domesticTariffs.find(t => t.id === saved.selectedDomesticTariffId);
+      setSelectedDomesticTariff(found);
+    } else {
+      setSelectedDomesticTariff(undefined);
+    }
     
     // estimatedMonthlyBills is derived, no need to set
     
@@ -574,6 +613,8 @@ function App() {
         curvedMonthlyKwh,
         estimatedMonthlyBills,
         selectedYear,
+        hourlyConsumptionOverride,
+        selectedDomesticTariffId: selectedDomesticTariff?.id,
         result: standardResult // Snapshot (save standard result for now)
     });
     

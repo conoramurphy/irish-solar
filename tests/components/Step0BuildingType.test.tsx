@@ -41,13 +41,14 @@ describe('Step0BuildingType', () => {
     expect(onNext).toHaveBeenCalledWith({ buildingType: 'hotel-year-round' });
   });
 
-  it('displays "Coming soon" for house, farm, and seasonal hotel', () => {
+  it('displays "Coming soon" for farm and seasonal hotel', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
-    // Should have 3 "Coming soon" labels (for house, farm, seasonal hotel)
-    const comingSoonLabels = screen.getAllByText(/Coming soon/i);
-    expect(comingSoonLabels.length).toBeGreaterThanOrEqual(3);
+    // Should have 2 "Coming soon" badges (for farm and seasonal hotel, since house is now enabled)
+    // Note: There's also "Coming soon" text in the footer, so we need to filter by exact match
+    const comingSoonBadges = screen.getAllByText('Coming soon');
+    expect(comingSoonBadges.length).toBe(2);
   });
 
   it('disabled cards are not clickable', async () => {

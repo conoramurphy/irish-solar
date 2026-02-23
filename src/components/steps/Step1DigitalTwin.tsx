@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { logInfo, logError } from '../../utils/logger';
 import { Field } from '../Field';
 import { MONTH_LABELS } from '../../utils/consumption';
@@ -8,6 +8,9 @@ import type { BusinessType, Tariff } from '../../types';
 import { parseEsbUsageProfile } from '../../utils/usageProfileParser';
 import { DomesticTariffSelector } from '../DomesticTariffSelector';
 import domesticTariffsData from '../../data/domesticTariffs.json';
+import { DOMESTIC_FALLBACK_TARIFF } from '../../constants/houseModeDefaults';
+import { DAYS_PER_MONTH_LEAP, DAYS_PER_MONTH_NON_LEAP, HOURS_PER_YEAR_LEAP } from '../../constants/calendar';
+import { getKnownLocations } from '../../utils/solarLocationDiscovery';
 
 const domesticTariffs = domesticTariffsData as Tariff[];
 
@@ -30,8 +33,16 @@ export function Step1DigitalTwin({ businessType, onNext, onBack }: Step1DigitalT
   const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
   const selectClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
 
-  // Available locations
-  const availableLocations = ['Cavan'];
+  // Available locations (data-driven from solar data files)
+  const [availableLocations, setAvailableLocations] = useState<string[]>(getKnownLocations());
+  
+  // Discover available locations on mount
+  useEffect(() => {
+    // For now, we use the synchronous fallback. In the future, this could be enhanced
+    // to fetch a manifest.json or query an API for available locations.
+    const locations = getKnownLocations();
+    setAvailableLocations(locations);
+  }, []);
 
   // Location
   const [location, setLocation] = useState<string>('');
@@ -179,15 +190,19 @@ export function Step1DigitalTwin({ businessType, onNext, onBack }: Step1DigitalT
       // For compatibility, we still populate curve/months with dummy or aggregated data
       // so the rest of the app doesn't crash, but the engine will prefer 'hourlyConsumptionOverride'.
       
-      // Create a dummy monthly profile from the real hourly data for display in calendar
-      // We can aggregate hourly -> monthly
+      // Create a monthly profile from the real hourly data for display in calendar
+      // The parser includes the year, so we can use proper month boundaries
       const monthlyKwh = new Array(12).fill(0);
-      // Rough aggregation (ignoring exact day-of-month alignment for now, just 8760/12 chunks? No, let's do it properly if possible)
-      // Actually, we don't strictly need accurate monthly breakdown for the engine if we pass override.
-      // But the UI calendar sidebar uses curvedMonthlyKwh.
-      // Let's do a simple aggregation.
+      
+      // Simple aggregation by sequential hours
+      // The usage parser already returns data chronologically for a single year
+      // For a more robust solution, we'd use the original timestamps from the CSV,
+      // but since the data is already validated and aggregated to hourly, we can
+      // use the known hours-per-month for the parsed year
+      const isLeapYear = parsedProfile.hourly.length === HOURS_PER_YEAR_LEAP;
+      const daysInMonth = isLeapYear ? DAYS_PER_MONTH_LEAP : DAYS_PER_MONTH_NON_LEAP;
+      
       let hIdx = 0;
-      const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // approx
       for (let m = 0; m < 12; m++) {
         const hours = daysInMonth[m] * 24;
         for (let h = 0; h < hours; h++) {
@@ -201,7 +216,7 @@ export function Step1DigitalTwin({ businessType, onNext, onBack }: Step1DigitalT
         location,
         exampleMonths: [], // Not used for house mode
         curvedMonthlyKwh: monthlyKwh, // Used for sidebar display
-        tariffConfig: { type: 'flat', flatRate: 0.25 }, // Dummy tariff for compatibility
+        tariffConfig: DOMESTIC_FALLBACK_TARIFF, // Fallback tariff for compatibility (real tariff selected separately)
         hourlyConsumptionOverride: parsedProfile.hourly,
         selectedDomesticTariff: selectedDomesticTariff || undefined
       });

@@ -4,6 +4,7 @@ import type { SystemConfiguration, Grant, Financing } from '../../types';
 import { calculateGrantAmount, calculateSingleGrantAmount } from '../../models/grants';
 import { estimateSystemCost } from '../../utils/costEstimation';
 import { logInfo } from '../../utils/logger';
+import { HOUSE_MODE_DEFAULTS } from '../../constants/houseModeDefaults';
 
 
 interface Step4FinanceProps {
@@ -53,15 +54,14 @@ export function Step4Finance({
   // Auto-fill defaults for House mode
   useEffect(() => {
     if (config.businessType === 'house') {
-      // Guide price: €10,000 for 16 panels (~6.4kWp) + 8kWh battery
-      // Only set if we haven't manually modified it yet (or just force it for MVP convenience?)
-      // Let's set it if cost is 0.
+      // Only set defaults if we haven't manually modified it yet
       if (config.installationCost === 0) {
         setConfig(prev => ({
           ...prev,
-          installationCost: 10000,
-          systemSizeKwp: 6.4,
-          batterySizeKwh: 8
+          installationCost: HOUSE_MODE_DEFAULTS.INSTALLATION_COST,
+          systemSizeKwp: HOUSE_MODE_DEFAULTS.SYSTEM_SIZE_KWP,
+          batterySizeKwh: HOUSE_MODE_DEFAULTS.BATTERY_SIZE_KWH,
+          numberOfPanels: HOUSE_MODE_DEFAULTS.NUMBER_OF_PANELS
         }));
         // Also force manual cost mode so we don't overwrite it with commercial estimator
         setUseEstimatedCost(false);

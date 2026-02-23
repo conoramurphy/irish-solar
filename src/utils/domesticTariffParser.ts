@@ -1,4 +1,5 @@
 import type { Tariff, TimeWindow } from '../types';
+import { DOMESTIC_EXPORT_RATE } from '../constants/houseModeDefaults';
 
 /**
  * Parses ESB Networks domestic tariff CSV file into Tariff objects.
@@ -185,7 +186,7 @@ function parseRow(raw: RawDomesticTariff): Tariff {
     type,
     standingCharge,
     rates,
-    exportRate: 0, // Domestic tariffs typically don't include export rates in this CSV
+    exportRate: DOMESTIC_EXPORT_RATE, // SEAI microgeneration export rate for domestic users
     flatRate: dayRate && !nightRate && !peakRate ? dayRate : undefined,
     nightRate,
     peakRate,
