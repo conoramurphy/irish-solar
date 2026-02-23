@@ -310,7 +310,9 @@ export function ResultsSection({
                         const monthName = new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' });
                         const baseline = m.baselineCost ?? 0;
                         const newBill = m.importCost ?? 0;
-                        const savings = baseline - newBill;
+                        const exportRevenue = m.exportRevenue ?? 0;
+                        // Savings = Baseline - Import cost + Export revenue (total financial benefit)
+                        const savings = baseline - newBill + exportRevenue;
                         const spillRate = m.generation > 0 ? m.gridExport / m.generation : 0;
                         const isHighSpill = spillRate > 0.3;
                         

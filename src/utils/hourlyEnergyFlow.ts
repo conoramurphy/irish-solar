@@ -145,17 +145,15 @@ function calculateDomesticTariffSignals(
   
   // Identify cheap and expensive rate thresholds
   const cheapThreshold = uniqueRates[0]; // Cheapest rate for charging
-  const expensiveThreshold = uniqueRates[uniqueRates.length - 1]; // Most expensive for discharging
   
-  // Count hours at each rate level per day to determine if we need to expand discharge window
-  // Get a sample day's worth of rates (first 24 hours)
-  const sampleDayRates = hourlyRates.slice(0, Math.min(24, hourlyRates.length));
-  const peakHoursPerDay = sampleDayRates.filter(r => r === expensiveThreshold).length;
-  const secondExpensiveRate = uniqueRates.length > 1 ? uniqueRates[uniqueRates.length - 2] : null;
+  // Cascading discharge strategy:
+  // Start discharging at most expensive rate, then cascade down through cheaper rates
+  // Stop before reaching the charging rate (don't discharge during charging hours)
+  // This ensures battery is used during peak first, then helps during other expensive hours
   
-  // If peak window is very short (< 4 hours), also discharge during next-most-expensive rate
-  // This ensures battery can fully discharge even with short peak windows
-  const expandDischargeWindow = peakHoursPerDay > 0 && peakHoursPerDay < 4;
+  // Determine which rates should trigger discharge
+  // Discharge during all rates EXCEPT the cheapest (charging rate)
+  const dischargeRates = uniqueRates.filter(rate => rate > cheapThreshold);
   
   // Apply signals based on rate levels
   for (let hour = 0; hour < totalHours; hour++) {
@@ -165,12 +163,10 @@ function calculateDomesticTariffSignals(
     if (rate === cheapThreshold) {
       signals[hour] = 'CHARGE';
     }
-    // DISCHARGE: During most expensive rate (peak), and if peak is short, also during day rate
-    else if (rate === expensiveThreshold) {
-      signals[hour] = 'DISCHARGE';
-    }
-    else if (expandDischargeWindow && secondExpensiveRate && rate === secondExpensiveRate) {
-      // Extend discharge window to day rates when peak is too short
+    // DISCHARGE: During all rates more expensive than charging rate
+    // This creates a cascading discharge: peak first, then day, then night
+    // But never during EV rate hours
+    else if (dischargeRates.includes(rate)) {
       signals[hour] = 'DISCHARGE';
     }
     // Otherwise: AUTO (solar self-consumption)
