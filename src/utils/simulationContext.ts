@@ -8,6 +8,8 @@ import { normalizeConsumptionProfile } from './consumption';
 import { generateHourlyConsumption } from './hourlyConsumption';
 import { normalizePriceTimeseries, type ParsedPriceData } from './priceTimeseriesParser';
 import { type ParsedSolarData } from './solarTimeseriesParser';
+import { normalizeHourlyConsumptionLength } from './hourlyConsumptionNormalizer';
+import { logInfo } from './logger';
 
 export interface SimulationContext {
   /** 8760/8784 hourly timestamps */
@@ -49,13 +51,25 @@ export function prepareSimulationContext(
 
   if (hourlyConsumptionOverride) {
     // Use override if provided (Domestic Real Usage Mode)
+    // Auto-normalize if there's a leap year mismatch
     if (hourlyConsumptionOverride.length !== totalHours) {
-      throw new Error(
-        `Hourly consumption override must have exactly ${totalHours} timesteps. ` +
-        `Received ${hourlyConsumptionOverride.length}.`
+      const { normalized, corrections } = normalizeHourlyConsumptionLength(
+        hourlyConsumptionOverride,
+        totalHours
       );
+      
+      logInfo('simulation', 'Normalized consumption data to match solar timeseries', {
+        from: corrections.originalLength,
+        to: corrections.targetLength,
+        padded: corrections.padded,
+        trimmed: corrections.trimmed,
+        warnings: corrections.warnings
+      });
+      
+      hourlyConsumption = normalized;
+    } else {
+      hourlyConsumption = hourlyConsumptionOverride;
     }
-    hourlyConsumption = hourlyConsumptionOverride;
   } else {
     // Generate from monthly profile (Commercial/Estimated Mode)
     const monthlyConsumption = normalizeConsumptionProfile(consumptionProfile, tariff);

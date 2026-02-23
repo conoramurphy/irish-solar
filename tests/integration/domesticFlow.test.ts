@@ -95,7 +95,7 @@ describe('Domestic Mode Integration', () => {
     expect(totalAuditConsumption).toBeCloseTo(8760);
   });
 
-  it('fails if override length does not match solar year', () => {
+  it('fails if override length is invalid (not 8760 or 8784)', () => {
     const shortUsage = new Array(100).fill(1.0);
     expect(() => {
       runCalculation(
@@ -112,6 +112,40 @@ describe('Domestic Mode Integration', () => {
         undefined,
         shortUsage
       );
-    }).toThrow(/must have exactly 8760/);
+    }).toThrow(/unexpected length/);
+  });
+  
+  it('auto-normalizes leap year mismatch (8760 -> 8784)', () => {
+    // Create leap year solar data
+    const leapYearSolar = {
+      year: 2020,
+      timesteps: Array.from({ length: 8784 }, (_, i) => ({
+        stamp: { year: 2020, monthIndex: Math.floor(i / 732), day: 1, hour: i % 24 },
+        irradiance: 100
+      }))
+    };
+    
+    // Non-leap year consumption data
+    const nonLeapUsage = new Array(8760).fill(1.0);
+    
+    // Should not throw, should auto-normalize
+    const result = runCalculation(
+      config,
+      [],
+      financing,
+      tariff,
+      trading,
+      {} as any,
+      [],
+      25,
+      undefined,
+      leapYearSolar as any,
+      undefined,
+      nonLeapUsage
+    );
+    
+    // Verify it ran successfully
+    expect(result).toBeDefined();
+    expect(result.audit?.totalHours).toBe(8784);
   });
 });
