@@ -144,26 +144,33 @@ function calculateDomesticTariffSignals(
   }
   
   // Identify cheap and expensive rate thresholds
-  // Cheap: lowest rate(s) for charging
-  // Expensive: highest rate(s) for discharging
-  // For 2 rates: cheap = first, expensive = second
-  // For 3+ rates: cheap = first third, expensive = last third
-  const cheapThresholdIndex = 0; // Always include cheapest rate
-  const expensiveThresholdIndex = Math.max(1, uniqueRates.length - 1); // Always include most expensive
+  const cheapThreshold = uniqueRates[0]; // Cheapest rate for charging
+  const expensiveThreshold = uniqueRates[uniqueRates.length - 1]; // Most expensive for discharging
   
-  const cheapThreshold = uniqueRates[cheapThresholdIndex];
-  const expensiveThreshold = uniqueRates[expensiveThresholdIndex];
+  // Count hours at each rate level per day to determine if we need to expand discharge window
+  // Get a sample day's worth of rates (first 24 hours)
+  const sampleDayRates = hourlyRates.slice(0, Math.min(24, hourlyRates.length));
+  const peakHoursPerDay = sampleDayRates.filter(r => r === expensiveThreshold).length;
+  const secondExpensiveRate = uniqueRates.length > 1 ? uniqueRates[uniqueRates.length - 2] : null;
+  
+  // If peak window is very short (< 4 hours), also discharge during next-most-expensive rate
+  // This ensures battery can fully discharge even with short peak windows
+  const expandDischargeWindow = peakHoursPerDay > 0 && peakHoursPerDay < 4;
   
   // Apply signals based on rate levels
   for (let hour = 0; hour < totalHours; hour++) {
     const rate = hourlyRates[hour];
     
-    // Free electricity or very cheap rates: definitely charge
-    if (rate === 0 || rate <= cheapThreshold) {
+    // CHARGE: Only during absolute cheapest rate (EV rate, free electricity)
+    if (rate === cheapThreshold) {
       signals[hour] = 'CHARGE';
     }
-    // Expensive rates: discharge to reduce imports
-    else if (rate >= expensiveThreshold && uniqueRates.length > 2) {
+    // DISCHARGE: During most expensive rate (peak), and if peak is short, also during day rate
+    else if (rate === expensiveThreshold) {
+      signals[hour] = 'DISCHARGE';
+    }
+    else if (expandDischargeWindow && secondExpensiveRate && rate === secondExpensiveRate) {
+      // Extend discharge window to day rates when peak is too short
       signals[hour] = 'DISCHARGE';
     }
     // Otherwise: AUTO (solar self-consumption)
