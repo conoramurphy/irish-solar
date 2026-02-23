@@ -145,31 +145,42 @@ function calculateDomesticTariffSignals(
   
   // Identify cheap and expensive rate thresholds
   const cheapThreshold = uniqueRates[0]; // Cheapest rate for charging
+  const expensiveThreshold = uniqueRates[uniqueRates.length - 1]; // Most expensive (peak)
   
-  // Cascading discharge strategy:
-  // Start discharging at most expensive rate, then cascade down through cheaper rates
-  // Stop before reaching the charging rate (don't discharge during charging hours)
-  // This ensures battery is used during peak first, then helps during other expensive hours
+  // Find the first hour of peak rate each day to start discharge
+  // Process day by day (24-hour chunks)
+  const peakStartHours: number[] = [];
   
-  // Determine which rates should trigger discharge
-  // Discharge during all rates EXCEPT the cheapest (charging rate)
-  const dischargeRates = uniqueRates.filter(rate => rate > cheapThreshold);
+  for (let dayStart = 0; dayStart < totalHours; dayStart += 24) {
+    const dayEnd = Math.min(dayStart + 24, totalHours);
+    const dayRates = hourlyRates.slice(dayStart, dayEnd);
+    
+    // Find first occurrence of peak rate in this day
+    const peakStartInDay = dayRates.findIndex(r => r === expensiveThreshold);
+    if (peakStartInDay !== -1) {
+      peakStartHours.push(dayStart + peakStartInDay);
+    }
+  }
   
   // Apply signals based on rate levels
   for (let hour = 0; hour < totalHours; hour++) {
     const rate = hourlyRates[hour];
+    const hourInDay = hour % 24;
+    const dayStart = hour - hourInDay;
+    
+    // Find peak start for this day
+    const peakStart = peakStartHours.find(ps => ps >= dayStart && ps < dayStart + 24);
     
     // CHARGE: Only during absolute cheapest rate (EV rate, free electricity)
     if (rate === cheapThreshold) {
       signals[hour] = 'CHARGE';
     }
-    // DISCHARGE: During all rates more expensive than charging rate
-    // This creates a cascading discharge: peak first, then day, then night
-    // But never during EV rate hours
-    else if (dischargeRates.includes(rate)) {
+    // DISCHARGE: From peak hour onwards until end of day (or until we hit charging hours)
+    // This ensures battery holds charge until peak, then discharges continuously
+    else if (peakStart !== undefined && hour >= peakStart && rate > cheapThreshold) {
       signals[hour] = 'DISCHARGE';
     }
-    // Otherwise: AUTO (solar self-consumption)
+    // Otherwise: AUTO (solar self-consumption only, battery won't actively discharge)
   }
   
   return signals;
