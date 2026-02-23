@@ -461,17 +461,6 @@ function App() {
     }
   }, [config.businessType, previousBusinessType, trading.enabled]);
 
-  // Auto-recalculate when solar data changes (e.g. year selection) IF we already have results
-  useEffect(() => {
-    if ((standardResult || marketResult) && solarTimeseriesData) {
-      // Check if we need to update based on year mismatch
-      const needsUpdate = standardResult?.audit?.year !== solarTimeseriesData.year ||
-                         marketResult?.audit?.year !== solarTimeseriesData.year;
-      if (needsUpdate) {
-         handleCalculate();
-      }
-    }
-  }, [solarTimeseriesData, standardResult, marketResult]);
 
   const handleNextStep = (step: number, data?: any) => {
     logInfo('ui', `Step ${step} completed`, { step });
