@@ -1,7 +1,6 @@
 import type { HourlyEnergyFlow, HourlySimulationResult, Tariff, TradingConfig } from '../types';
-import { getTariffBucketForHour } from './hourlyConsumption';
-import { normalizeBucketKey } from './consumption';
 import type { HourStamp } from './solarTimeseriesParser';
+import { getEffectiveTariffBucketForHour, getTariffRateForHour } from './tariffRate';
 
 const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
@@ -28,54 +27,6 @@ export interface BatteryConfig {
   gridExportCapKw?: number;
 }
 
-/**
- * Check if hour falls within a time window
- */
-function isHourInTimeWindow(hourOfDay: number, dayOfWeek: number | undefined, window: { hourRanges?: Array<{ start: number; end: number }>; daysOfWeek?: number[] } | undefined): boolean {
-  if (!window) return false;
-  
-  // Check day of week constraint if present
-  if (window.daysOfWeek && window.daysOfWeek.length > 0) {
-    if (dayOfWeek === undefined || !window.daysOfWeek.includes(dayOfWeek)) {
-      return false;
-    }
-  }
-  
-  // Check hour ranges if present
-  if (window.hourRanges && window.hourRanges.length > 0) {
-    return window.hourRanges.some(range => {
-      // Handle ranges that span midnight
-      if (range.end <= range.start) {
-        return hourOfDay >= range.start || hourOfDay < range.end;
-      }
-      return hourOfDay >= range.start && hourOfDay < range.end;
-    });
-  }
-  
-  // If no hour ranges specified, assume always applicable (given day constraint passed)
-  return true;
-}
-
-/**
- * Get the tariff rate for a specific hour and bucket
- * Supports domestic tariff features: EV rates and free electricity windows
- */
-function getTariffRateForHour(hourOfDay: number, tariff: Tariff, dayOfWeek?: number): number {
-  // Check for free electricity window first (0 rate takes precedence)
-  if (tariff.freeElectricityWindow && isHourInTimeWindow(hourOfDay, dayOfWeek, tariff.freeElectricityWindow)) {
-    return 0;
-  }
-  
-  // Check for EV rate window
-  if (tariff.evRate !== undefined && tariff.evTimeWindow && isHourInTimeWindow(hourOfDay, dayOfWeek, tariff.evTimeWindow)) {
-    return tariff.evRate;
-  }
-  
-  // Fall back to standard tariff bucket lookup
-  const bucket = getTariffBucketForHour(hourOfDay, tariff);
-  const rate = tariff.rates.find(r => normalizeBucketKey(r.period) === bucket);
-  return rate?.rate || 0;
-}
 
 /**
  * Calculate baseline cost (no solar) for an hour
@@ -84,17 +35,18 @@ function calculateBaselineCost(
   consumption: number,
   hourOfDay: number,
   tariff: Tariff,
+  dayOfWeek: number | undefined,
   hourlyPrice?: number,
   tradingConfig?: TradingConfig
 ): number {
   let unitRate = 0;
-  
+
   if (hourlyPrice !== undefined && tradingConfig?.enabled) {
     // Dynamic pricing: Price + Margin
     unitRate = hourlyPrice + (tradingConfig.importMargin ?? 0);
   } else {
     // Static tariff
-    unitRate = getTariffRateForHour(hourOfDay, tariff);
+    unitRate = getTariffRateForHour(hourOfDay, tariff, dayOfWeek);
   }
 
   const pso = tariff.psoLevy || 0;
@@ -332,9 +284,13 @@ export function simulateHourlyEnergyFlow(
 
     const hourOfDay = timeStamps ? timeStamps[hour]!.hour : hour % 24;
 
+    const dayOfWeek = timeStamps
+      ? new Date(timeStamps[hour]!.year, timeStamps[hour]!.monthIndex, timeStamps[hour]!.day).getDay()
+      : undefined;
+
     // Calculate baseline cost (no solar, for comparison)
     // If trading enabled, baseline uses dynamic price too (fair comparison)
-    const baselineCost = calculateBaselineCost(consumption, hourOfDay, tariff, hourlyPrice, tradingConfig);
+    const baselineCost = calculateBaselineCost(consumption, hourOfDay, tariff, dayOfWeek, hourlyPrice, tradingConfig);
     totalBaselineCost += baselineCost;
 
     let gridImport = 0;
@@ -662,8 +618,6 @@ export function simulateHourlyEnergyFlow(
        // unless user wants a floor.
        // We'll trust the math: (Price - Margin).
     } else {
-       // Extract day of week from timestamp if available (0=Sun, 1=Mon, ..., 6=Sat)
-       const dayOfWeek = timeStamps ? new Date(timeStamps[hour]!.year, timeStamps[hour]!.monthIndex, timeStamps[hour]!.day).getDay() : undefined;
        unitRate = getTariffRateForHour(hourOfDay, tariff, dayOfWeek);
        exportRate = tariff.exportRate;
     }
@@ -701,7 +655,8 @@ export function simulateHourlyEnergyFlow(
     totalExportRevenue += exportRevenue;
 
     if (includeHourlyDetail) {
-      const bucket = getTariffBucketForHour(hourOfDay, tariff);
+      // Prefer the *effective* bucket so audit + downstream reporting can distinguish EV/free windows.
+      const bucket = getEffectiveTariffBucketForHour(hourOfDay, tariff, dayOfWeek);
       const savings = baselineCost - importCost + exportRevenue;
       hourlyData.push({
         hour,

@@ -1,16 +1,19 @@
-import { useState, useMemo } from 'react';
-import type { CalculationResult, SystemConfiguration } from '../types';
+import { useMemo, useState } from 'react';
+import type { CalculationResult, SystemConfiguration, Tariff } from '../types';
+import { calculateAnnualBillSummary } from '../utils/billSummary';
+import { estimateSystemCost } from '../utils/costEstimation';
+import { BillBreakdownByTariffChart } from './BillBreakdownByTariffChart';
 import { AuditModal } from './AuditModal';
 import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
 import { MarketAnalysis } from './MarketAnalysis';
+import { InputsUsedPanel } from './InputsUsedPanel';
 import { SaveReportModal } from './SaveReportModal';
-
-import { estimateSystemCost } from '../utils/costEstimation';
 
 interface ResultsSectionProps {
   standardResult: CalculationResult | null;
   marketResult?: CalculationResult | null;
   config?: SystemConfiguration;
+  tariff?: Tariff;
   availableYears?: number[];
   selectedYear?: number;
   onSelectYear?: (year: number) => void;
@@ -42,7 +45,8 @@ function formatNumber(value: number) {
 export function ResultsSection({ 
   standardResult,
   marketResult,
-  config, 
+  config,
+  tariff,
   availableYears = [], 
   selectedYear, 
   onSelectYear, 
@@ -51,7 +55,7 @@ export function ResultsSection({
   onSaveReport,
   existingReportNames = []
 }: ResultsSectionProps) {
-  const [activeTab, setActiveTab] = useState<'standard' | 'market' | 'comparison'>('standard');
+  const [activeTab, setActiveTab] = useState<'standard' | 'market' | 'comparison' | 'financial'>('standard');
   const [auditOpen, setAuditOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
 
@@ -82,8 +86,10 @@ export function ResultsSection({
     const kwp = config.systemSizeKwp || (config.annualProductionKwh / 950); // Fallback estimation
     const kwh = config.batterySizeKwh || 0;
     
-    const solarBaseCost = estimateSystemCost(kwp, 0);
-    const batteryBaseCost = estimateSystemCost(0, kwh);
+    const mode = config.businessType === 'house' ? 'domestic' : 'commercial';
+
+    const solarBaseCost = estimateSystemCost(kwp, 0, mode);
+    const batteryBaseCost = estimateSystemCost(0, kwh, mode);
     
     // 2. Allocate Net Cost proportionally
     const totalBase = solarBaseCost + batteryBaseCost;
@@ -105,17 +111,20 @@ export function ResultsSection({
     return { solarYield: sYield, batteryYield: bYield };
   }, [config, activeResult]);
 
-  const monthlyTotals = useMemo(() => {
-    if (!activeResult?.audit?.monthly) return null;
-    const monthly = activeResult.audit.monthly;
-    return {
-        payment: monthly.reduce((sum, m) => sum + (m.debtPayment ?? 0), 0),
-        savings: monthly.reduce((sum, m) => sum + (m.savings ?? 0), 0),
-        net: monthly.reduce((sum, m) => sum + (m.netOutOfPocket ?? ((m.savings ?? 0) - (m.debtPayment ?? 0))), 0),
-        baseline: monthly.reduce((sum, m) => sum + (m.baselineCost ?? 0), 0),
-        newBill: monthly.reduce((sum, m) => sum + (m.importCost ?? 0), 0)
-    };
-  }, [activeResult]);
+  const annualBill = useMemo(() => {
+    const monthly = activeResult?.audit?.monthly;
+    if (!monthly || monthly.length === 0) return null;
+    return calculateAnnualBillSummary(monthly);
+  }, [activeResult?.audit?.monthly]);
+
+  const showTariffBreakdown = useMemo(() => {
+    if (!tariff) return false;
+    const hourly = activeResult?.audit?.hourly;
+    if (!hourly || hourly.length === 0) return false;
+    // If this is a market-rate simulation, tariff buckets are much less meaningful.
+    const hasMarketPrices = hourly.some((h) => h.marketPrice !== undefined);
+    return !hasMarketPrices;
+  }, [activeResult?.audit?.hourly, tariff]);
 
   if (!standardResult) {
     return (
@@ -199,6 +208,18 @@ export function ResultsSection({
               Comparison
             </button>
           )}
+          {config?.businessType === 'house' && (
+            <button
+              onClick={() => setActiveTab('financial')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'financial'
+                  ? 'border-indigo-600 text-indigo-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              Financial Analysis
+            </button>
+          )}
         </div>
 
         {/* --- STANDARD ANALYSIS TAB (combines overview + financials) --- */}
@@ -216,7 +237,7 @@ export function ResultsSection({
               <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
                  <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">Total Annual Savings</div>
                  <div className="text-2xl font-bold text-emerald-700">{formatCurrency(activeResult.annualSavings)}</div>
-                 <div className="text-xs text-emerald-600/80 mt-1">Bill Reduction + Revenue</div>
+                 <div className="text-xs text-emerald-600/80 mt-1">Bill reduction + export credits (net)</div>
               </div>
               
               <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
@@ -248,23 +269,23 @@ export function ResultsSection({
               </div>
 
               <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
-                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Export Income</div>
+                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Export Credits</div>
                  <div className="text-xl font-bold text-slate-700">{formatCurrency(activeResult.annualExportRevenue)}</div>
-                 <div className="text-xs text-slate-400 mt-1">Feed-in / Market</div>
+                 <div className="text-xs text-slate-400 mt-1">Feed-in / market value</div>
               </div>
             </div>
 
             {/* Bill Comparison Card */}
-            {monthlyTotals && (
+            {annualBill && (
               <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200 mb-8">
-                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6">Estimated Annual Electricity Bill</h3>
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6">Estimated Annual Electricity Bill (Net)</h3>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12">
                    <div className="text-center md:text-left">
                      <div className="text-sm font-medium text-slate-500 mb-1">Current Bill</div>
                      <div className="text-3xl md:text-4xl font-bold text-slate-700 tabular-nums">
-                       {formatCurrency(monthlyTotals.baseline)}
+                       {formatCurrency(annualBill.baseline)}
                      </div>
-                     <div className="text-xs text-slate-400 mt-2">Before Solar PV</div>
+                     <div className="text-xs text-slate-400 mt-2">Before solar PV</div>
                    </div>
                    
                    <div className="flex-1 w-full md:w-auto relative h-12 flex items-center justify-center">
@@ -272,18 +293,38 @@ export function ResultsSection({
                         <div className="w-full border-t-2 border-slate-200 md:border-dashed"></div>
                       </div>
                       <div className="relative bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-bold border border-emerald-200 shadow-sm">
-                        -{formatPercentFraction((monthlyTotals.baseline - monthlyTotals.newBill) / (monthlyTotals.baseline || 1), 0)}
+                        {(() => {
+                          const savingsFraction = annualBill.baseline > 0 ? annualBill.savings / annualBill.baseline : 0;
+                          const clamped = Math.min(1, Math.max(0, savingsFraction));
+                          const pct = (clamped * 100).toFixed(0);
+                          const suffix = savingsFraction > 1 ? '%+' : '%';
+                          return `-${pct}${suffix}`;
+                        })()}
                       </div>
                    </div>
 
                    <div className="text-center md:text-right">
-                     <div className="text-sm font-medium text-slate-500 mb-1">Predicted Bill</div>
-                     <div className="text-3xl md:text-4xl font-bold text-emerald-600 tabular-nums">
-                       {formatCurrency(monthlyTotals.newBill)}
+                     <div className="text-sm font-medium text-slate-500 mb-1">Net Bill</div>
+                     <div className={`text-3xl md:text-4xl font-bold tabular-nums ${
+                       annualBill.netBill < 0 ? 'text-emerald-700' : 'text-emerald-600'
+                     }`}>
+                       {formatCurrency(Math.max(0, annualBill.netBill))}
+                       {annualBill.netBill < 0 && (
+                         <span className="ml-2 text-sm font-semibold text-emerald-700">
+                           (€{Math.abs(annualBill.netBill).toFixed(0)} credit)
+                         </span>
+                       )}
                      </div>
-                     <div className="text-xs text-emerald-600/70 mt-2">After Solar PV</div>
+                     <div className="text-xs text-emerald-600/70 mt-2">After solar PV (net of export credits)</div>
                    </div>
                 </div>
+              </div>
+            )}
+
+            {/* Tariff rate bill breakdown */}
+            {showTariffBreakdown && activeResult.audit?.hourly && (
+              <div className="mb-8">
+                <BillBreakdownByTariffChart hourlyData={activeResult.audit.hourly} tariff={tariff!} />
               </div>
             )}
 
@@ -292,7 +333,7 @@ export function ResultsSection({
               <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
                 <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
                   <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Monthly Bill Comparison</h3>
-                  <p className="text-xs text-slate-400 mt-1">Before and after solar PV installation</p>
+                  <p className="text-xs text-slate-400 mt-1">After = import charges minus export credits (net)</p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -300,7 +341,7 @@ export function ResultsSection({
                       <tr>
                         <th className="px-6 py-3">Month</th>
                         <th className="px-6 py-3 text-right">Before</th>
-                        <th className="px-6 py-3 text-right">After</th>
+                        <th className="px-6 py-3 text-right">After (Net)</th>
                         <th className="px-6 py-3 text-right">Savings</th>
                         <th className="px-6 py-3 text-right">Spill Rate</th>
                       </tr>
@@ -341,15 +382,20 @@ export function ResultsSection({
                         );
                       })}
                     </tbody>
-                    {monthlyTotals && (
+                    {annualBill && (
                       <tfoot className="bg-slate-50 font-bold border-t border-slate-200">
                         <tr>
                           <td className="px-6 py-4 text-slate-800">Total</td>
-                          <td className="px-6 py-4 text-right text-slate-700 tabular-nums">{formatCurrency(monthlyTotals.baseline)}</td>
-                          <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">{formatCurrency(monthlyTotals.newBill)}</td>
-                          <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">
-                            {formatCurrency(monthlyTotals.baseline - monthlyTotals.newBill)}
+                          <td className="px-6 py-4 text-right text-slate-700 tabular-nums">{formatCurrency(annualBill.baseline)}</td>
+                          <td className={`px-6 py-4 text-right tabular-nums ${
+                            annualBill.netBill < 0 ? 'text-emerald-800' : 'text-emerald-700'
+                          }`}>
+                            {formatCurrency(Math.max(0, annualBill.netBill))}
+                            {annualBill.netBill < 0 && (
+                              <span className="ml-1 text-xs">(€{Math.abs(annualBill.netBill).toFixed(0)} credit)</span>
+                            )}
                           </td>
+                          <td className="px-6 py-4 text-right text-emerald-700 tabular-nums">{formatCurrency(annualBill.savings)}</td>
                           <td className="px-6 py-4 text-right text-slate-700 tabular-nums">
                             {formatPercentFraction(activeResult.annualExport / (activeResult.annualGeneration || 1))}
                           </td>
@@ -551,7 +597,7 @@ export function ResultsSection({
                         <div className="text-lg font-bold text-slate-700">{formatCurrency(standardResult.npv)}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-500">Export Revenue</div>
+                        <div className="text-xs text-slate-500">Export Credits</div>
                         <div className="text-sm font-semibold text-slate-600">{formatCurrency(standardResult.annualExportRevenue)}</div>
                       </div>
                     </div>
@@ -623,7 +669,7 @@ export function ResultsSection({
                         <div className="text-lg font-bold text-slate-700">{formatCurrency(marketResult.npv)}</div>
                       </div>
                       <div>
-                        <div className="text-xs text-slate-500">Export Revenue</div>
+                        <div className="text-xs text-slate-500">Export Credits</div>
                         <div className="text-sm font-semibold text-slate-600">{formatCurrency(marketResult.annualExportRevenue)}</div>
                       </div>
                     </div>
@@ -640,6 +686,162 @@ export function ResultsSection({
             <MarketAnalysis hourlyData={activeResult.audit.hourly} year={analyticsYear} />
           </div>
         )}
+
+        {/* --- FINANCIAL TAB (House Mode) --- */}
+        {activeTab === 'financial' && config?.businessType === 'house' && standardResult && (
+          <div className="animate-in fade-in duration-300">
+            {/* Financial Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {/* Investment Card */}
+              <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Investment</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs text-slate-500">System Cost</div>
+                    <div className="text-2xl font-bold text-slate-700">{formatCurrency(standardResult.systemCost)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500">After Grants</div>
+                    <div className="text-lg font-semibold text-emerald-600">{formatCurrency(standardResult.netCost)}</div>
+                  </div>
+                  {standardResult.year1TaxSavings > 0 && (
+                    <div>
+                      <div className="text-xs text-slate-500">Tax Relief (Year 1)</div>
+                      <div className="text-sm font-medium text-emerald-600">{formatCurrency(standardResult.year1TaxSavings)}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Returns Card */}
+              <div className="bg-emerald-50 rounded-xl p-6 border border-emerald-200">
+                <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-4">Returns</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs text-emerald-600">Annual Savings</div>
+                    <div className="text-2xl font-bold text-emerald-700">{formatCurrency(standardResult.annualSavings)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-emerald-600">25-Year Total</div>
+                    <div className="text-lg font-semibold text-emerald-700">
+                      {formatCurrency(standardResult.cashFlows.reduce((sum, cf) => sum + cf.savings, 0))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-emerald-600">Payback Period</div>
+                    <div className="text-lg font-semibold text-emerald-700">
+                      {Number.isFinite(standardResult.simplePayback) ? `${standardResult.simplePayback.toFixed(1)} years` : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Advanced Metrics Card */}
+              <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-200">
+                <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-4">Advanced Metrics</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs text-indigo-600">Internal Rate of Return</div>
+                    <div className="text-2xl font-bold text-indigo-700">
+                      {Number.isFinite(standardResult.irr) ? `${(standardResult.irr * 100).toFixed(1)}%` : 'N/A'}
+                    </div>
+                    <div className="text-[10px] text-indigo-500 mt-1">25-year IRR</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-indigo-600">Net Present Value</div>
+                    <div className="text-lg font-semibold text-indigo-700">{formatCurrency(standardResult.npv)}</div>
+                    <div className="text-[10px] text-indigo-500 mt-1">@ 5% discount rate</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Cash Flow Timeline */}
+            <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">25-Year Cash Flow</h3>
+                <p className="text-xs text-slate-400 mt-1">Annual savings and cumulative return</p>
+              </div>
+              <div className="p-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Year</th>
+                        <th className="px-4 py-2 text-right">Generation (kWh)</th>
+                        <th className="px-4 py-2 text-right">Savings</th>
+                        <th className="px-4 py-2 text-right">Net Cash Flow</th>
+                        <th className="px-4 py-2 text-right">Cumulative</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {standardResult.cashFlows.slice(0, 10).map((cf) => (
+                        <tr key={cf.year} className="hover:bg-slate-50/50">
+                          <td className="px-4 py-2 font-medium text-slate-700">Year {cf.year}</td>
+                          <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatNumber(cf.generation)}</td>
+                          <td className="px-4 py-2 text-right text-emerald-600 tabular-nums font-medium">{formatCurrency(cf.savings)}</td>
+                          <td className={`px-4 py-2 text-right tabular-nums font-medium ${
+                            cf.netCashFlow >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                          }`}>
+                            {formatSignedCurrency(cf.netCashFlow)}
+                          </td>
+                          <td className={`px-4 py-2 text-right tabular-nums font-bold ${
+                            cf.cumulativeCashFlow >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                          }`}>
+                            {formatSignedCurrency(cf.cumulativeCashFlow)}
+                          </td>
+                        </tr>
+                      ))}
+                      {standardResult.cashFlows.length > 10 && (
+                        <tr className="bg-slate-50">
+                          <td colSpan={5} className="px-4 py-2 text-center text-xs text-slate-400">
+                            ... showing first 10 years of 25 ...
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
+                        <td className="px-4 py-3 text-slate-800">Final (Year 25)</td>
+                        <td className="px-4 py-3 text-right text-slate-700 tabular-nums">
+                          {formatNumber(standardResult.cashFlows[standardResult.cashFlows.length - 1]?.generation || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-emerald-700 tabular-nums">
+                          {formatCurrency(standardResult.cashFlows[standardResult.cashFlows.length - 1]?.savings || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-emerald-700 tabular-nums">
+                          {formatSignedCurrency(standardResult.cashFlows[standardResult.cashFlows.length - 1]?.netCashFlow || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-emerald-800 tabular-nums">
+                          {formatSignedCurrency(standardResult.cashFlows[standardResult.cashFlows.length - 1]?.cumulativeCashFlow || 0)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            {/* Key Assumptions */}
+            <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Assumptions</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-slate-500">Analysis Period:</span>
+                  <span className="ml-2 font-semibold text-slate-700">25 years</span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Discount Rate:</span>
+                  <span className="ml-2 font-semibold text-slate-700">5% per annum</span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Solar Degradation:</span>
+                  <span className="ml-2 font-semibold text-slate-700">0.5% per year</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <InputsUsedPanel inputsUsed={activeResult?.inputsUsed} diagnostics={activeResult?.diagnostics} />
 
         {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100">

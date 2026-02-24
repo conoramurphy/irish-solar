@@ -38,6 +38,7 @@ export function runCalculation(
   tariff: Tariff,
   trading: TradingConfig,
   _historicalSolar: Record<string, HistoricalSolarData>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _historicalTariffs: HistoricalTariffData[] = [],
   analysisYears = 25,
   consumptionProfile?: ConsumptionProfile,
@@ -92,6 +93,26 @@ export function runCalculation(
   );
 
   const { timeStamps, hourlyConsumption, hourlyPrices } = simContext;
+
+  const diagnosticsWarnings: string[] = [];
+
+  if (simContext.consumptionNormalization?.warnings?.length) {
+    for (const w of simContext.consumptionNormalization.warnings) {
+      diagnosticsWarnings.push(`Consumption normalization: ${w}`);
+    }
+  }
+
+  if (simContext.priceNormalization?.warnings?.length) {
+    for (const w of simContext.priceNormalization.warnings) {
+      diagnosticsWarnings.push(`Price normalization: ${w}`);
+    }
+  }
+
+  if (solarTimeseriesData.totalIrradiance === 0) {
+    diagnosticsWarnings.push(
+      'Solar irradiance total is 0 for the selected timeseries. Annual PV production was distributed evenly across hours (no irradiance weighting).' 
+    );
+  }
   
   // Always use hourly simulation (audit mode)
   const useHourlySimulation = true;
@@ -254,6 +275,30 @@ export function runCalculation(
   const npv = calculateNPV(equityAmount, annualCashFlows, 0.05);
   const irr = calculateIRR(equityAmount, annualCashFlows);
 
+  const sampleCount = 100;
+
+  const solarSample = solarTimeseriesData.timesteps.slice(0, sampleCount).map((ts) => ({
+    hourKey: ts.hourKey,
+    stamp: ts.stamp,
+    irradianceWm2: ts.irradianceWm2,
+    sourceIndex: ts.sourceIndex
+  }));
+
+  const consumptionSample =
+    simContext.consumptionSource === 'override'
+      ? hourlyConsumption.slice(0, sampleCount).map((kwh, idx) => ({
+          hourKey: solarTimeseriesData.timesteps[idx]?.hourKey ?? String(idx),
+          consumptionKwh: kwh
+        }))
+      : undefined;
+
+  const pricesSample = hourlyPrices
+    ? hourlyPrices.slice(0, sampleCount).map((eurPerKwh, idx) => ({
+        hourKey: solarTimeseriesData.timesteps[idx]?.hourKey ?? String(idx),
+        priceEurPerKwh: eurPerKwh
+      }))
+    : undefined;
+
   return {
     systemCost,
     netCost,
@@ -271,7 +316,57 @@ export function runCalculation(
     cashFlows,
     solarSpillageAnalysis,
     sensitivityAnalysis: sensitivityAnalysisResult,
-    audit
+    audit,
+    inputsUsed: {
+      config: {
+        annualProductionKwh: config.annualProductionKwh,
+        numberOfPanels: config.numberOfPanels,
+        systemSizeKwp: config.systemSizeKwp,
+        batterySizeKwh: config.batterySizeKwh,
+        gridExportCapKw: config.gridExportCapKw,
+        installationCost: config.installationCost,
+        location: config.location,
+        businessType: config.businessType
+      },
+      tariff: {
+        id: tariff.id,
+        supplier: tariff.supplier,
+        product: tariff.product,
+        type: tariff.type,
+        standingCharge: tariff.standingCharge,
+        rates: tariff.rates,
+        exportRate: tariff.exportRate,
+        psoLevy: tariff.psoLevy,
+        // Domestic optional fields (only present on some tariffs)
+        flatRate: tariff.flatRate,
+        nightRate: tariff.nightRate,
+        peakRate: tariff.peakRate,
+        evRate: tariff.evRate,
+        evTimeWindow: tariff.evTimeWindow,
+        freeElectricityWindow: tariff.freeElectricityWindow
+      },
+      financing,
+      grants: grants.map((g) => ({ id: g.id, name: g.name, type: g.type })),
+      trading,
+      simulation: {
+        year: solarTimeseriesData.year,
+        totalHours: solarTimeseriesData.timesteps.length,
+        consumptionSource: simContext.consumptionSource,
+        marketPricesProvided: !!hourlyPrices
+      },
+      corrections: {
+        consumption: simContext.consumptionNormalization,
+        prices: simContext.priceNormalization
+      },
+      samples: {
+        solar: solarSample,
+        consumption: consumptionSample,
+        prices: pricesSample
+      }
+    },
+    diagnostics: {
+      warnings: diagnosticsWarnings
+    }
   };
 }
 

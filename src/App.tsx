@@ -40,7 +40,7 @@ import { estimateAnnualBills } from './utils/billingCalculations';
 import type { ExampleMonth, TariffConfiguration } from './types/billing';
 import { loadSolarData } from './utils/solarDataLoader';
 import { endSpan as endSolarSpan, logError as logSolarError, logInfo as logSolarInfo, logWarn, startSpan as startSolarSpan } from './utils/logger';
-import { listSolarTimeseriesYears, normalizeSolarTimeseriesYear } from './utils/solarTimeseriesParser';
+import { listSolarTimeseriesYears, normalizeSolarTimeseriesYear, type SolarNormalizationCorrections } from './utils/solarTimeseriesParser';
 import type { BuildingTypeSelection } from './types';
 
 const grantsData = rawGrantsData as unknown as Grant[];
@@ -193,6 +193,7 @@ function App() {
   // Solar timeseries data - loaded in App when location is set in Step 1
   const [rawSolarData, setRawSolarData] = useState<ParsedSolarData | null>(null);
   const [solarTimeseriesData, setSolarTimeseriesData] = useState<ParsedSolarData | null>(null);
+  const [solarNormalizationCorrections, setSolarNormalizationCorrections] = useState<SolarNormalizationCorrections | null>(null);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [solarDataLoading, setSolarDataLoading] = useState(false);
@@ -235,6 +236,7 @@ function App() {
 
   const [standardResult, setStandardResult] = useState<CalculationResult | null>(null);
   const [marketResult, setMarketResult] = useState<CalculationResult | null>(null);
+  const [calculationError, setCalculationError] = useState<string | null>(null);
 
   // Step management - starts at 0 (building type)
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -254,9 +256,51 @@ function App() {
   );
 
   const handleCalculate = (configOverride?: SystemConfiguration) => {
+    setCalculationError(null);
     setStandardResult(null);
     setMarketResult(null);
     const cfg = configOverride || config;
+
+    // Fail fast on missing/invalid inputs (no silent fallbacks)
+    if (!tariff) {
+      setCalculationError('Tariff is missing. Please complete the Consumption & Tariff step.');
+      return;
+    }
+
+    if (!solarTimeseriesData) {
+      setCalculationError(
+        `Solar timeseries data is missing for location "${cfg.location}". ` +
+          'Please go back to the Solar step and ensure a valid timeseries year is selected.'
+      );
+      return;
+    }
+
+    if (!cfg.annualProductionKwh || cfg.annualProductionKwh <= 0) {
+      setCalculationError('Annual solar production must be greater than 0.');
+      return;
+    }
+
+    // Consumption must be provided either via an imported hourly override OR a non-zero monthly profile.
+    if (hourlyConsumptionOverride) {
+      const n = hourlyConsumptionOverride.length;
+      if (n !== 8760 && n !== 8784) {
+        setCalculationError(
+          `Imported hourly consumption must have 8,760 or 8,784 hours. Received ${n}. ` +
+            'Please re-import a full-year file.'
+        );
+        return;
+      }
+    } else {
+      if (curvedMonthlyKwh.length !== 12) {
+        setCalculationError('Monthly consumption profile is incomplete. Please finish the Consumption step.');
+        return;
+      }
+      const annualConsumption = curvedMonthlyKwh.reduce((a, b) => a + b, 0);
+      if (annualConsumption <= 0) {
+        setCalculationError('Annual consumption must be greater than 0. Please review your Consumption inputs.');
+        return;
+      }
+    }
 
     logInfo('ui', 'Generate report clicked', {
       currentStep,
@@ -266,10 +310,7 @@ function App() {
       marketRateEnabled: trading.enabled
     });
 
-    if (!tariff) {
-      logError('ui', 'Tariff missing when generating report');
-      return;
-    }
+    // (Tariff guard moved to fail-fast validation above)
 
     const spanId = startSpan('engine', 'Run calculations', {
       analysisYears: 25,
@@ -293,7 +334,7 @@ function App() {
       );
 
       const standardConfig: TradingConfig = { enabled: false };
-        const standard = runCalculation(
+      const standardBase = runCalculation(
         cfg,
         selectedGrants,
         financing,
@@ -307,6 +348,32 @@ function App() {
         undefined, // No price data for standard
         hourlyConsumptionOverride
       );
+
+      const standard: CalculationResult = {
+        ...standardBase,
+        audit: standardBase.audit
+          ? {
+              ...standardBase.audit,
+              corrections: solarNormalizationCorrections ?? standardBase.audit.corrections
+            }
+          : standardBase.audit,
+        inputsUsed: standardBase.inputsUsed
+          ? {
+              ...standardBase.inputsUsed,
+              corrections: {
+                ...(standardBase.inputsUsed.corrections ?? {}),
+                solar: solarNormalizationCorrections ?? standardBase.inputsUsed.corrections?.solar
+              }
+            }
+          : undefined,
+        diagnostics: {
+          warnings: [
+            ...(standardBase.diagnostics?.warnings ?? []),
+            ...(solarNormalizationCorrections?.warnings?.map((w) => `Solar timeseries: ${w}`) ?? [])
+          ]
+        }
+      };
+
       setStandardResult(standard);
       logInfo(
         'engine',
@@ -335,7 +402,7 @@ function App() {
           { spanId }
         );
 
-        const market = runCalculation(
+        const marketBase = runCalculation(
           cfg,
           selectedGrants,
           financing,
@@ -349,6 +416,32 @@ function App() {
           priceTimeseriesData,
           hourlyConsumptionOverride
         );
+
+        const market: CalculationResult = {
+          ...marketBase,
+          audit: marketBase.audit
+            ? {
+                ...marketBase.audit,
+                corrections: solarNormalizationCorrections ?? marketBase.audit.corrections
+              }
+            : marketBase.audit,
+          inputsUsed: marketBase.inputsUsed
+            ? {
+                ...marketBase.inputsUsed,
+                corrections: {
+                  ...(marketBase.inputsUsed.corrections ?? {}),
+                  solar: solarNormalizationCorrections ?? marketBase.inputsUsed.corrections?.solar
+                }
+              }
+            : undefined,
+          diagnostics: {
+            warnings: [
+              ...(marketBase.diagnostics?.warnings ?? []),
+              ...(solarNormalizationCorrections?.warnings?.map((w) => `Solar timeseries: ${w}`) ?? [])
+            ]
+          }
+        };
+
         setMarketResult(market);
         logInfo(
           'engine',
@@ -365,6 +458,7 @@ function App() {
       endSpan(spanId, 'success');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Calculation failed.';
+      setCalculationError(msg);
       logError('engine', 'runCalculation failed', { message: msg }, { spanId });
       endSpan(spanId, 'error', { message: msg });
     }
@@ -374,6 +468,7 @@ function App() {
   useEffect(() => {
     if (!config.location) {
       setSolarTimeseriesData(null);
+      setSolarNormalizationCorrections(null);
       return;
     }
 
@@ -399,6 +494,7 @@ function App() {
         logSolarError('solar', 'Failed to load solar data', { error: String(err) });
         setRawSolarData(null);
         setSolarTimeseriesData(null);
+        setSolarNormalizationCorrections(null);
         setAvailableYears([]);
       })
       .finally(() => setSolarDataLoading(false));
@@ -408,6 +504,7 @@ function App() {
   useEffect(() => {
     if (!rawSolarData || !selectedYear) {
       setSolarTimeseriesData(null);
+      setSolarNormalizationCorrections(null);
       return;
     }
 
@@ -419,12 +516,14 @@ function App() {
         logWarn('solar', 'Normalization warnings', norm.corrections, { spanId });
       }
       setSolarTimeseriesData(norm.normalized);
+      setSolarNormalizationCorrections(norm.corrections);
       endSolarSpan(spanId, 'success');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Normalization failed';
       logSolarError('solar', 'Normalization failed', { message: msg }, { spanId });
       endSolarSpan(spanId, 'error', { message: msg });
       setSolarTimeseriesData(null);
+      setSolarNormalizationCorrections(null);
     }
   }, [rawSolarData, selectedYear, config.location]);
 
@@ -463,6 +562,7 @@ function App() {
 
 
   const handleNextStep = (step: number, data?: any) => {
+    setCalculationError(null);
     logInfo('ui', `Step ${step} completed`, { step });
 
     if (step === 0 && data) {
@@ -513,6 +613,7 @@ function App() {
     if (step === 2 && data?.solarData) {
       // Step 2: Solar - store solar data
       setSolarTimeseriesData(data.solarData);
+      setSolarNormalizationCorrections(data.corrections ?? null);
       logInfo('solar', 'Solar timeseries stored from Step 2', {
         year: data.solarData.year,
         timesteps: data.solarData.timesteps?.length
@@ -536,6 +637,7 @@ function App() {
   };
 
   const handleBackStep = () => {
+    setCalculationError(null);
     if (currentStep === 1) {
       // Back to Step 0 (building type)
       setCurrentStep(0);
@@ -548,6 +650,7 @@ function App() {
   };
 
   const handleLoadReport = (saved: SavedReport) => {
+    setCalculationError(null);
     // 1. Restore all state
     setConfig(saved.config);
     setFinancing(saved.financing);
@@ -674,6 +777,12 @@ function App() {
       />
 
       <main className="mx-auto max-w-7xl px-6 py-10 -mt-10 relative z-20">
+      {calculationError && (
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <div className="font-semibold">Could not generate report</div>
+          <div className="mt-1">{calculationError}</div>
+        </div>
+      )}
       {/* Step Indicator (hide on Step 0 and when report is generated) */}
         {!standardResult && currentStep > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
@@ -688,6 +797,7 @@ function App() {
               standardResult={standardResult}
               marketResult={marketResult}
               config={config} 
+              tariff={tariff}
               availableYears={availableYears}
               selectedYear={selectedYear}
               onSelectYear={(y) => {

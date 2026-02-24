@@ -19,7 +19,7 @@ interface Step2SolarProps {
   locationFromStep1: string;
   solarData: ParsedSolarData | null;
   loading: boolean;
-  onNext: (data?: any) => void;
+  onNext: (data: { solarData: ParsedSolarData; corrections: SolarNormalizationCorrections | null }) => void;
   onBack: () => void;
 }
 
@@ -105,7 +105,7 @@ export function Step2Solar({
 
   const handleContinue = () => {
     if (config.annualProductionKwh > 0 && solarData && selectedYearHoursOk) {
-      onNext({ solarData });
+      onNext({ solarData, corrections: corrections ?? null });
     }
   };
 

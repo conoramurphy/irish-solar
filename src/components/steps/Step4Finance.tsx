@@ -2,10 +2,9 @@ import { useMemo, useState, useEffect } from 'react';
 import { Field } from '../Field';
 import type { SystemConfiguration, Grant, Financing } from '../../types';
 import { calculateGrantAmount, calculateSingleGrantAmount } from '../../models/grants';
-import { estimateSystemCost } from '../../utils/costEstimation';
+import { estimateSystemCostBreakdown } from '../../utils/costEstimation';
 import { logInfo } from '../../utils/logger';
 import { HOUSE_MODE_DEFAULTS } from '../../constants/houseModeDefaults';
-
 
 interface Step4FinanceProps {
   config: SystemConfiguration;
@@ -35,57 +34,45 @@ export function Step4Finance({
   const [grantValidationError, setGrantValidationError] = useState<string | null>(null);
   const [useEstimatedCost, setUseEstimatedCost] = useState(true);
   const [vatRate, setVatRate] = useState(0.135);
+  const [houseDefaultsApplied, setHouseDefaultsApplied] = useState(false);
+  const [grantsAutoSelectedNotice, setGrantsAutoSelectedNotice] = useState(false);
 
-  const estimatedBaseCost = useMemo(() => {
-    return estimateSystemCost(config.systemSizeKwp || 0, config.batterySizeKwh || 0);
-  }, [config.systemSizeKwp, config.batterySizeKwh]);
+  const costBreakdown = useMemo(() => {
+    const mode = config.businessType === 'house' ? 'domestic' : 'commercial';
+    return estimateSystemCostBreakdown(config.systemSizeKwp || 0, config.batterySizeKwh || 0, mode);
+  }, [config.systemSizeKwp, config.batterySizeKwh, config.businessType]);
+
+  const estimatedBaseCost = costBreakdown.totalBaseCost;
 
   // Update cost when estimation params change
   useEffect(() => {
-    if (useEstimatedCost && config.systemSizeKwp) {
+    if (useEstimatedCost && estimatedBaseCost > 0) {
       const total = Math.round(estimatedBaseCost * (1 + vatRate));
       // Only update if different to avoid loops (though strict mode might trigger twice)
       if (total !== config.installationCost) {
-        setConfig({ ...config, installationCost: total });
+        // Use functional update to avoid stomping concurrent edits
+        setConfig((prev) => ({ ...prev, installationCost: total }));
       }
     }
-  }, [useEstimatedCost, vatRate, estimatedBaseCost, config, setConfig]);
+  }, [useEstimatedCost, vatRate, estimatedBaseCost, config.installationCost, setConfig]);
 
-  // Auto-fill defaults for House mode
-  useEffect(() => {
-    if (config.businessType === 'house') {
-      // Only set defaults if we haven't manually modified it yet
-      if (config.installationCost === 0) {
-        setConfig(prev => ({
-          ...prev,
-          installationCost: HOUSE_MODE_DEFAULTS.INSTALLATION_COST,
-          systemSizeKwp: HOUSE_MODE_DEFAULTS.SYSTEM_SIZE_KWP,
-          batterySizeKwh: HOUSE_MODE_DEFAULTS.BATTERY_SIZE_KWH,
-          numberOfPanels: HOUSE_MODE_DEFAULTS.NUMBER_OF_PANELS
-        }));
-        // Also force manual cost mode so we don't overwrite it with commercial estimator
-        setUseEstimatedCost(false);
-      }
-      
-      // Auto-select domestic grant
-      const domesticGrantId = 'seai-domestic-solar-pv';
-      if (eligibleGrants.some(g => g.id === domesticGrantId) && !selectedGrantIds.includes(domesticGrantId)) {
-        setSelectedGrantIds([domesticGrantId]);
-      }
-    }
-  }, [config.businessType]); // Run once when businessType changes (or on mount if already house)
+  const applyHouseDefaults = () => {
+    setHouseDefaultsApplied(true);
+    setConfig((prev) => ({
+      ...prev,
+      installationCost: HOUSE_MODE_DEFAULTS.INSTALLATION_COST,
+      systemSizeKwp: HOUSE_MODE_DEFAULTS.SYSTEM_SIZE_KWP,
+      batterySizeKwh: HOUSE_MODE_DEFAULTS.BATTERY_SIZE_KWH,
+      numberOfPanels: HOUSE_MODE_DEFAULTS.NUMBER_OF_PANELS
+    }));
+    // Force manual cost mode so we don't overwrite the explicit default package cost
+    setUseEstimatedCost(false);
+  };
 
-  // Auto-select eligible grants if none selected (e.g. initial load)
-  useEffect(() => {
-    if (eligibleGrants.length > 0 && selectedGrantIds.length === 0) {
-      // Check if we are in a "pristine" state where we haven't explicitly deselected them.
-      // For simplicity, we'll just auto-select all on mount/change if empty.
-      // A more robust way would be to track "touched" state, but this fits the MVP requirement.
-      setSelectedGrantIds(eligibleGrants.map(g => g.id));
-    }
-    // We only want to run this when eligibleGrants changes, NOT when selectedGrantIds changes (to avoid re-selecting after user clears)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eligibleGrants]);
+  const selectAllEligibleGrants = () => {
+    setGrantsAutoSelectedNotice(true);
+    setSelectedGrantIds(eligibleGrants.map((g) => g.id));
+  };
 
   const selectedGrants = useMemo(
     () => eligibleGrants.filter((g) => selectedGrantIds.includes(g.id)),
@@ -160,6 +147,31 @@ export function Step4Finance({
             <div className="mt-1">{grantValidationError ?? grantCalcError}</div>
           </div>
         )}
+
+        {config.businessType === 'house' && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="font-semibold">Domestic mode: defaults are opt-in</div>
+            <p className="mt-1 text-amber-800">
+              To avoid silent overrides, this step will <span className="font-semibold">not</span> apply any typical domestic sizing/cost defaults automatically.
+              If you want a starter package, apply it explicitly below.
+            </p>
+            <div className="mt-3 flex flex-col sm:flex-row gap-2">
+              <button
+                type="button"
+                onClick={applyHouseDefaults}
+                className="inline-flex items-center justify-center rounded-md bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+              >
+                Apply typical domestic defaults (6.4 kWp + 8 kWh + €10,000)
+              </button>
+              {houseDefaultsApplied && (
+                <span className="text-xs text-amber-800 self-center">
+                  Applied. You can still edit Solar/Battery steps to change sizing.
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Installation Cost */}
         <div className="mb-8 pb-8 border-b border-slate-100">
           <div className="flex items-center justify-between mb-6">
@@ -201,7 +213,7 @@ export function Step4Finance({
              {useEstimatedCost && (
                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm">
                  <div className="flex justify-between mb-1">
-                    <span className="text-slate-500">Estimated Base Cost:</span>
+                    <span className="text-slate-500">Estimated Base Cost (ex VAT):</span>
                     <span className="font-medium text-slate-700">€{estimatedBaseCost.toLocaleString()}</span>
                  </div>
                  <div className="flex justify-between mb-2 pb-2 border-b border-slate-200">
@@ -209,9 +221,79 @@ export function Step4Finance({
                     <span className="font-medium text-slate-700">€{Math.round(estimatedBaseCost * vatRate).toLocaleString()}</span>
                  </div>
                  <div className="flex justify-between pt-1">
-                    <span className="font-semibold text-slate-700">Total Estimate:</span>
+                    <span className="font-semibold text-slate-700">Total Estimate (inc VAT):</span>
                     <span className="font-bold text-tines-purple">€{Math.round(estimatedBaseCost * (1 + vatRate)).toLocaleString()}</span>
                  </div>
+
+                 <details className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2">
+                   <summary className="cursor-pointer text-xs font-semibold text-slate-600">
+                     Show how this estimate is calculated
+                   </summary>
+                   <div className="mt-2 text-xs text-slate-700 space-y-2">
+                     <div className="rounded bg-slate-50 border border-slate-100 p-2">
+                       <div className="font-semibold text-slate-700">Inputs used</div>
+                       <div className="mt-1 text-slate-600">
+                         Solar size: <span className="font-medium">{costBreakdown.inputs.kwp.toFixed(1)} kWp</span> · Battery: <span className="font-medium">{costBreakdown.inputs.batteryKwh.toFixed(1)} kWh</span>
+                       </div>
+                     </div>
+
+                     <div>
+                       <div className="font-semibold">1) Solar PV base cost</div>
+                       {costBreakdown.inputs.kwp > 0 ? (
+                         <div className="mt-1 text-slate-600">
+                           Tier: <span className="font-medium">{costBreakdown.solar.tier}</span> → price = <span className="font-medium">€{costBreakdown.solar.pricePerKwp.toFixed(0)}/kWp</span>
+                           <div className="mt-1">
+                             €{costBreakdown.solar.baseCost.toLocaleString()} = {costBreakdown.inputs.kwp.toFixed(1)} × €{costBreakdown.solar.pricePerKwp.toFixed(0)}
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="mt-1 text-slate-600">No solar component (kWp is 0).</div>
+                       )}
+                     </div>
+
+                     <div>
+                       <div className="font-semibold">2) Battery base cost</div>
+                       {costBreakdown.inputs.batteryKwh > 0 ? (
+                         <div className="mt-1 text-slate-600">
+                           €{costBreakdown.battery.baseCost.toLocaleString()} = {costBreakdown.inputs.batteryKwh.toFixed(1)} × €{costBreakdown.battery.pricePerKwh.toFixed(0)}/kWh
+                         </div>
+                       ) : (
+                         <div className="mt-1 text-slate-600">No battery component (kWh is 0).</div>
+                       )}
+                     </div>
+
+                     <div>
+                       <div className="font-semibold">3) Subtotal hardware</div>
+                       <div className="mt-1 text-slate-600">
+                         €{costBreakdown.subtotalHardware.toLocaleString()} = €{costBreakdown.solar.baseCost.toLocaleString()} + €{costBreakdown.battery.baseCost.toLocaleString()}
+                       </div>
+                     </div>
+
+                     <div>
+                       <div className="font-semibold">4) BOS / controls / integration markup</div>
+                       <div className="mt-1 text-slate-600">
+                         €{estimatedBaseCost.toLocaleString()} = €{costBreakdown.subtotalHardware.toLocaleString()} × {costBreakdown.bosMarkup}
+                       </div>
+                       <div className="mt-1 text-[11px] text-slate-500">
+                         Mode: <span className="font-medium">{costBreakdown.mode}</span>. This uplift is a heuristic intended to cover balance-of-system, controls, project management, commissioning, and contingency.
+                       </div>
+                     </div>
+
+                     <div>
+                       <div className="font-semibold">5) VAT + rounding</div>
+                       <div className="mt-1 text-slate-600">
+                         VAT = €{Math.round(estimatedBaseCost * vatRate).toLocaleString()} (rounded) · Total inc VAT = €{Math.round(estimatedBaseCost * (1 + vatRate)).toLocaleString()} (rounded)
+                       </div>
+                     </div>
+
+                     <div className="rounded bg-amber-50 border border-amber-200 p-2 text-amber-900">
+                       <div className="font-semibold">Sanity check</div>
+                       <div className="mt-1">
+                         If these numbers look off, double-check the kWp value in the Solar step—this estimator scales linearly with kWp and assumes commercial pricing for larger systems.
+                       </div>
+                     </div>
+                   </div>
+                 </details>
                </div>
              )}
           </div>
@@ -235,22 +317,39 @@ export function Step4Finance({
         </div>
 
         {/* Grants */}
-        <div className="mb-8 pb-8 border-b border-slate-100">
+          <div className="mb-8 pb-8 border-b border-slate-100">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-xl font-serif font-semibold text-tines-dark">Available Grants</h3>
               <p className="text-sm text-slate-500 mt-1">Based on your business type: <span className="font-medium text-slate-700">{config.businessType}</span></p>
             </div>
-            {selectedGrantIds.length > 0 && (
-              <button
-                type="button"
-                className="text-sm text-slate-500 hover:text-tines-purple underline"
-                onClick={() => setSelectedGrantIds([])}
-              >
-                Clear all
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {eligibleGrants.length > 0 && selectedGrantIds.length === 0 && (
+                <button
+                  type="button"
+                  className="text-sm text-slate-500 hover:text-tines-purple underline"
+                  onClick={selectAllEligibleGrants}
+                >
+                  Select all eligible
+                </button>
+              )}
+              {selectedGrantIds.length > 0 && (
+                <button
+                  type="button"
+                  className="text-sm text-slate-500 hover:text-tines-purple underline"
+                  onClick={() => setSelectedGrantIds([])}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
+
+          {grantsAutoSelectedNotice && (
+            <div className="mb-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs text-indigo-900">
+              Selected all eligible grants. Review the list below and uncheck any you don't plan to apply for.
+            </div>
+          )}
 
           {eligibleGrants.length === 0 ? (
             <div className="text-center py-8 bg-slate-50 rounded-lg border border-slate-200">

@@ -13,6 +13,8 @@ Single running list of future work items. Add new items at the top under the app
 - [x] ROI-DA day-ahead price fetcher (`Other tools/dayahead_ireland.py`): handle missing `Index prices;30;EUR` by supporting alternate SEMOpx formats (e.g. `Index prices;60;EUR` and multi-line blocks).
 
 ## Next up
+- Fix saved reports (saving/loading previously generated reports) not working
+- Deployment: push/host the app on Google Cloud (define target: Cloud Run vs static hosting, CI/CD)
 - Multi-scenario comparison (save multiple runs, compare side-by-side, export a comparison report)
 - “Best fit” sizing / optimization (suggest PV + battery sizes that maximize NPV or hit a payback target, with constraints)
 - Battery step (separate wizard step: battery sizing, dispatch strategy, constraints, and audit visibility)

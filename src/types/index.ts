@@ -267,6 +267,78 @@ export interface SensitivityAnalysis {
   note: string;
 }
 
+export interface InputsUsedSolarSampleRow {
+  hourKey: string;
+  stamp: { year: number; monthIndex: number; day: number; hour: number };
+  irradianceWm2: number;
+  sourceIndex: number;
+}
+
+export interface InputsUsedConsumptionSampleRow {
+  hourKey: string;
+  consumptionKwh: number;
+}
+
+export interface InputsUsedPriceSampleRow {
+  hourKey: string;
+  priceEurPerKwh: number;
+}
+
+export interface ConsumptionNormalizationCorrections {
+  originalLength: number;
+  targetLength: number;
+  padded: boolean;
+  trimmed: boolean;
+  warnings: string[];
+}
+
+export interface PriceNormalizationCorrections {
+  targetYear: number;
+  expectedHours: number;
+  actualRowsParsed: number;
+  duplicatesDropped: number;
+  hoursMissingFilled: number;
+  warnings: string[];
+}
+
+export interface SolarNormalizationCorrections {
+  selectedYear: number;
+  expectedHours: number;
+  actualRowsInYear: number;
+  duplicatesDropped: number;
+  hoursMissingFilled: number;
+  rowsOutsideYearDropped: number;
+  warnings: string[];
+}
+
+export interface InputsUsed {
+  config: SystemConfiguration;
+  tariff: Tariff;
+  financing: Financing;
+  grants: Array<{ id: string; name: string; type: Grant['type'] }>;
+  trading: TradingConfig;
+  simulation: {
+    year: number;
+    totalHours: number;
+    consumptionSource: 'override' | 'monthly-profile';
+    marketPricesProvided: boolean;
+  };
+  corrections?: {
+    solar?: SolarNormalizationCorrections;
+    consumption?: ConsumptionNormalizationCorrections;
+    prices?: PriceNormalizationCorrections;
+  };
+  samples?: {
+    solar: InputsUsedSolarSampleRow[];
+    consumption?: InputsUsedConsumptionSampleRow[];
+    prices?: InputsUsedPriceSampleRow[];
+  };
+}
+
+export interface CalculationDiagnostics {
+  warnings: string[];
+}
+
 export interface CalculationResult {
   systemCost: number;
   netCost: number;
@@ -301,15 +373,7 @@ export interface CalculationResult {
     mode: 'hourly';
     year?: number;
     totalHours?: number;
-    corrections?: {
-      selectedYear: number;
-      expectedHours: number;
-      actualRowsInYear: number;
-      duplicatesDropped: number;
-      hoursMissingFilled: number;
-      rowsOutsideYearDropped: number;
-      warnings: string[];
-    };
+    corrections?: SolarNormalizationCorrections;
     hourly: HourlyEnergyFlow[];
     monthly: Array<{
       monthIndex: number;
@@ -332,4 +396,9 @@ export interface CalculationResult {
       monthlyAggregationDefinition: string;
     };
   };
+
+  /** Compact traceability payload for what inputs were actually used in the engine. */
+  inputsUsed?: InputsUsed;
+  /** Diagnostics produced during normalization/fallback/assumption steps. */
+  diagnostics?: CalculationDiagnostics;
 }

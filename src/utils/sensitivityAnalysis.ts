@@ -41,7 +41,8 @@ function computeScenarioMetrics(
   } = ctx;
 
   const { timeStamps, hourlyConsumption, hourlyPrices } = simContext;
-  const systemCost = estimateSystemCost(systemSizeKwp, batterySizeKwh);
+  const mode = ctx.config.businessType === 'house' ? 'domestic' : 'commercial';
+  const systemCost = estimateSystemCost(systemSizeKwp, batterySizeKwh, mode);
   const { totalGrant } = calculateGrantAmount(systemCost, grants, { systemSizeKwp });
   const netCost = Math.max(0, systemCost - totalGrant);
   
