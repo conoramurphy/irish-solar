@@ -5,10 +5,10 @@ export function Hero() {
         <div className="py-8 md:py-9">
           <div className="flex flex-col items-center text-center gap-2">
             <h1 className="text-2xl md:text-3xl font-serif font-bold tracking-tight">
-              Solar & Battery <span className="text-indigo-200">ROI Calculator</span>
+              Solar, Battery & Tariff <span className="text-indigo-200">Modeller</span>
             </h1>
             <p className="text-sm md:text-base text-indigo-100/80 max-w-3xl">
-              Hourly, audit-friendly ROI modelling for Irish SMEs.
+              Hourly, audit-friendly energy modelling (ROI + tariff comparison).
             </p>
           </div>
         </div>

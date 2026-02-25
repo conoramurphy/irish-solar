@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { CalculationResult, SystemConfiguration, Tariff } from '../types';
 import { calculateAnnualBillSummary } from '../utils/billSummary';
 import { estimateSystemCost } from '../utils/costEstimation';
+import { formatCurrency, formatNumber } from '../utils/format';
 import { BillBreakdownByTariffChart } from './BillBreakdownByTariffChart';
 import { AuditModal } from './AuditModal';
 import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
@@ -23,10 +24,6 @@ interface ResultsSectionProps {
   existingReportNames?: string[];
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
-}
-
 function formatSignedCurrency(value: number) {
   const sign = value >= 0 ? '+' : '−';
   const abs = Math.abs(value);
@@ -36,10 +33,6 @@ function formatSignedCurrency(value: number) {
 function formatPercentFraction(fraction: number, digits = 1) {
   const f = Number.isFinite(fraction) ? fraction : 0;
   return `${(f * 100).toFixed(digits)}%`;
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('en-IE', { maximumFractionDigits: 0 }).format(value);
 }
 
 export function ResultsSection({ 
@@ -704,10 +697,10 @@ export function ResultsSection({
                     <div className="text-xs text-slate-500">After Grants</div>
                     <div className="text-lg font-semibold text-emerald-600">{formatCurrency(standardResult.netCost)}</div>
                   </div>
-                  {standardResult.year1TaxSavings > 0 && (
+                  {(standardResult.year1TaxSavings ?? 0) > 0 && (
                     <div>
                       <div className="text-xs text-slate-500">Tax Relief (Year 1)</div>
-                      <div className="text-sm font-medium text-emerald-600">{formatCurrency(standardResult.year1TaxSavings)}</div>
+                      <div className="text-sm font-medium text-emerald-600">{formatCurrency(standardResult.year1TaxSavings ?? 0)}</div>
                     </div>
                   )}
                 </div>

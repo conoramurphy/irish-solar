@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
 import rawTariffsData from './data/tariffs.json';
-import domesticTariffsData from './data/domesticTariffs.json';
+import { domesticTariffs } from './utils/domesticTariffParser';
 import rawHistoricalSolarData from './data/historical/solar-irradiance.json';
 import rawHistoricalTariffData from './data/historical/tariff-history.json';
 import { getEligibleGrants } from './models/grants';
@@ -29,6 +29,8 @@ import { SavedReportsList } from './components/SavedReportsList';
 import { useSavedReports } from './hooks/useSavedReports';
 import type { SavedReport } from './types/savedReports';
 import { Hero } from './components/Hero';
+import { ModeSelect } from './components/ModeSelect';
+import { TariffModeller } from './components/TariffModeller';
 import { StepIndicator } from './components/StepIndicator';
 import { Step0BuildingType } from './components/steps/Step0BuildingType';
 import { Step1DigitalTwin } from './components/steps/Step1DigitalTwin';
@@ -45,12 +47,15 @@ import type { BuildingTypeSelection } from './types';
 
 const grantsData = rawGrantsData as unknown as Grant[];
 const tariffsData = rawTariffsData as unknown as Tariff[];
-const domesticTariffs = domesticTariffsData as Tariff[];
 const historicalSolarData = rawHistoricalSolarData as unknown as Record<string, HistoricalSolarData>;
 const historicalTariffData = rawHistoricalTariffData as unknown as HistoricalTariffData[];
 
+type AppMode = 'solar-battery' | 'tariff' | null;
+
 function App() {
-  // Saved Reports
+  const [appMode, setAppMode] = useState<AppMode>(null);
+
+  // Saved Reports (solar & battery mode only)
   const { reports, saveReport, deleteReport, clearReports, importReports } = useSavedReports();
   const [showSavedReports, setShowSavedReports] = useState(false);
 
@@ -573,6 +578,8 @@ function App() {
       // Map 'hotel-year-round'/'hotel-seasonal' -> 'hotel', 'farm' -> 'farm', etc.
       let businessType: SystemConfiguration['businessType'] = 'hotel';
       if (data.buildingType === 'farm') {
+        // TODO [farm-mode]: Currently gated by disabled button in Step0.
+        // Engine has a farm daily consumption curve but Steps 1-4 lack farm-specific UI/tariffs/grants.
         businessType = 'farm';
       } else if (data.buildingType === 'commercial') {
         businessType = 'commercial';
@@ -749,165 +756,202 @@ function App() {
     setCompletedSteps(prev => new Set(prev).add(4));
   };
 
+  const showSolarBattery = appMode === 'solar-battery';
+
   return (
     <div className="min-h-screen bg-tines-light font-sans text-slate-600">
       <Hero />
-      
-      {/* Saved Reports Access */ }
-      <div className="absolute top-4 right-4 z-30">
-        <button
-          onClick={() => setShowSavedReports(true)}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/90 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-sm transition-colors border border-white/10"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
-          </svg>
-          Saved Reports
-        </button>
-      </div>
 
-      <SavedReportsList
-        isOpen={showSavedReports}
-        reports={reports}
-        onClose={() => setShowSavedReports(false)}
-        onLoad={handleLoadReport}
-        onDelete={deleteReport}
-        onClearAll={clearReports}
-        onImport={importReports}
-      />
+      {/* Saved Reports (solar & battery mode only) */}
+      {showSolarBattery && (
+        <>
+          <div className="absolute top-4 right-4 z-30">
+            <button
+              onClick={() => setShowSavedReports(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/90 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-sm transition-colors border border-white/10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+              </svg>
+              Saved Reports
+            </button>
+          </div>
+
+          <SavedReportsList
+            isOpen={showSavedReports}
+            reports={reports}
+            onClose={() => setShowSavedReports(false)}
+            onLoad={handleLoadReport}
+            onDelete={deleteReport}
+            onClearAll={clearReports}
+            onImport={importReports}
+          />
+        </>
+      )}
 
       <main className="mx-auto max-w-7xl px-6 py-10 -mt-10 relative z-20">
-      {calculationError && (
-        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-          <div className="font-semibold">Could not generate report</div>
-          <div className="mt-1">{calculationError}</div>
-        </div>
-      )}
-      {/* Step Indicator (hide on Step 0 and when report is generated) */}
-        {!standardResult && currentStep > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
-            <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
-          </div>
+        {appMode === null && (
+          <ModeSelect
+            onSelectSolarBattery={() => setAppMode('solar-battery')}
+            onSelectTariff={() => setAppMode('tariff')}
+          />
         )}
 
-        {/* Full-page report */}
-        {standardResult ? (
-          <div className="max-w-5xl mx-auto">
-            <ResultsSection 
-              standardResult={standardResult}
-              marketResult={marketResult}
-              config={config} 
-              tariff={tariff}
-              availableYears={availableYears}
-              selectedYear={selectedYear}
-              onSelectYear={(y) => {
-                setSelectedYear(y);
-              }}
-              onSelectSimulation={(newKwh) => {
-                if (config.annualProductionKwh <= 0) return;
-                const ratio = newKwh / config.annualProductionKwh;
-                
-                const newConfig: SystemConfiguration = {
-                  ...config,
-                  annualProductionKwh: newKwh,
-                  // Scale system size and cost linearly as a first-order approximation
-                  systemSizeKwp: config.systemSizeKwp ? Number((config.systemSizeKwp * ratio).toFixed(1)) : undefined,
-                  numberOfPanels: config.numberOfPanels ? Math.round(config.numberOfPanels * ratio) : undefined,
-                  installationCost: Number((config.installationCost * ratio).toFixed(0))
-                };
-                
-                setConfig(newConfig);
-                handleCalculate(newConfig);
-                
-                // Scroll to top to show updated results
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onBack={handleBackFromResults}
-              onSaveReport={handleSaveReport}
-              existingReportNames={reports.map(r => r.name)}
-            />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left Column: Step Content */}
-            <div className="lg:col-span-7">
-              {currentStep === 0 && (
-                <Step0BuildingType onNext={(data) => handleNextStep(0, data)} />
-              )}
+        {appMode === 'tariff' && <TariffModeller onBackToModes={() => setAppMode(null)} />}
 
-              {currentStep === 1 && (
-                <Step1DigitalTwin
-                  businessType={config.businessType}
-                  onNext={(data) => handleNextStep(1, data)}
-                  onBack={handleBackStep}
-                />
-              )}
-
-              {currentStep === 2 && (
-                <Step2Solar
-                  config={config}
-                  setConfig={setConfig}
-                  locationFromStep1={config.location}
-                  solarData={solarTimeseriesData}
-                  loading={solarDataLoading}
-                  onNext={(data) => handleNextStep(2, data)}
-                  onBack={handleBackStep}
-                />
-              )}
-
-              {currentStep === 3 && (
-                <Step3Battery
-                  config={config}
-                  setConfig={setConfig}
-                  trading={trading}
-                  setTrading={setTrading}
-                  priceData={priceTimeseriesData}
-                  setPriceData={setPriceTimeseriesData}
-                  exampleMonths={exampleMonths}
-                  annualConsumptionKwh={curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined}
-                  onNext={() => handleNextStep(3)}
-                  onBack={handleBackStep}
-                />
-              )}
-
-              {currentStep === 4 && (
-                <Step4Finance
-                  config={config}
-                  setConfig={setConfig}
-                  eligibleGrants={eligibleGrants}
-                  selectedGrantIds={selectedGrantIds}
-                  setSelectedGrantIds={setSelectedGrantIds}
-                  financing={financing}
-                  setFinancing={setFinancing}
-                  onGenerateReport={() => handleCalculate()}
-                  onBack={handleBackStep}
-                />
-              )}
+        {showSolarBattery && (
+          <>
+            <div className="flex justify-end mb-4">
+              <button
+                type="button"
+                onClick={() => setAppMode(null)}
+                className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium"
+              >
+                Back to mode select
+              </button>
             </div>
 
-            {/* Right Column: Permanent month-by-month calendar */}
-            <div className="lg:col-span-5">
-              <div className="lg:sticky lg:top-8">
-                <CalendarSidebar
-                  months={Array.from({ length: 12 }, (_, monthIndex) => ({
-                    monthIndex,
-                    consumptionKwh: curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh[monthIndex] : undefined,
-                    estimatedBillEur: estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills[monthIndex] : undefined,
-                    solarGenerationKwh: monthlySolarGeneration?.length === 12 ? monthlySolarGeneration[monthIndex] : undefined
-                  }))}
-                  annualTotalBillEur={estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills.reduce((a, b) => a + b, 0) : undefined}
-                  annualTotalConsumptionKwh={curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined}
-                  annualTotalSolarKwh={monthlySolarGeneration?.length === 12 ? monthlySolarGeneration.reduce((a, b) => a + b, 0) : undefined}
+            {calculationError && (
+              <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+                <div className="font-semibold">Could not generate report</div>
+                <div className="mt-1">{calculationError}</div>
+              </div>
+            )}
+
+            {/* Step Indicator (hide on Step 0 and when report is generated) */}
+            {!standardResult && currentStep > 0 && (
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
+                <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
+              </div>
+            )}
+
+            {/* Full-page report */}
+            {standardResult ? (
+              <div className="max-w-5xl mx-auto">
+                <ResultsSection
+                  standardResult={standardResult}
+                  marketResult={marketResult}
+                  config={config}
+                  tariff={tariff}
+                  availableYears={availableYears}
+                  selectedYear={selectedYear}
+                  onSelectYear={(y) => {
+                    setSelectedYear(y);
+                  }}
+                  onSelectSimulation={(newKwh) => {
+                    if (config.annualProductionKwh <= 0) return;
+                    const ratio = newKwh / config.annualProductionKwh;
+
+                    const newConfig: SystemConfiguration = {
+                      ...config,
+                      annualProductionKwh: newKwh,
+                      // Scale system size and cost linearly as a first-order approximation
+                      systemSizeKwp: config.systemSizeKwp ? Number((config.systemSizeKwp * ratio).toFixed(1)) : undefined,
+                      numberOfPanels: config.numberOfPanels ? Math.round(config.numberOfPanels * ratio) : undefined,
+                      installationCost: Number((config.installationCost * ratio).toFixed(0))
+                    };
+
+                    setConfig(newConfig);
+                    handleCalculate(newConfig);
+
+                    // Scroll to top to show updated results
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onBack={handleBackFromResults}
+                  onSaveReport={handleSaveReport}
+                  existingReportNames={reports.map((r) => r.name)}
                 />
               </div>
-            </div>
-          </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Column: Step Content */}
+                <div className="lg:col-span-7">
+                  {currentStep === 0 && <Step0BuildingType onNext={(data) => handleNextStep(0, data)} />}
+
+                  {currentStep === 1 && (
+                    <Step1DigitalTwin
+                      businessType={config.businessType}
+                      onNext={(data) => handleNextStep(1, data)}
+                      onBack={handleBackStep}
+                    />
+                  )}
+
+                  {currentStep === 2 && (
+                    <Step2Solar
+                      config={config}
+                      setConfig={setConfig}
+                      locationFromStep1={config.location}
+                      solarData={solarTimeseriesData}
+                      loading={solarDataLoading}
+                      onNext={(data) => handleNextStep(2, data)}
+                      onBack={handleBackStep}
+                    />
+                  )}
+
+                  {currentStep === 3 && (
+                    <Step3Battery
+                      config={config}
+                      setConfig={setConfig}
+                      trading={trading}
+                      setTrading={setTrading}
+                      priceData={priceTimeseriesData}
+                      setPriceData={setPriceTimeseriesData}
+                      exampleMonths={exampleMonths}
+                      annualConsumptionKwh={
+                        curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
+                      }
+                      onNext={() => handleNextStep(3)}
+                      onBack={handleBackStep}
+                    />
+                  )}
+
+                  {currentStep === 4 && (
+                    <Step4Finance
+                      config={config}
+                      setConfig={setConfig}
+                      eligibleGrants={eligibleGrants}
+                      selectedGrantIds={selectedGrantIds}
+                      setSelectedGrantIds={setSelectedGrantIds}
+                      financing={financing}
+                      setFinancing={setFinancing}
+                      onGenerateReport={() => handleCalculate()}
+                      onBack={handleBackStep}
+                    />
+                  )}
+                </div>
+
+                {/* Right Column: Permanent month-by-month calendar */}
+                <div className="lg:col-span-5">
+                  <div className="lg:sticky lg:top-8">
+                    <CalendarSidebar
+                      months={Array.from({ length: 12 }, (_, monthIndex) => ({
+                        monthIndex,
+                        consumptionKwh: curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh[monthIndex] : undefined,
+                        estimatedBillEur: estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills[monthIndex] : undefined,
+                        solarGenerationKwh:
+                          monthlySolarGeneration?.length === 12 ? monthlySolarGeneration[monthIndex] : undefined
+                      }))}
+                      annualTotalBillEur={
+                        estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills.reduce((a, b) => a + b, 0) : undefined
+                      }
+                      annualTotalConsumptionKwh={
+                        curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
+                      }
+                      annualTotalSolarKwh={
+                        monthlySolarGeneration?.length === 12 ? monthlySolarGeneration.reduce((a, b) => a + b, 0) : undefined
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-12 mt-20">
         <div className="mx-auto max-w-5xl px-6 text-center text-sm text-slate-400">
-          <p className="mb-2">Solar & Battery ROI Calculator</p>
+          <p className="mb-2">Solar, Battery & Tariff Modeller</p>
           <p>MVP calculator — assumptions are simplified (especially self-consumption and trading).</p>
         </div>
       </footer>

@@ -1,13 +1,6 @@
 import type { BusinessType, ConsumptionProfile, Tariff, TariffBucketKey } from '../types';
 import { normalizeBucketKey } from './consumption';
-
-const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
-
-function getDaysPerMonthForYear(totalHoursInYear: number): number[] {
-  // 8784 hours = leap year (366 days)
-  const febDays = totalHoursInYear === 8784 ? 29 : 28;
-  return [31, febDays, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-}
+import { DAYS_PER_MONTH_NON_LEAP, getDaysPerMonthFromHours } from '../constants/calendar';
 
 /**
  * Parse time ranges from tariff hours string
@@ -234,7 +227,7 @@ export function generateHourlyConsumption(
   businessType: BusinessType = 'hotel'
 ): number[] {
   const hourlyConsumption: number[] = [];
-  const daysPerMonth = getDaysPerMonthForYear(totalHoursInYear);
+  const daysPerMonth = getDaysPerMonthFromHours(totalHoursInYear);
   
   // For each month
   for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
@@ -243,7 +236,7 @@ export function generateHourlyConsumption(
     
     const monthlyKwh = month.totalKwh || 0;
     const bucketShares = month.bucketShares || {};
-    const daysInMonth = daysPerMonth[monthIndex] ?? DAYS_PER_MONTH[monthIndex];
+    const daysInMonth = daysPerMonth[monthIndex] ?? DAYS_PER_MONTH_NON_LEAP[monthIndex];
     
     const monthHourly = distributeMonthlyConsumptionToHourly(
       monthlyKwh,
@@ -287,10 +280,10 @@ export function aggregateHourlyToMonthly(hourlyConsumption: number[]): number[] 
   const monthlyTotals: number[] = [];
   let hourIndex = 0;
 
-  const daysPerMonth = getDaysPerMonthForYear(hourlyConsumption.length);
+  const daysPerMonth = getDaysPerMonthFromHours(hourlyConsumption.length);
   
   for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
-    const daysInMonth = daysPerMonth[monthIndex] ?? DAYS_PER_MONTH[monthIndex];
+    const daysInMonth = daysPerMonth[monthIndex] ?? DAYS_PER_MONTH_NON_LEAP[monthIndex];
     const hoursInMonth = daysInMonth * 24;
     
     let monthTotal = 0;

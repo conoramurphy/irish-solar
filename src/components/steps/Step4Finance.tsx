@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import { Field } from '../Field';
 import type { SystemConfiguration, Grant, Financing } from '../../types';
 import { calculateGrantAmount, calculateSingleGrantAmount } from '../../models/grants';
@@ -8,7 +9,7 @@ import { HOUSE_MODE_DEFAULTS } from '../../constants/houseModeDefaults';
 
 interface Step4FinanceProps {
   config: SystemConfiguration;
-  setConfig: (c: SystemConfiguration) => void;
+  setConfig: Dispatch<SetStateAction<SystemConfiguration>>;
   eligibleGrants: Grant[];
   selectedGrantIds: string[];
   setSelectedGrantIds: (ids: string[]) => void;

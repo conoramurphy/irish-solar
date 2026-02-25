@@ -44,12 +44,3 @@ export const HOUSE_MODE_DEFAULTS = {
  */
 export const DOMESTIC_EXPORT_RATE = 0.21;
 
-/**
- * Placeholder tariff configuration for house mode compatibility.
- * This is used only as a fallback when no domestic tariff is selected.
- * In practice, users should always select a real tariff from the selector.
- */
-export const DOMESTIC_FALLBACK_TARIFF = {
-  type: 'flat' as const,
-  flatRate: 0.30, // Approximate average Irish domestic rate (EUR/kWh)
-} as const;

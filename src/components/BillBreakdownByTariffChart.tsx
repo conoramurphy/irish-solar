@@ -6,18 +6,11 @@ import {
   sumAnnualKwhByBucket,
   type BillBreakdownMode
 } from '../utils/billBreakdown';
+import { formatCurrency, formatNumber as formatKwh } from '../utils/format';
 
 interface BillBreakdownByTariffChartProps {
   hourlyData: HourlyEnergyFlow[];
   tariff: Tariff;
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
-}
-
-function formatKwh(value: number) {
-  return new Intl.NumberFormat('en-IE', { maximumFractionDigits: 0 }).format(value);
 }
 
 const DEFAULT_COLORS = [

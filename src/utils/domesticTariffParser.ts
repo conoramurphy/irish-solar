@@ -256,3 +256,11 @@ export async function loadDomesticTariffs(): Promise<Tariff[]> {
   const csvContent = await response.text();
   return parseDomesticTariffsCsv(csvContent);
 }
+
+/**
+ * Pre-parsed domestic tariffs from the bundled JSON file.
+ * All components should import tariffs from here rather than
+ * importing the JSON directly, so the type cast is in one place.
+ */
+import domesticTariffsJson from '../data/domesticTariffs.json';
+export const domesticTariffs: Tariff[] = domesticTariffsJson as Tariff[];

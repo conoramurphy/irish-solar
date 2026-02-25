@@ -38,6 +38,9 @@ export function Step0BuildingType({ onNext }: Step0BuildingTypeProps) {
       id: 'farm',
       title: 'Farm',
       description: 'Agricultural operation with seasonal patterns',
+      // TODO [farm-mode]: To enable, wire up: farm-specific tariff selection in Step1,
+      // farm grants in src/data/grants.json, and validate Step3 battery + Step4 finance paths.
+      // Engine support exists (daily consumption curve in hourlyConsumption.ts).
       enabled: false,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12">

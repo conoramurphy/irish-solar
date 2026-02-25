@@ -1,101 +1,91 @@
 # AGENTS.md
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
+This file is the single source of truth for agent guidance in this repo.
+**Update this file whenever an execute command changes something directly relevant to these sections.**
 
-## Common commands
-All commands below assume you are in `solar-roi-calculator/`.
+## Commands
+All commands assume cwd is `solar-roi-calculator/`.
 
-### Install
-- `npm install`
-
-### Dev server
-- `npm run dev`
-
-### Build
-- `npm run build`
-
-### Lint
-- `npm run lint`
-
-### Tests
-- Run all tests (CI-style): `npm run test:run`
-- Watch mode: `npm run test`
+- Install: `npm install`
+- Dev server: `npm run dev`
+- Build: `npm run build`
+- Lint: `npm run lint`
+- All tests (CI): `npm run test:run`
+- Watch: `npm run test`
 - Coverage: `npm run test:coverage`
+- Single file: `npm run test:run -- tests/utils/calculations.test.ts`
+- Single test by name: `npx vitest run tests/utils/calculations.test.ts -t "produces a result"`
 
-Run a single test file:
-- `npm run test:run -- tests/utils/calculations.test.ts`
+## Architecture: two independent app modes
 
-Run a single test by name (substring match):
-- `npx vitest run tests/utils/calculations.test.ts -t "produces a result"`
+`ModeSelect` routes the user to one of two completely separate experiences:
 
-## High-level architecture
-This is a Vite + React + TypeScript app where the “product” is the calculation engine (see README.md).
+1. **Solar-battery wizard** (`src/App.tsx`, steps 0–4): Step 0 selects building type (hotel / house / farm-stub), Steps 1–4 collect inputs, `runCalculation()` produces an ROI report.
+2. **Tariff modeller** (`src/components/TariffModeller.tsx`): Standalone tool — upload an ESB CSV, compare all domestic tariffs. Uses `compareDomesticTariffsForUsage()` from `src/utils/tariffComparison.ts`.
 
-### UI flow
-The UI is a step-based wizard in `src/components/steps/`:
-- Step 1 builds a monthly consumption/billing profile.
-- Step 2 loads PVGIS solar irradiance timeseries CSVs from `public/data/solar/` (fetched at runtime via `src/utils/solarDataLoader.ts`) and requires selecting a year if the file contains multiple years.
-- Step 3 (currently disabled) is planned for batteries & tariff enhancements.
-- Step 4 collects costs/financing and triggers report generation.
+These share the hourly engine (`simulateHourlyEnergyFlow`) but nothing else.
 
-Results render in `src/components/ResultsSection.tsx`. Auditor Mode is a full-screen modal (`src/components/AuditModal.tsx`) that surfaces the hourly dataset and a monthly aggregation.
+## Architecture: key contracts an agent must not break
 
-### Calculation engine (single entrypoint)
-- Engine entrypoint: `src/utils/calculations.ts` exports `runCalculation(...)`.
-- The engine is designed to run an hour-by-hour simulation over a single-year solar timeseries (8760/8784 timesteps) and produce an ROI report.
-- The engine returns a `CalculationResult` (types in `src/types/index.ts`). When audit data is present, `result.audit` contains:
-  - hourly rows (source of truth)
-  - monthly rollup (strict aggregation of hourly rows)
-  - provenance strings for traceability
+### Input unification point
+`prepareSimulationContext()` in `src/utils/simulationContext.ts` is where house mode (ESB CSV → `hourlyConsumptionOverride`) and commercial mode (example months → monthly profile) are normalised into an identical `hourlyConsumption: number[]`. All new consumption sources must go through this function. Do not add mode-specific branches downstream in the engine.
 
-### Hourly “source of truth” pipeline
-At a high level, the hourly pipeline is:
-1) Parse PVGIS CSV -> `src/utils/solarTimeseriesParser.ts`
-   - Parses PVGIS `time` strings into a stable `{year, monthIndex, day, hour}` stamp and `hourKey`.
-   - Uses UTC timestamps to avoid local timezone/DST shifts.
-2) Normalize to a canonical single-year grid -> `normalizeSolarTimeseriesYear(...)` in `src/utils/solarTimeseriesParser.ts`
-   - Produces an exact canonical hourly grid for the selected year (8760/8784).
-   - Fills missing hours with 0 irradiance and dedupes duplicate hour keys deterministically.
-   - Returns a corrections/warnings summary; UI should surface these warnings.
-3) Convert annual production to hourly generation -> `distributeAnnualProductionTimeseries(...)` (same file)
-   - Uses irradiance weights so `sum(hourlyGeneration) == annualProductionKwh`.
-4) Generate hourly site consumption from monthly profile -> `src/utils/hourlyConsumption.ts`
-   - Distributes monthly kWh into hours using tariff-hour bucket definitions.
-5) Simulate energy flow + costs hourly -> `src/utils/hourlyEnergyFlow.ts`
-   - Computes import/export/self-consumption, optional battery dispatch, and costs.
-   - Accepts optional `timeStamps` so TOU bucket selection uses the stamp’s hour-of-day (not `index % 24`).
-6) Aggregate hourly -> monthly (audit only) -> `aggregateHourlyResultsToMonthly(...)` in `src/utils/hourlyEnergyFlow.ts`
-   - Monthly view must be derived from hourly outputs, not recomputed separately.
-   - Prefer grouping by `timeStamps[i].monthIndex` instead of splitting by fixed hour blocks.
+### Tariff rate single source of truth
+`getTariffRateForHour()` in `src/utils/tariffRate.ts` is the only place that resolves what rate applies at a given hour (flat / TOU / EV / free windows). The tariff comparison tool and the main engine both call this. Do not inline rate logic elsewhere.
 
-### Invariants (do not break)
-- Hour-of-day and month attribution must come from the canonical timestamps (`stamp`/`hourKey`), not from array index math.
-- Never “slide” or best-fit a shifted dataset by trimming/padding in a way that reassigns hours to the wrong time-of-day.
-- Any normalization (missing fills, duplicate drops, outside-year drops) must be captured as warnings/corrections and remain audit-visible.
+### Calendar/month constants single source of truth
+`src/constants/calendar.ts` exports `DAYS_PER_MONTH_NON_LEAP`, `DAYS_PER_MONTH_LEAP`, and `getDaysPerMonthFromHours()`. Do not define inline month arrays in engine files.
 
-### No silent failure / no silent fallback
-- If required inputs are missing (e.g., no solar timeseries), throw a visible error and/or surface it in the UI state.
-- If the app would otherwise fall back to a lower-fidelity approximation, it must be explicit to the user (UI copy) and ideally disabled entirely.
-- Log to console only as a secondary channel; prefer a user-visible error banner/state in the wizard step or results area.
+### Domestic tariff data single source of truth
+`src/utils/domesticTariffParser.ts` exports `domesticTariffs: Tariff[]`. All components must import from here, not directly from `src/data/domesticTariffs.json`.
 
-### Data
-- Solar timeseries CSVs live under `public/data/solar/` and are fetched at runtime from `/data/solar/{Location}_{Year}.csv` (see `src/utils/solarDataLoader.ts`).
-- See `SOLAR_DATA_FORMAT.md` for the PVGIS CSV format assumptions and distribution algorithm.
+### Shared formatting
+`src/utils/format.ts` exports `formatCurrency`, `formatCurrencyPrecise`, `formatNumber`, `formatKwh`. Do not define local formatting functions in components.
 
-### Tests
-Tests are organized under `tests/`:
-- `tests/models/`: pure financial/solar/tariff helpers
-- `tests/utils/`: hourly consumption/energy-flow/calculation utilities
-- `tests/integration/`: end-to-end hourly simulation scenarios
+## Hourly simulation invariants (do not break)
 
-Vitest config is in `vite.config.ts` (jsdom environment, coverage includes `src/models/**` and `src/utils/**`).
+- Hour-of-day and month attribution must come from canonical timestamps (`stamp` / `hourKey`), not from `index % 24` or fixed block math.
+- Never "slide" or trim/pad a dataset in a way that reassigns hours to the wrong time-of-day.
+- Any normalisation (missing fills, deduplication, leap year padding) must be captured as warnings surfaced in the audit, not silently applied.
+- Monthly figures in the audit must be strict sums of hourly rows grouped by `timeStamps[i].monthIndex`, never recomputed independently.
 
-## Workflow requirements (for Warp/agents)
-- Run tests after changes (use `npm run test:run` for CI-style runs).
-- Write tests for all new functionality.
-- Make git commits as you go: one commit per logical chunk with a descriptive message.
-- Include this co-author line at the end of commit messages:
-  - `Co-Authored-By: Warp <agent@warp.dev>`
+## No silent failure / no silent fallback
 
-## Repo-specific notes
-- This file (`AGENTS.md`) is the single source of truth for agent workflow guidance in this repo (replaces `.agent-preferences.md`).
+- If required inputs are missing (e.g. no solar timeseries), throw a visible error — do not fall back silently to a lower-fidelity approximation.
+- Prefer a user-visible error state in the wizard over a `console.warn`.
+- If a fallback is genuinely unreachable (UI enforces valid selection), remove it rather than leaving dead code that obscures intent.
+
+## Active stubs — do not assume these are wired
+
+- **Farm mode**: gated by a disabled button in Step 0. The engine has a farm daily consumption curve (`src/utils/hourlyConsumption.ts`) but Steps 1–4 UI, grants, and tariffs are not wired for farm. See `TODO [farm-mode]` comments.
+- **Seasonal hotel**: disabled in Step 0, no engine support yet.
+
+## Data
+
+- Solar timeseries CSVs: `public/data/solar/{Location}_{Year}.csv`, fetched at runtime via `src/utils/solarDataLoader.ts`.
+- Domestic tariffs: `src/data/domesticTariffs.json`, accessed via `src/utils/domesticTariffParser.ts`.
+- Grants / commercial tariffs: `src/data/grants.json`, `src/data/tariffs.json`.
+- Historical data: `src/data/historical/solar-irradiance.json`, `src/data/historical/tariff-history.json`.
+- See `SOLAR_DATA_FORMAT.md` for PVGIS CSV format details.
+
+## Workflow
+
+### Testing (apply aggressively)
+- Run `npm run test:run` after every change. All tests must pass before committing.
+- Write tests for **all** new functionality: unit tests for logic, integration tests for new user flows, edge cases for boundary conditions (leap years, zero consumption, missing data, mode switches).
+- New utility functions → test file in `tests/utils/`.
+- New model functions → test file in `tests/models/`.
+- New wizard flows or mode behaviour → test file in `tests/integration/`.
+- If a bug is fixed, add a regression test that would have caught it.
+- Do not leave new code without test coverage.
+
+### Keeping this file current
+After any execute command, update AGENTS.md if you:
+- Add a new shared utility, constant, or data access pattern
+- Change an architectural contract (e.g. a new single source of truth)
+- Add or remove an active stub
+- Change a key invariant
+- Add new data files or change how they are accessed
+
+### Commits
+One commit per logical chunk with a descriptive message.

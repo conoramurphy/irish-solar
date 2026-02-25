@@ -7,12 +7,9 @@ import type { ExampleMonth, TariffConfiguration, TariffSlot } from '../../types/
 import type { BusinessType, Tariff } from '../../types';
 import { parseEsbUsageProfile } from '../../utils/usageProfileParser';
 import { DomesticTariffSelector } from '../DomesticTariffSelector';
-import domesticTariffsData from '../../data/domesticTariffs.json';
-import { DOMESTIC_FALLBACK_TARIFF } from '../../constants/houseModeDefaults';
+import { domesticTariffs } from '../../utils/domesticTariffParser';
 import { DAYS_PER_MONTH_LEAP, DAYS_PER_MONTH_NON_LEAP, HOURS_PER_YEAR_LEAP } from '../../constants/calendar';
 import { getKnownLocations } from '../../utils/solarLocationDiscovery';
-
-const domesticTariffs = domesticTariffsData as Tariff[];
 
 interface Step1DigitalTwinProps {
   businessType: BusinessType;
@@ -20,7 +17,7 @@ interface Step1DigitalTwinProps {
     location: string;
     exampleMonths: ExampleMonth[];
     curvedMonthlyKwh: number[];
-    tariffConfig: TariffConfiguration;
+    tariffConfig: TariffConfiguration | null;
     hourlyConsumptionOverride?: number[];
     selectedDomesticTariff?: Tariff;
   }) => void;
@@ -216,7 +213,7 @@ export function Step1DigitalTwin({ businessType, onNext, onBack }: Step1DigitalT
         location,
         exampleMonths: [], // Not used for house mode
         curvedMonthlyKwh: monthlyKwh, // Used for sidebar display
-        tariffConfig: DOMESTIC_FALLBACK_TARIFF, // Fallback tariff for compatibility (real tariff selected separately)
+        tariffConfig: null, // House mode uses selectedDomesticTariff directly, not tariffConfig
         hourlyConsumptionOverride: parsedProfile.hourly,
         selectedDomesticTariff: selectedDomesticTariff || undefined
       });

@@ -1,8 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Tariff } from '../types';
-import domesticTariffsData from '../data/domesticTariffs.json';
-
-const domesticTariffs = domesticTariffsData as Tariff[];
+import { domesticTariffs } from '../utils/domesticTariffParser';
 
 interface DomesticTariffSelectorProps {
   selectedTariffId?: string;

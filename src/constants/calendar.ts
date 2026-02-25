@@ -13,14 +13,6 @@ export const DAYS_PER_MONTH_NON_LEAP = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 
 export const DAYS_PER_MONTH_LEAP = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
 
 /**
- * Month names.
- */
-export const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-] as const;
-
-/**
  * Hours in a standard year.
  */
 export const HOURS_PER_YEAR_NON_LEAP = 8760;
@@ -49,4 +41,12 @@ export function isLeapYear(year: number): boolean {
  */
 export function getHoursForYear(year: number): number {
   return isLeapYear(year) ? HOURS_PER_YEAR_LEAP : HOURS_PER_YEAR_NON_LEAP;
+}
+
+/**
+ * Get days per month given total hours in the year (8760 or 8784).
+ * Useful when only the hour count is known, not the calendar year.
+ */
+export function getDaysPerMonthFromHours(totalHoursInYear: number): readonly number[] {
+  return totalHoursInYear === HOURS_PER_YEAR_LEAP ? DAYS_PER_MONTH_LEAP : DAYS_PER_MONTH_NON_LEAP;
 }

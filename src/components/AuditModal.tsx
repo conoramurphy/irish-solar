@@ -1,15 +1,8 @@
 import { useMemo, useState } from 'react';
 import type { CalculationResult, HourlyEnergyFlow } from '../types';
+import { formatCurrencyPrecise as formatCurrency, formatKwh } from '../utils/format';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(value);
-}
-
-function formatKwh(value: number) {
-  return new Intl.NumberFormat('en-IE', { maximumFractionDigits: 3 }).format(value);
-}
 
 function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
   if (rows.length === 0) return;

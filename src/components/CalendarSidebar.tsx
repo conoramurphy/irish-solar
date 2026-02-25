@@ -1,4 +1,5 @@
 import { MONTH_LABELS } from '../utils/consumption';
+import { formatCurrency, formatNumber } from '../utils/format';
 
 export type CalendarMonthData = {
   monthIndex: number;
@@ -6,14 +7,6 @@ export type CalendarMonthData = {
   estimatedBillEur?: number;
   solarGenerationKwh?: number;
 };
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('en-IE', { maximumFractionDigits: 0 }).format(value);
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
-}
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (

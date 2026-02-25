@@ -1,4 +1,4 @@
-import { startSpan, endSpan, logError, logInfo, logWarn } from './logger';
+import { startSpan, endSpan, logError, logInfo } from './logger';
 
 export interface UsageProfileParseResult {
   /** 8760 (or 8784) hourly kWh values */
@@ -153,10 +153,6 @@ export function parseEsbUsageProfile(csvText: string, targetYear?: number): Usag
       
       // If we inferred the year, we should only use points from that year 
       if (sYear !== year) continue;
-
-      const sMonth = dStart.getUTCMonth();
-      const sDate = dStart.getUTCDate();
-      const sHour = dStart.getUTCHours(); // 0-23. This is the hour bucket.
 
       // Calculate hour index 0..8759
       const startOfCurrentYear = Date.UTC(year, 0, 1);

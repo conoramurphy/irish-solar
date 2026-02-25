@@ -1,13 +1,7 @@
 import type { HourlyEnergyFlow, HourlySimulationResult, Tariff, TradingConfig } from '../types';
 import type { HourStamp } from './solarTimeseriesParser';
 import { getEffectiveTariffBucketForHour, getTariffRateForHour } from './tariffRate';
-
-const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
-
-function getDaysPerMonthForYear(totalHoursInYear: number): number[] {
-  const febDays = totalHoursInYear === 8784 ? 29 : 28;
-  return [31, febDays, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-}
+import { DAYS_PER_MONTH_NON_LEAP, getDaysPerMonthFromHours } from '../constants/calendar';
 
 /**
  * Battery configuration
@@ -753,10 +747,10 @@ export function aggregateHourlyResultsToMonthly(
 }
 
 function hourToMonthIndexFallback(hourIndex: number, totalHoursInYear: number): number {
-  const daysPerMonth = getDaysPerMonthForYear(totalHoursInYear);
+  const daysPerMonth = getDaysPerMonthFromHours(totalHoursInYear);
   let cumulativeHours = 0;
   for (let m = 0; m < 12; m++) {
-    const monthHours = (daysPerMonth[m] ?? DAYS_PER_MONTH[m] ?? 30) * 24;
+    const monthHours = (daysPerMonth[m] ?? DAYS_PER_MONTH_NON_LEAP[m] ?? 30) * 24;
     if (hourIndex < cumulativeHours + monthHours) return m;
     cumulativeHours += monthHours;
   }

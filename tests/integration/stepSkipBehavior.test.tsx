@@ -149,12 +149,16 @@ describe('Step Skip Behavior', () => {
     vi.clearAllMocks();
   });
 
+  async function enterSolarBatteryMode(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByText('Start Solar & Battery'));
+    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
+  }
+
   it('navigates from Step 2 to Step 3, then Step 4', async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // Start at Step 0
-    expect(screen.getByTestId('step0')).toBeInTheDocument();
+    await enterSolarBatteryMode(user);
 
     // Click through Step 0
     await user.click(screen.getByText('Select Hotel'));
@@ -183,6 +187,8 @@ describe('Step Skip Behavior', () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await enterSolarBatteryMode(user);
+
     // Navigate to Step 4
     await user.click(screen.getByText('Select Hotel'));
     await waitFor(() => expect(screen.getByTestId('step1')).toBeInTheDocument());
@@ -210,6 +216,8 @@ describe('Step Skip Behavior', () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await enterSolarBatteryMode(user);
+
     // Navigate to Step 1
     await user.click(screen.getByText('Select Hotel'));
     await waitFor(() => expect(screen.getByTestId('step1')).toBeInTheDocument());
@@ -228,6 +236,8 @@ describe('Step Skip Behavior', () => {
     const user = userEvent.setup();
     render(<App />);
 
+    await enterSolarBatteryMode(user);
+
     // Navigate past Step 0 to show stepper
     await user.click(screen.getByText('Select Hotel'));
     await waitFor(() => expect(screen.getByTestId('step-indicator')).toBeInTheDocument());
@@ -240,6 +250,8 @@ describe('Step Skip Behavior', () => {
   it('Step3Battery is rendered during navigation', async () => {
     const user = userEvent.setup();
     render(<App />);
+
+    await enterSolarBatteryMode(user);
 
     // Navigate through all steps
     await user.click(screen.getByText('Select Hotel'));
@@ -260,11 +272,11 @@ describe('Step Skip Behavior', () => {
     await waitFor(() => expect(screen.getByTestId('step3')).toBeInTheDocument());
   });
 
-  it('stepper is hidden on Step 0', () => {
+  it('stepper is hidden on Step 0', async () => {
+    const user = userEvent.setup();
     render(<App />);
 
-    // Step 0 should be visible
-    expect(screen.getByTestId('step0')).toBeInTheDocument();
+    await enterSolarBatteryMode(user);
 
     // Stepper should not be visible
     expect(screen.queryByTestId('step-indicator')).not.toBeInTheDocument();
@@ -273,6 +285,8 @@ describe('Step Skip Behavior', () => {
   it('stepper becomes visible after Step 0', async () => {
     const user = userEvent.setup();
     render(<App />);
+
+    await enterSolarBatteryMode(user);
 
     // Navigate to Step 1
     await user.click(screen.getByText('Select Hotel'));
