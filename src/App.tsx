@@ -872,91 +872,87 @@ function App() {
               /* Step 0: full-width building type selector, no calendar sidebar */
               <Step0BuildingType onNext={(data) => handleNextStep(0, data)} />
             ) : (
-              /* Steps 1–4: two-column layout with sticky calendar sidebar */
+              /* Steps 1–4: full-width, calendar table above stepper */
               <>
+                {/* Compact monthly calendar table */}
+                <div className="mb-4">
+                  <CalendarSidebar
+                    months={Array.from({ length: 12 }, (_, monthIndex) => ({
+                      monthIndex,
+                      consumptionKwh: curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh[monthIndex] : undefined,
+                      estimatedBillEur: estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills[monthIndex] : undefined,
+                      solarGenerationKwh:
+                        monthlySolarGeneration?.length === 12 ? monthlySolarGeneration[monthIndex] : undefined
+                    }))}
+                    annualTotalBillEur={
+                      estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills.reduce((a, b) => a + b, 0) : undefined
+                    }
+                    annualTotalConsumptionKwh={
+                      curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
+                    }
+                    annualTotalSolarKwh={
+                      monthlySolarGeneration?.length === 12 ? monthlySolarGeneration.reduce((a, b) => a + b, 0) : undefined
+                    }
+                  />
+                </div>
+
                 {/* Step Indicator */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
                   <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* Left Column: Step Content */}
-                  <div className="lg:col-span-7">
-                    {currentStep === 1 && (
-                      <Step1DigitalTwin
-                        businessType={config.businessType}
-                        onNext={(data) => handleNextStep(1, data)}
-                        onBack={handleBackStep}
-                      />
-                    )}
+                {/* Step Content — max-w constrained for comfortable reading */}
+                <div className="max-w-3xl">
+                  {currentStep === 1 && (
+                    <Step1DigitalTwin
+                      businessType={config.businessType}
+                      onNext={(data) => handleNextStep(1, data)}
+                      onBack={handleBackStep}
+                    />
+                  )}
 
-                    {currentStep === 2 && (
-                      <Step2Solar
-                        config={config}
-                        setConfig={setConfig}
-                        locationFromStep1={config.location}
-                        solarData={solarTimeseriesData}
-                        loading={solarDataLoading}
-                        onNext={(data) => handleNextStep(2, data)}
-                        onBack={handleBackStep}
-                      />
-                    )}
+                  {currentStep === 2 && (
+                    <Step2Solar
+                      config={config}
+                      setConfig={setConfig}
+                      locationFromStep1={config.location}
+                      solarData={solarTimeseriesData}
+                      loading={solarDataLoading}
+                      onNext={(data) => handleNextStep(2, data)}
+                      onBack={handleBackStep}
+                    />
+                  )}
 
-                    {currentStep === 3 && (
-                      <Step3Battery
-                        config={config}
-                        setConfig={setConfig}
-                        trading={trading}
-                        setTrading={setTrading}
-                        priceData={priceTimeseriesData}
-                        setPriceData={setPriceTimeseriesData}
-                        exampleMonths={exampleMonths}
-                        annualConsumptionKwh={
-                          curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
-                        }
-                        onNext={() => handleNextStep(3)}
-                        onBack={handleBackStep}
-                      />
-                    )}
+                  {currentStep === 3 && (
+                    <Step3Battery
+                      config={config}
+                      setConfig={setConfig}
+                      trading={trading}
+                      setTrading={setTrading}
+                      priceData={priceTimeseriesData}
+                      setPriceData={setPriceTimeseriesData}
+                      exampleMonths={exampleMonths}
+                      annualConsumptionKwh={
+                        curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
+                      }
+                      onNext={() => handleNextStep(3)}
+                      onBack={handleBackStep}
+                    />
+                  )}
 
-                    {currentStep === 4 && (
-                      <Step4Finance
-                        config={config}
-                        setConfig={setConfig}
-                        eligibleGrants={eligibleGrants}
-                        selectedGrantIds={selectedGrantIds}
-                        setSelectedGrantIds={setSelectedGrantIds}
-                        financing={financing}
-                        setFinancing={setFinancing}
-                        onGenerateReport={() => handleCalculate()}
-                        onBack={handleBackStep}
-                      />
-                    )}
-                  </div>
-
-                  {/* Right Column: Permanent month-by-month calendar */}
-                  <div className="lg:col-span-5">
-                    <div className="lg:sticky lg:top-8">
-                      <CalendarSidebar
-                        months={Array.from({ length: 12 }, (_, monthIndex) => ({
-                          monthIndex,
-                          consumptionKwh: curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh[monthIndex] : undefined,
-                          estimatedBillEur: estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills[monthIndex] : undefined,
-                          solarGenerationKwh:
-                            monthlySolarGeneration?.length === 12 ? monthlySolarGeneration[monthIndex] : undefined
-                        }))}
-                        annualTotalBillEur={
-                          estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills.reduce((a, b) => a + b, 0) : undefined
-                        }
-                        annualTotalConsumptionKwh={
-                          curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
-                        }
-                        annualTotalSolarKwh={
-                          monthlySolarGeneration?.length === 12 ? monthlySolarGeneration.reduce((a, b) => a + b, 0) : undefined
-                        }
-                      />
-                    </div>
-                  </div>
+                  {currentStep === 4 && (
+                    <Step4Finance
+                      config={config}
+                      setConfig={setConfig}
+                      eligibleGrants={eligibleGrants}
+                      selectedGrantIds={selectedGrantIds}
+                      setSelectedGrantIds={setSelectedGrantIds}
+                      financing={financing}
+                      setFinancing={setFinancing}
+                      onGenerateReport={() => handleCalculate()}
+                      onBack={handleBackStep}
+                    />
+                  )}
                 </div>
               </>
             )}
