@@ -760,24 +760,26 @@ function App() {
 
   return (
     <div className="min-h-screen bg-tines-light font-sans text-slate-600">
-      <Hero />
-
-      {/* Saved Reports (solar & battery mode only) */}
-      {showSolarBattery && (
-        <>
-          <div className="absolute top-4 right-4 z-30">
+      <Hero 
+        compact={appMode !== null} 
+        rightContent={
+          showSolarBattery ? (
             <button
               onClick={() => setShowSavedReports(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/90 bg-white/10 hover:bg-white/20 rounded-lg backdrop-blur-sm transition-colors border border-white/10"
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white/90 bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
               </svg>
               Saved Reports
             </button>
-          </div>
+          ) : null
+        }
+      />
 
-          <SavedReportsList
+      {/* Saved Reports List Modal (solar & battery mode only) */}
+      {showSolarBattery && (
+        <SavedReportsList
             isOpen={showSavedReports}
             reports={reports}
             onClose={() => setShowSavedReports(false)}
@@ -786,42 +788,46 @@ function App() {
             onClearAll={clearReports}
             onImport={importReports}
           />
-        </>
       )}
 
-      <main className="mx-auto max-w-7xl px-6 py-10 -mt-10 relative z-20">
+      <main className="mx-auto max-w-7xl px-6 py-6 md:py-8 relative z-20">
+        {/* Global Breadcrumb Navigation */}
+        {appMode !== null && (
+          <div className="mb-6 max-w-5xl mx-auto xl:max-w-none">
+            <button
+              type="button"
+              onClick={() => setAppMode(null)}
+              className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+              </svg>
+              Home
+            </button>
+          </div>
+        )}
+
         {appMode === null && (
           <ModeSelect
-            onSelectSolarBattery={() => setAppMode('solar-battery')}
+            onSelectSolarBattery={() => {
+              setAppMode('solar-battery');
+              setCurrentStep(0);
+              setCompletedSteps(new Set());
+              setStandardResult(null);
+              setMarketResult(null);
+            }}
             onSelectTariff={() => setAppMode('tariff')}
           />
         )}
 
-        {appMode === 'tariff' && <TariffModeller onBackToModes={() => setAppMode(null)} />}
+        {appMode === 'tariff' && <TariffModeller />}
 
         {showSolarBattery && (
           <>
-            <div className="flex justify-end mb-4">
-              <button
-                type="button"
-                onClick={() => setAppMode(null)}
-                className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium"
-              >
-                Back to mode select
-              </button>
-            </div>
-
             {calculationError && (
               <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
                 <div className="font-semibold">Could not generate report</div>
                 <div className="mt-1">{calculationError}</div>
-              </div>
-            )}
-
-            {/* Step Indicator (hide on Step 0 and when report is generated) */}
-            {!standardResult && currentStep > 0 && (
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
-                <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
               </div>
             )}
 
@@ -862,88 +868,97 @@ function App() {
                   existingReportNames={reports.map((r) => r.name)}
                 />
               </div>
+            ) : currentStep === 0 ? (
+              /* Step 0: full-width building type selector, no calendar sidebar */
+              <Step0BuildingType onNext={(data) => handleNextStep(0, data)} />
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Left Column: Step Content */}
-                <div className="lg:col-span-7">
-                  {currentStep === 0 && <Step0BuildingType onNext={(data) => handleNextStep(0, data)} />}
-
-                  {currentStep === 1 && (
-                    <Step1DigitalTwin
-                      businessType={config.businessType}
-                      onNext={(data) => handleNextStep(1, data)}
-                      onBack={handleBackStep}
-                    />
-                  )}
-
-                  {currentStep === 2 && (
-                    <Step2Solar
-                      config={config}
-                      setConfig={setConfig}
-                      locationFromStep1={config.location}
-                      solarData={solarTimeseriesData}
-                      loading={solarDataLoading}
-                      onNext={(data) => handleNextStep(2, data)}
-                      onBack={handleBackStep}
-                    />
-                  )}
-
-                  {currentStep === 3 && (
-                    <Step3Battery
-                      config={config}
-                      setConfig={setConfig}
-                      trading={trading}
-                      setTrading={setTrading}
-                      priceData={priceTimeseriesData}
-                      setPriceData={setPriceTimeseriesData}
-                      exampleMonths={exampleMonths}
-                      annualConsumptionKwh={
-                        curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
-                      }
-                      onNext={() => handleNextStep(3)}
-                      onBack={handleBackStep}
-                    />
-                  )}
-
-                  {currentStep === 4 && (
-                    <Step4Finance
-                      config={config}
-                      setConfig={setConfig}
-                      eligibleGrants={eligibleGrants}
-                      selectedGrantIds={selectedGrantIds}
-                      setSelectedGrantIds={setSelectedGrantIds}
-                      financing={financing}
-                      setFinancing={setFinancing}
-                      onGenerateReport={() => handleCalculate()}
-                      onBack={handleBackStep}
-                    />
-                  )}
+              /* Steps 1–4: two-column layout with sticky calendar sidebar */
+              <>
+                {/* Step Indicator */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
+                  <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
                 </div>
 
-                {/* Right Column: Permanent month-by-month calendar */}
-                <div className="lg:col-span-5">
-                  <div className="lg:sticky lg:top-8">
-                    <CalendarSidebar
-                      months={Array.from({ length: 12 }, (_, monthIndex) => ({
-                        monthIndex,
-                        consumptionKwh: curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh[monthIndex] : undefined,
-                        estimatedBillEur: estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills[monthIndex] : undefined,
-                        solarGenerationKwh:
-                          monthlySolarGeneration?.length === 12 ? monthlySolarGeneration[monthIndex] : undefined
-                      }))}
-                      annualTotalBillEur={
-                        estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills.reduce((a, b) => a + b, 0) : undefined
-                      }
-                      annualTotalConsumptionKwh={
-                        curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
-                      }
-                      annualTotalSolarKwh={
-                        monthlySolarGeneration?.length === 12 ? monthlySolarGeneration.reduce((a, b) => a + b, 0) : undefined
-                      }
-                    />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  {/* Left Column: Step Content */}
+                  <div className="lg:col-span-7">
+                    {currentStep === 1 && (
+                      <Step1DigitalTwin
+                        businessType={config.businessType}
+                        onNext={(data) => handleNextStep(1, data)}
+                        onBack={handleBackStep}
+                      />
+                    )}
+
+                    {currentStep === 2 && (
+                      <Step2Solar
+                        config={config}
+                        setConfig={setConfig}
+                        locationFromStep1={config.location}
+                        solarData={solarTimeseriesData}
+                        loading={solarDataLoading}
+                        onNext={(data) => handleNextStep(2, data)}
+                        onBack={handleBackStep}
+                      />
+                    )}
+
+                    {currentStep === 3 && (
+                      <Step3Battery
+                        config={config}
+                        setConfig={setConfig}
+                        trading={trading}
+                        setTrading={setTrading}
+                        priceData={priceTimeseriesData}
+                        setPriceData={setPriceTimeseriesData}
+                        exampleMonths={exampleMonths}
+                        annualConsumptionKwh={
+                          curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
+                        }
+                        onNext={() => handleNextStep(3)}
+                        onBack={handleBackStep}
+                      />
+                    )}
+
+                    {currentStep === 4 && (
+                      <Step4Finance
+                        config={config}
+                        setConfig={setConfig}
+                        eligibleGrants={eligibleGrants}
+                        selectedGrantIds={selectedGrantIds}
+                        setSelectedGrantIds={setSelectedGrantIds}
+                        financing={financing}
+                        setFinancing={setFinancing}
+                        onGenerateReport={() => handleCalculate()}
+                        onBack={handleBackStep}
+                      />
+                    )}
+                  </div>
+
+                  {/* Right Column: Permanent month-by-month calendar */}
+                  <div className="lg:col-span-5">
+                    <div className="lg:sticky lg:top-8">
+                      <CalendarSidebar
+                        months={Array.from({ length: 12 }, (_, monthIndex) => ({
+                          monthIndex,
+                          consumptionKwh: curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh[monthIndex] : undefined,
+                          estimatedBillEur: estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills[monthIndex] : undefined,
+                          solarGenerationKwh:
+                            monthlySolarGeneration?.length === 12 ? monthlySolarGeneration[monthIndex] : undefined
+                        }))}
+                        annualTotalBillEur={
+                          estimatedMonthlyBills.length === 12 ? estimatedMonthlyBills.reduce((a, b) => a + b, 0) : undefined
+                        }
+                        annualTotalConsumptionKwh={
+                          curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
+                        }
+                        annualTotalSolarKwh={
+                          monthlySolarGeneration?.length === 12 ? monthlySolarGeneration.reduce((a, b) => a + b, 0) : undefined
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              </>
             )}
           </>
         )}

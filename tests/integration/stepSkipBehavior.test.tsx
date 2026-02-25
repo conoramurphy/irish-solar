@@ -150,7 +150,7 @@ describe('Step Skip Behavior', () => {
   });
 
   async function enterSolarBatteryMode(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByText('Start Solar & Battery'));
+    await user.click(screen.getByText('Solar & Battery ROI'));
     await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
   }
 

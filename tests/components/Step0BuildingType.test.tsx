@@ -8,7 +8,7 @@ describe('Step0BuildingType', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
-    expect(screen.getByText('Hotel (open all year round)')).toBeInTheDocument();
+    expect(screen.getByText('Hotel')).toBeInTheDocument();
     expect(screen.getByText('House')).toBeInTheDocument();
     expect(screen.getByText('Farm')).toBeInTheDocument();
     expect(screen.getByText('Seasonal hotel')).toBeInTheDocument();
@@ -18,13 +18,12 @@ describe('Step0BuildingType', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
-    // Find all cards - hotel should not have "Coming Soon" in its card
     const cards = screen.getAllByRole('button');
-    
-    // Hotel card should be enabled (first button without "Coming Soon" nearby)
-    const hotelCard = cards.find(card => 
-      card.textContent?.includes('Hotel') && 
-      card.textContent?.includes('open all year round')
+
+    // Hotel card is the enabled one that mentions "Year-round commercial"
+    const hotelCard = cards.find(card =>
+      card.textContent?.includes('Hotel') &&
+      card.textContent?.includes('Year-round commercial')
     );
     expect(hotelCard).toBeInTheDocument();
     expect(hotelCard).not.toBeDisabled();
@@ -34,8 +33,12 @@ describe('Step0BuildingType', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
-    const hotelCard = screen.getByRole('button', { name: /Hotel \(open all year round\)/i });
-    fireEvent.click(hotelCard);
+    const cards = screen.getAllByRole('button');
+    const hotelCard = cards.find(card =>
+      card.textContent?.includes('Year-round commercial')
+    );
+    expect(hotelCard).toBeDefined();
+    fireEvent.click(hotelCard!);
 
     expect(onNext).toHaveBeenCalledTimes(1);
     expect(onNext).toHaveBeenCalledWith({ buildingType: 'hotel-year-round' });
@@ -45,8 +48,7 @@ describe('Step0BuildingType', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
-    // Should have 2 "Coming soon" badges (for farm and seasonal hotel, since house is now enabled)
-    // Note: There's also "Coming soon" text in the footer, so we need to filter by exact match
+    // Should have 2 "Coming soon" badges (farm and seasonal hotel)
     const comingSoonBadges = screen.getAllByText('Coming soon');
     expect(comingSoonBadges.length).toBe(2);
   });
@@ -56,18 +58,15 @@ describe('Step0BuildingType', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
-    // Find disabled cards
     const cards = screen.getAllByRole('button');
-    const disabledCards = cards.filter(card => 
+    const disabledCards = cards.filter(card =>
       card.hasAttribute('disabled') || card.classList.contains('cursor-not-allowed')
     );
 
-    // Try clicking each disabled card
     for (const card of disabledCards) {
       await user.click(card);
     }
 
-    // onNext should not have been called
     expect(onNext).not.toHaveBeenCalled();
   });
 });
