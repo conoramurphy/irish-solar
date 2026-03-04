@@ -23,6 +23,16 @@ export const HOURS_PER_YEAR_NON_LEAP = 8760;
 export const HOURS_PER_YEAR_LEAP = 8784;
 
 /**
+ * Half-hourly slots in a standard year (48 slots/day).
+ */
+export const SLOTS_PER_YEAR_NON_LEAP = 17520;
+
+/**
+ * Half-hourly slots in a leap year (48 slots/day).
+ */
+export const SLOTS_PER_YEAR_LEAP = 17568;
+
+/**
  * Get days per month for a given year.
  */
 export function getDaysPerMonth(year: number): readonly number[] {
@@ -44,9 +54,29 @@ export function getHoursForYear(year: number): number {
 }
 
 /**
- * Get days per month given total hours in the year (8760 or 8784).
- * Useful when only the hour count is known, not the calendar year.
+ * Get expected time slots for a year at a given resolution.
+ * @param slotsPerDay 24 for hourly, 48 for half-hourly
  */
-export function getDaysPerMonthFromHours(totalHoursInYear: number): readonly number[] {
-  return totalHoursInYear === HOURS_PER_YEAR_LEAP ? DAYS_PER_MONTH_LEAP : DAYS_PER_MONTH_NON_LEAP;
+export function getSlotsForYear(year: number, slotsPerDay: 24 | 48 = 24): number {
+  const days = isLeapYear(year) ? 366 : 365;
+  return days * slotsPerDay;
+}
+
+/**
+ * Get days per month given total slots in the year.
+ * Accepts both hourly (8760/8784) and half-hourly (17520/17568) totals.
+ */
+export function getDaysPerMonthFromHours(totalSlotsInYear: number): readonly number[] {
+  if (totalSlotsInYear === HOURS_PER_YEAR_LEAP || totalSlotsInYear === SLOTS_PER_YEAR_LEAP) {
+    return DAYS_PER_MONTH_LEAP;
+  }
+  return DAYS_PER_MONTH_NON_LEAP;
+}
+
+/**
+ * Derive slots-per-day from a total slot count.
+ * > 10000 implies half-hourly (48), otherwise hourly (24).
+ */
+export function getSlotsPerDay(totalSlots: number): 24 | 48 {
+  return totalSlots > 10000 ? 48 : 24;
 }

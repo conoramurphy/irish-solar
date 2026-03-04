@@ -6,6 +6,7 @@ import { calculateGrantAmount, calculateSingleGrantAmount } from '../../models/g
 import { estimateSystemCostBreakdown } from '../../utils/costEstimation';
 import { logInfo } from '../../utils/logger';
 import { HOUSE_MODE_DEFAULTS } from '../../constants/houseModeDefaults';
+import { VAT_RATE_REDUCED, VAT_RATE_STANDARD, stripVat } from '../../utils/vat';
 
 interface Step4FinanceProps {
   config: SystemConfiguration;
@@ -16,7 +17,6 @@ interface Step4FinanceProps {
   financing: Financing;
   setFinancing: (f: Financing) => void;
   onGenerateReport: () => void;
-  onBack: () => void;
 }
 
 export function Step4Finance({
@@ -27,14 +27,13 @@ export function Step4Finance({
   setSelectedGrantIds,
   financing,
   setFinancing,
-  onGenerateReport,
-  onBack
+  onGenerateReport
 }: Step4FinanceProps) {
   const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
 
   const [grantValidationError, setGrantValidationError] = useState<string | null>(null);
   const [useEstimatedCost, setUseEstimatedCost] = useState(true);
-  const [vatRate, setVatRate] = useState(0.135);
+  const [vatRate, setVatRate] = useState(VAT_RATE_REDUCED);
   const [houseDefaultsApplied, setHouseDefaultsApplied] = useState(false);
   const [grantsAutoSelectedNotice, setGrantsAutoSelectedNotice] = useState(false);
 
@@ -96,7 +95,11 @@ export function Step4Finance({
   }, [config.installationCost, selectedGrants, grantContext]);
 
   const netCost = Math.max(0, config.installationCost - totalGrantValue);
-  const loanAmount = Math.max(0, netCost - financing.equity);
+  
+  // If excluding VAT, we show ex-VAT figures for ROI
+  const displayInstallationCost = config.excludeVat ? stripVat(config.installationCost, vatRate) : config.installationCost;
+  const displayNetCost = config.excludeVat ? stripVat(netCost, vatRate) : netCost;
+  const loanAmount = Math.max(0, displayNetCost - financing.equity);
 
   const handleGenerateReport = () => {
     setGrantValidationError(null);
@@ -126,16 +129,16 @@ export function Step4Finance({
   return (
     <div className="max-w-4xl mx-auto">
       {/* Preamble */}
-      <div className="mb-10 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 mb-6 shadow-lg shadow-emerald-500/20">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-white">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-          </svg>
-        </div>
-        <h2 className="text-3xl font-serif font-bold text-tines-dark mb-4">
+      <div className="mb-6">
+        <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </span>
           Investment & Financing
         </h2>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
+        <p className="mt-3 text-sm text-slate-500 leading-relaxed max-w-2xl">
           Configure your project costs, apply for eligible grants, and structure your financing to understand the true ROI of your solar investment.
         </p>
       </div>
@@ -177,15 +180,29 @@ export function Step4Finance({
         <div className="mb-8 pb-8 border-b border-slate-100">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-serif font-semibold text-tines-dark">Installation Cost</h3>
-            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={useEstimatedCost}
-                onChange={(e) => setUseEstimatedCost(e.target.checked)}
-                className="rounded border-slate-300 text-tines-purple focus:ring-tines-purple"
-              />
-              <span>Use estimated cost based on system size</span>
-            </label>
+            <div className="flex flex-col items-end gap-2">
+              <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useEstimatedCost}
+                  onChange={(e) => setUseEstimatedCost(e.target.checked)}
+                  className="rounded border-slate-300 text-tines-purple focus:ring-tines-purple"
+                />
+                <span>Use estimated cost based on system size</span>
+              </label>
+              
+              {config.businessType !== 'house' && (
+                <label className="flex items-center gap-2 text-sm text-tines-purple font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.excludeVat || false}
+                    onChange={(e) => setConfig(prev => ({ ...prev, excludeVat: e.target.checked }))}
+                    className="rounded border-slate-300 text-tines-purple focus:ring-tines-purple"
+                  />
+                  <span>Business VAT Write-off (Exclude VAT from all calculations)</span>
+                </label>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -196,8 +213,9 @@ export function Step4Finance({
                   onChange={(e) => setVatRate(Number(e.target.value))}
                   disabled={!useEstimatedCost} // If manual, user enters total gross cost directly
                 >
-                  <option value={0.135}>Reduced (13.5%)</option>
-                  <option value={0.23}>Standard (23%)</option>
+                  <option value={VAT_RATE_REDUCED}>Reduced (13.5%)</option>
+                  <option value={VAT_RATE_STANDARD}>Standard (23%)</option>
+                  <option value={0}>Zero (0%)</option>
                 </select>
                 <p className="mt-2 text-xs text-slate-400">
                   <a 
@@ -299,14 +317,17 @@ export function Step4Finance({
              )}
           </div>
 
-          <Field label="Total Project Cost (Inc. VAT) (€)">
+          <Field label={`Total Project Cost ${config.excludeVat ? '(Ex. VAT)' : '(Inc. VAT)'} (€)`}>
             <input
               className={`${inputClass} ${useEstimatedCost ? 'bg-slate-50 text-slate-500' : ''}`}
               type="number"
               step={100}
-              value={config.installationCost}
+              value={displayInstallationCost}
               onChange={(e) => {
-                setConfig({ ...config, installationCost: Number(e.target.value) });
+                const newValue = Number(e.target.value);
+                // If excluding VAT, the manual input is treated as ex-VAT, so we store it as gross
+                const storedValue = config.excludeVat ? Math.round(newValue * (1 + vatRate)) : newValue;
+                setConfig({ ...config, installationCost: storedValue });
                 if (useEstimatedCost) setUseEstimatedCost(false); // Switch to manual if user edits
               }}
               placeholder="e.g., 35000"
@@ -547,29 +568,29 @@ export function Step4Finance({
             {/* Financial Summary */}
             {config.installationCost > 0 && (
               <div className="bg-slate-50 rounded-lg p-6 space-y-3 border border-slate-200">
-                <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Financial Summary</h4>
+                <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-4">Financial Summary {config.excludeVat && '(Ex. VAT)'}</h4>
                 
                 <div className="flex justify-between items-baseline text-sm">
-                  <span className="text-slate-600">Total Project Cost</span>
-                  <span className="font-semibold text-slate-900">€{config.installationCost.toLocaleString()}</span>
+                  <span className="text-slate-600">Total Project Cost {config.excludeVat && '(Ex. VAT)'}</span>
+                  <span className="font-semibold text-slate-900">€{Math.round(displayInstallationCost).toLocaleString()}</span>
                 </div>
 
                 {totalGrantValue > 0 && (
                   <div className="flex justify-between items-baseline text-sm">
                     <span className="text-emerald-600">Less: Grant Funding</span>
-                    <span className="font-semibold text-emerald-600">−€{totalGrantValue.toLocaleString()}</span>
+                    <span className="font-semibold text-emerald-600">−€{Math.round(config.excludeVat ? stripVat(totalGrantValue, vatRate) : totalGrantValue).toLocaleString()}</span>
                   </div>
                 )}
 
                 <div className="flex justify-between items-baseline text-sm pt-2 border-t border-slate-200">
-                  <span className="text-slate-600">Net Cost (Before Tax)</span>
-                  <span className="font-semibold text-slate-900">€{netCost.toLocaleString()}</span>
+                  <span className="text-slate-600">Net Cost {config.excludeVat && '(Ex. VAT)'}</span>
+                  <span className="font-semibold text-slate-900">€{Math.round(displayNetCost).toLocaleString()}</span>
                 </div>
 
                 {financing.isTaxReliefEligible && (
                   <div className="flex justify-between items-baseline text-sm text-blue-700 bg-blue-50 px-2 py-1 -mx-2 rounded">
                     <span>Est. Tax Savings (Year 1)</span>
-                    <span className="font-semibold">−€{Math.round(netCost * (financing.taxRate || 0)).toLocaleString()}</span>
+                    <span className="font-semibold">−€{Math.round(displayNetCost * (financing.taxRate || 0)).toLocaleString()}</span>
                   </div>
                 )}
 
@@ -580,7 +601,7 @@ export function Step4Finance({
 
                 <div className="flex justify-between items-baseline text-sm pt-2 border-t border-slate-200">
                   <span className="text-slate-600">Loan Amount</span>
-                  <span className="font-bold text-tines-purple">€{loanAmount.toLocaleString()}</span>
+                  <span className="font-bold text-tines-purple">€{Math.round(loanAmount).toLocaleString()}</span>
                 </div>
               </div>
             )}
@@ -589,18 +610,7 @@ export function Step4Finance({
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        <button
-          type="button"
-          onClick={onBack}
-          className="px-6 py-3 bg-white text-slate-700 font-medium rounded-lg border border-slate-200 hover:bg-slate-50 transition-all flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-          Back
-        </button>
-
+      <div className="flex justify-end mt-8">
         <button
           type="button"
           onClick={handleGenerateReport}

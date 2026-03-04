@@ -14,7 +14,6 @@ interface Step3Props {
   exampleMonths: ExampleMonth[];
   annualConsumptionKwh?: number; // Optional for house mode
   onNext: () => void;
-  onBack: () => void;
 }
 
 export function Step3Battery({
@@ -26,8 +25,7 @@ export function Step3Battery({
   setPriceData,
   exampleMonths,
   annualConsumptionKwh,
-  onNext,
-  onBack
+  onNext
 }: Step3Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,11 +55,11 @@ export function Step3Battery({
     }
   }, [trading.enabled, priceData, loading, setPriceData]);
 
-  // Calculate average hourly consumption for guidance
+  // Calculate average slot consumption for guidance (kWh per hour, regardless of resolution)
   const avgHourlyKw = useMemo(() => {
     // House mode: Use annual consumption directly if available
     if (annualConsumptionKwh && annualConsumptionKwh > 0) {
-      return annualConsumptionKwh / 8760;
+      return annualConsumptionKwh / 8760; // Guidance value; resolution-independent annual average
     }
     
     // Commercial mode: Calculate from example months
@@ -73,11 +71,16 @@ export function Step3Battery({
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div className="text-center mb-10">
-        <h2 className="text-3xl font-serif font-bold text-tines-dark mb-4">
+      <div className="mb-6">
+        <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-sky-50 text-sky-600 border border-sky-100">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+          </span>
           Battery Storage
         </h2>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+        <p className="mt-3 text-sm text-slate-500 leading-relaxed max-w-2xl">
           Configure energy storage and optionally enable market rate modeling for advanced arbitrage.
         </p>
       </div>
@@ -222,13 +225,7 @@ export function Step3Battery({
       </div>
       )}
 
-      <div className="flex justify-between pt-6">
-        <button
-          onClick={onBack}
-          className="px-6 py-3 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
-        >
-          Back
-        </button>
+      <div className="flex justify-end pt-6">
         <button
           onClick={onNext}
           disabled={trading.enabled && !priceData}

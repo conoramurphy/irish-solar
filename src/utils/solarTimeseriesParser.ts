@@ -1,6 +1,6 @@
 /**
- * Parser for timeseries solar irradiance CSV files
- * Format: PVGIS horizontal irradiance data
+ * Parser for timeseries solar irradiance CSV files.
+ * Supports both PVGIS (hourly) and CAMS (half-hourly) formats.
  */
 
 export interface HourStamp {
@@ -11,16 +11,21 @@ export interface HourStamp {
   day: number;
   /** 0-23 */
   hour: number;
+  /** 0 or 30 for half-hourly data; always 0 for legacy hourly data */
+  minute: number;
 }
 
-export type HourKey = string; // YYYY-MM-DDTHH
+export type HourKey = string; // YYYY-MM-DDTHH:MM
+
+/** Number of time slots per day: 24 (hourly) or 48 (half-hourly). */
+export type SlotsPerDay = 24 | 48;
 
 export interface SolarTimestep {
   /** Timestamp for display only. Core logic should use stamp/hourKey and UTC getters. */
   timestamp: Date;
   stamp: HourStamp;
   hourKey: HourKey;
-  irradianceWm2: number; // G(i) column - global horizontal irradiance
+  irradianceWm2: number; // GHI column - global horizontal irradiance
   /** Row order index in the source file (not used for time logic). */
   sourceIndex: number;
 }
@@ -32,23 +37,27 @@ export interface ParsedSolarData {
   elevation: number;
   /** First year encountered in the dataset (if multi-year CSV, this is not necessarily unique). */
   year: number;
+  /** Detected resolution: 24 = hourly, 48 = half-hourly */
+  slotsPerDay: SlotsPerDay;
   timesteps: SolarTimestep[];
   totalIrradiance: number; // Sum of all irradiance values (for normalization)
 }
 
-/**
- * Parse a PVGIS-format CSV file
- */
 export function toHourKey(stamp: HourStamp): HourKey {
   const y = String(stamp.year).padStart(4, '0');
   const m = String(stamp.monthIndex + 1).padStart(2, '0');
   const d = String(stamp.day).padStart(2, '0');
   const hh = String(stamp.hour).padStart(2, '0');
-  return `${y}-${m}-${d}T${hh}`;
+  const mm = String(stamp.minute).padStart(2, '0');
+  return `${y}-${m}-${d}T${hh}:${mm}`;
 }
 
-export function parsePvgisTimeToStamp(timeStr: string): HourStamp | null {
-  // PVGIS format example: 20200101:0011 (YYYYMMDD:HHmm)
+/**
+ * Parse a PVGIS/CAMS timestamp string into a HourStamp.
+ * PVGIS hourly format: 20200101:0011  (minutes are an offset artifact, snapped to :00)
+ * CAMS half-hourly:    20200101:0000 / 20200101:0030
+ */
+export function parsePvgisTimeToStamp(timeStr: string, halfHourly: boolean): HourStamp | null {
   if (!timeStr || typeof timeStr !== 'string') return null;
   if (timeStr.length < 13) return null;
 
@@ -59,16 +68,19 @@ export function parsePvgisTimeToStamp(timeStr: string): HourStamp | null {
   const monthIndex = parseInt(dateStr.substring(4, 6)) - 1;
   const day = parseInt(dateStr.substring(6, 8));
   const hour = parseInt(timePart.substring(0, 2));
-  const minute = parseInt(timePart.substring(2, 4));
+  const rawMinute = parseInt(timePart.substring(2, 4));
 
-  if (![year, monthIndex, day, hour, minute].every(Number.isFinite)) return null;
+  if (![year, monthIndex, day, hour, rawMinute].every(Number.isFinite)) return null;
   if (monthIndex < 0 || monthIndex > 11) return null;
   if (day < 1 || day > 31) return null;
   if (hour < 0 || hour > 23) return null;
-  if (minute < 0 || minute > 59) return null;
+  if (rawMinute < 0 || rawMinute > 59) return null;
 
-  // We intentionally ignore minutes for hourKey mapping (PVGIS hourly exports may use HH:11).
-  return { year, monthIndex, day, hour };
+  // For hourly data (PVGIS), snap minutes to 0 (they use :11 as an offset artifact).
+  // For half-hourly data (CAMS), snap to nearest 0 or 30.
+  const minute = halfHourly ? (rawMinute >= 15 ? 30 : 0) : 0;
+
+  return { year, monthIndex, day, hour, minute };
 }
 
 export function parseSolarTimeseriesCSV(csvContent: string, locationName: string): ParsedSolarData {
@@ -83,11 +95,19 @@ export function parseSolarTimeseriesCSV(csvContent: string, locationName: string
   const longitude = parseFloat(lonLine?.split('\t')[1] || '0');
   const elevation = parseFloat(elevLine?.split('\t')[1] || '0');
   
-  // Find the data header line (contains "time,G(i),...")
-  const dataHeaderIndex = lines.findIndex(l => l.includes('time,G(i)'));
+  // Find the data header line: PVGIS uses "time,G(i),..." and CAMS uses "time,GHI,..."
+  const dataHeaderIndex = lines.findIndex(l =>
+    l.includes('time,G(i)') || l.includes('time,GHI')
+  );
   if (dataHeaderIndex === -1) {
-    throw new Error('Could not find data header in CSV');
+    throw new Error('Could not find data header in CSV (expected time,G(i) or time,GHI)');
   }
+
+  const headerLine = lines[dataHeaderIndex];
+  const isCAMS = headerLine.includes('time,GHI');
+
+  // Detect half-hourly: CAMS files use :0000 and :0030 timestamps
+  const halfHourly = isCAMS;
   
   const dataLines = lines.slice(dataHeaderIndex + 1).filter(l => l.trim().length > 0);
   
@@ -103,7 +123,7 @@ export function parseSolarTimeseriesCSV(csvContent: string, locationName: string
     const timeStr = parts[0];
     const irradianceStr = parts[1];
 
-    const stamp = parsePvgisTimeToStamp(timeStr);
+    const stamp = parsePvgisTimeToStamp(timeStr, halfHourly);
     if (!stamp) {
       sourceIndex++;
       continue;
@@ -113,11 +133,9 @@ export function parseSolarTimeseriesCSV(csvContent: string, locationName: string
       dataYear = stamp.year;
     }
 
-    // Use UTC Date to avoid local timezone / DST effects.
-    const timestamp = new Date(Date.UTC(stamp.year, stamp.monthIndex, stamp.day, stamp.hour, 0, 0));
+    const timestamp = new Date(Date.UTC(stamp.year, stamp.monthIndex, stamp.day, stamp.hour, stamp.minute, 0));
     const hourKey = toHourKey(stamp);
 
-    // Parse irradiance (W/m²) and clamp negatives to zero
     const irradiance = Math.max(0, parseFloat(irradianceStr) || 0);
 
     timesteps.push({
@@ -131,6 +149,8 @@ export function parseSolarTimeseriesCSV(csvContent: string, locationName: string
     totalIrradiance += irradiance;
     sourceIndex++;
   }
+
+  const slotsPerDay: SlotsPerDay = halfHourly ? 48 : 24;
   
   return {
     location: locationName,
@@ -138,6 +158,7 @@ export function parseSolarTimeseriesCSV(csvContent: string, locationName: string
     longitude,
     elevation,
     year: dataYear,
+    slotsPerDay,
     timesteps,
     totalIrradiance
   };
@@ -158,6 +179,7 @@ export function sliceSolarTimeseriesYear(data: ParsedSolarData, year: number): P
   return {
     ...data,
     year,
+    slotsPerDay: data.slotsPerDay,
     timesteps,
     totalIrradiance
   };
@@ -167,36 +189,50 @@ export function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
+export function expectedSlotsInYear(year: number, slotsPerDay: SlotsPerDay = 24): number {
+  const days = isLeapYear(year) ? 366 : 365;
+  return days * slotsPerDay;
+}
+
+/** @deprecated Use expectedSlotsInYear with slotsPerDay=24 */
 export function expectedHoursInYear(year: number): number {
-  return isLeapYear(year) ? 8784 : 8760;
+  return expectedSlotsInYear(year, 24);
 }
 
 export interface SolarNormalizationCorrections {
   selectedYear: number;
-  expectedHours: number;
+  expectedSlots: number;
   actualRowsInYear: number;
   duplicatesDropped: number;
-  hoursMissingFilled: number;
+  slotsMissingFilled: number;
   rowsOutsideYearDropped: number;
   warnings: string[];
 }
 
 export type DuplicatePolicy = 'keep-first' | 'keep-max-irradiance';
 
-export function buildCanonicalHourStampsForYear(year: number): HourStamp[] {
+export function buildCanonicalStampsForYear(year: number, slotsPerDay: SlotsPerDay = 24): HourStamp[] {
   const febDays = isLeapYear(year) ? 29 : 28;
   const daysPerMonth = [31, febDays, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const minuteSteps = slotsPerDay === 48 ? [0, 30] : [0];
 
   const stamps: HourStamp[] = [];
   for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
     const days = daysPerMonth[monthIndex] ?? 30;
     for (let day = 1; day <= days; day++) {
       for (let hour = 0; hour < 24; hour++) {
-        stamps.push({ year, monthIndex, day, hour });
+        for (const minute of minuteSteps) {
+          stamps.push({ year, monthIndex, day, hour, minute });
+        }
       }
     }
   }
   return stamps;
+}
+
+/** @deprecated Use buildCanonicalStampsForYear */
+export function buildCanonicalHourStampsForYear(year: number): HourStamp[] {
+  return buildCanonicalStampsForYear(year, 24);
 }
 
 export function normalizeSolarTimeseriesYear(
@@ -204,8 +240,9 @@ export function normalizeSolarTimeseriesYear(
   selectedYear: number,
   duplicatePolicy: DuplicatePolicy = 'keep-max-irradiance'
 ): { normalized: ParsedSolarData; corrections: SolarNormalizationCorrections } {
-  const expectedHours = expectedHoursInYear(selectedYear);
-  const canonicalStamps = buildCanonicalHourStampsForYear(selectedYear);
+  const spd = data.slotsPerDay ?? 24;
+  const expectedSlots = expectedSlotsInYear(selectedYear, spd);
+  const canonicalStamps = buildCanonicalStampsForYear(selectedYear, spd);
   const canonicalKeys = canonicalStamps.map(toHourKey);
   const canonicalKeySet = new Set(canonicalKeys);
 
@@ -217,7 +254,6 @@ export function normalizeSolarTimeseriesYear(
   for (const ts of rowsInYear) {
     const k = ts.hourKey;
     if (!canonicalKeySet.has(k)) {
-      // In-year row but off our canonical day/hour grid (e.g., weird day 31 in a 30-day month)
       continue;
     }
 
@@ -227,7 +263,6 @@ export function normalizeSolarTimeseriesYear(
       continue;
     }
 
-    // Duplicate hourKey: keep deterministically.
     duplicatesDropped++;
     if (duplicatePolicy === 'keep-first') {
       continue;
@@ -241,28 +276,26 @@ export function normalizeSolarTimeseriesYear(
 
   const rowsOutsideYearDropped = data.timesteps.length - rowsInYear.length;
 
-  // Fill missing hours with 0 irradiance.
   const normalizedTimesteps: SolarTimestep[] = [];
-  let hoursMissingFilled = 0;
+  let slotsMissingFilled = 0;
   for (let i = 0; i < canonicalStamps.length; i++) {
     const stamp = canonicalStamps[i]!;
     const k = canonicalKeys[i]!;
     const found = map.get(k);
 
     if (found) {
-      // Ensure timestamp is UTC.
       normalizedTimesteps.push({
         ...found,
-        timestamp: new Date(Date.UTC(stamp.year, stamp.monthIndex, stamp.day, stamp.hour, 0, 0)),
+        timestamp: new Date(Date.UTC(stamp.year, stamp.monthIndex, stamp.day, stamp.hour, stamp.minute, 0)),
         stamp,
         hourKey: k
       });
       continue;
     }
 
-    hoursMissingFilled++;
+    slotsMissingFilled++;
     normalizedTimesteps.push({
-      timestamp: new Date(Date.UTC(stamp.year, stamp.monthIndex, stamp.day, stamp.hour, 0, 0)),
+      timestamp: new Date(Date.UTC(stamp.year, stamp.monthIndex, stamp.day, stamp.hour, stamp.minute, 0)),
       stamp,
       hourKey: k,
       irradianceWm2: 0,
@@ -274,30 +307,30 @@ export function normalizeSolarTimeseriesYear(
 
   const warnings: string[] = [];
   if (rowsOutsideYearDropped > 0) warnings.push(`Dropped ${rowsOutsideYearDropped} rows outside selected year ${selectedYear}.`);
-  if (duplicatesDropped > 0) warnings.push(`Dropped ${duplicatesDropped} duplicate hours (policy: ${duplicatePolicy}).`);
-  if (hoursMissingFilled > 0) warnings.push(`Filled ${hoursMissingFilled} missing hours with 0 irradiance.`);
+  if (duplicatesDropped > 0) warnings.push(`Dropped ${duplicatesDropped} duplicate slots (policy: ${duplicatePolicy}).`);
+  if (slotsMissingFilled > 0) warnings.push(`Filled ${slotsMissingFilled} missing slots with 0 irradiance.`);
 
   const normalized: ParsedSolarData = {
     ...data,
     year: selectedYear,
+    slotsPerDay: spd,
     timesteps: normalizedTimesteps,
     totalIrradiance
   };
 
   const corrections: SolarNormalizationCorrections = {
     selectedYear,
-    expectedHours,
+    expectedSlots,
     actualRowsInYear: rowsInYear.length,
     duplicatesDropped,
-    hoursMissingFilled,
+    slotsMissingFilled,
     rowsOutsideYearDropped,
     warnings
   };
 
-  // Hard invariant: normalized must match canonical expected length.
-  if (normalized.timesteps.length !== expectedHours) {
+  if (normalized.timesteps.length !== expectedSlots) {
     throw new Error(
-      `Normalization failed: expected ${expectedHours} hours for year ${selectedYear}, got ${normalized.timesteps.length}.`
+      `Normalization failed: expected ${expectedSlots} slots for year ${selectedYear}, got ${normalized.timesteps.length}.`
     );
   }
 

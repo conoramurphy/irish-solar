@@ -3,7 +3,7 @@ import { endSpan, logError, logInfo, logWarn, startSpan } from '../../utils/logg
 import { Field } from '../Field';
 import type { SystemConfiguration } from '../../types';
 import {
-  expectedHoursInYear,
+  expectedSlotsInYear,
   listSolarTimeseriesYears,
   normalizeSolarTimeseriesYear,
   distributeAnnualProductionTimeseries,
@@ -23,15 +23,7 @@ interface Step2SolarProps {
   onBack: () => void;
 }
 
-export function Step2Solar({
-  config,
-  setConfig,
-  locationFromStep1,
-  solarData: initialSolarData,
-  loading: externalLoading,
-  onNext,
-  onBack
-}: Step2SolarProps) {
+export function Step2Solar({ config, setConfig, locationFromStep1, solarData: initialSolarData, loading: externalLoading, onNext }: Step2SolarProps) {
   const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
   const selectClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
 
@@ -66,7 +58,7 @@ export function Step2Solar({
 
   const selectedYearHoursOk = useMemo(() => {
     if (!solarData) return false;
-    const expected = expectedHoursInYear(solarData.year);
+    const expected = expectedSlotsInYear(solarData.year, solarData.slotsPerDay);
     return solarData.timesteps.length === expected;
   }, [solarData]);
 
@@ -111,18 +103,20 @@ export function Step2Solar({
 
   return (
     <div className="max-w-3xl mx-auto">
-      <div className="mb-10 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 mb-6 shadow-lg shadow-orange-500/20">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-white">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-          </svg>
-        </div>
-        <h2 className="text-3xl font-serif font-bold text-tines-dark mb-4">Solar Installation Sizing</h2>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-          Enter your annual solar production. We'll distribute it using real irradiance data from <span className="font-semibold text-tines-purple">{locationFromStep1}</span>.
+      <div className="mb-6">
+        <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50 text-orange-600 border border-orange-100">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+            </svg>
+          </span>
+          Solar Installation Sizing
+        </h2>
+        <p className="mt-3 text-sm text-slate-500 leading-relaxed max-w-2xl">
+          Enter your annual solar production. We'll distribute it using real irradiance data from <span className="font-medium text-slate-900">{locationFromStep1}</span>.
         </p>
-        <p className="text-sm text-slate-500 mt-2">
-          Need help sizing? Use the <a href="https://pvwatts.nrel.gov/pvwatts.php" target="_blank" rel="noopener noreferrer" className="text-tines-purple hover:underline font-medium">PVWatts Calculator</a> to estimate annual production.
+        <p className="mt-1 text-sm text-slate-500">
+          Need help sizing? Use the <a href="https://pvwatts.nrel.gov/pvwatts.php" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-700 hover:underline font-medium">PVWatts Calculator</a> to estimate annual production.
         </p>
       </div>
 
@@ -212,7 +206,7 @@ export function Step2Solar({
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
-              {solarData.timesteps.length.toLocaleString()} hourly timesteps for {solarData.year} (expected {expectedHoursInYear(solarData.year)})
+              {solarData.timesteps.length.toLocaleString()} timesteps for {solarData.year} (expected {expectedSlotsInYear(solarData.year, solarData.slotsPerDay)})
             </p>
           )}
 
@@ -233,14 +227,7 @@ export function Step2Solar({
         </div>
       </div>
 
-      <div className="flex justify-between">
-        <button type="button" onClick={onBack} className="px-6 py-3 bg-white text-slate-700 font-medium rounded-lg border border-slate-200 hover:bg-slate-50 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-          Back
-        </button>
-
+      <div className="flex justify-end">
         <button type="button" onClick={handleContinue}
           disabled={!config.annualProductionKwh || config.annualProductionKwh <= 0 || !solarData || !selectedYearHoursOk}
           className="px-8 py-3 bg-tines-purple text-white font-medium rounded-lg shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2">

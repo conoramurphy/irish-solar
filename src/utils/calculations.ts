@@ -19,6 +19,7 @@ import { type ParsedPriceData } from './priceTimeseriesParser';
 import { buildSolarSpillageAnalysis } from './spillageAnalysis';
 import { runSensitivityAnalysis } from './sensitivityAnalysis';
 import { prepareSimulationContext } from './simulationContext';
+import { stripVat, VAT_RATE_REDUCED, VAT_RATE_STANDARD } from './vat';
 
 /**
  * Run a full ROI calculation for a single scenario.
@@ -55,11 +56,28 @@ export function runCalculation(
   }
   
   const systemCost = Math.max(0, config.installationCost);
+  
+  // If business is VAT-registered and excluding VAT, the "money at risk" is the ex-VAT cost.
+  // We assume installationCost provided is gross (inc VAT) unless already ex-VAT.
+  // For solar/batteries in Ireland, domestic is 0% (since May 2023) or 13.5%, 
+  // but commercial is typically 23% or 13.5% depending on specific rules.
+  // The UI Step4Finance handles the VAT rate selection. 
+  // For simplicity in the engine, if excludeVat is true, we need to know what rate to strip.
+  // We'll assume the standard 23% for commercial if not specified, but the plan says 
+  // solar and batteries don't have standard vat on them (often 13.5% or 0%).
+  // Let's use a heuristic: if it's commercial, it's likely 13.5% or 23%.
+  // Actually, the UI saves the GROSS cost to config.installationCost.
+  // We should probably pass the vatRate used in the UI to the engine, or just strip 13.5% as a safe default for solar.
+  // Re-reading plan: "businesses can basically always write off VAT... solar and batteries don't have standard vat on them".
+  // Let's assume 13.5% for stripping if excludeVat is true, unless we add vatRate to config.
+  const effectiveSystemCost = config.excludeVat 
+    ? stripVat(systemCost, VAT_RATE_REDUCED) 
+    : systemCost;
 
-  const { totalGrant } = calculateGrantAmount(systemCost, grants, {
+  const { totalGrant } = calculateGrantAmount(effectiveSystemCost, grants, {
     systemSizeKwp: config.systemSizeKwp
   });
-  const netCost = Math.max(0, systemCost - totalGrant);
+  const netCost = Math.max(0, effectiveSystemCost - totalGrant);
 
   const equityAmount = Math.max(0, financing.equity);
   const derivedLoanAmount = Math.max(0, netCost - equityAmount);
@@ -92,7 +110,7 @@ export function runCalculation(
     hourlyConsumptionOverride
   );
 
-  const { timeStamps, hourlyConsumption, hourlyPrices } = simContext;
+  const { timeStamps, hourlyConsumption, hourlyPrices, effectiveTariff } = simContext;
 
   const diagnosticsWarnings: string[] = [];
 
@@ -165,7 +183,7 @@ export function runCalculation(
     const baseYearElectricity = simulateHourlyEnergyFlow(
       hourlyGeneration,
       hourlyConsumption,
-      tariff,
+      effectiveTariff,
       batteryConfig,
       true,
       timeStamps,
@@ -300,7 +318,7 @@ export function runCalculation(
     : undefined;
 
   return {
-    systemCost,
+    systemCost: effectiveSystemCost,
     netCost,
     annualGeneration: baseGeneration,
     annualSelfConsumption,
@@ -326,7 +344,8 @@ export function runCalculation(
         gridExportCapKw: config.gridExportCapKw,
         installationCost: config.installationCost,
         location: config.location,
-        businessType: config.businessType
+        businessType: config.businessType,
+        excludeVat: config.excludeVat
       },
       tariff: {
         id: tariff.id,

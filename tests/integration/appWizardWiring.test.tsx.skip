@@ -47,17 +47,18 @@ vi.mock('../../src/components/steps/Step2Solar', () => ({
       longitude: 0,
       elevation: 0,
       totalIrradiance: 200,
+      slotsPerDay: 24,
       timesteps: [
         {
           timestamp: t0,
-          stamp: { year, monthIndex: 0, day: 1, hour: 0 },
+          stamp: { year, monthIndex: 0, day: 1, hour: 0, minute: 0 },
           hourKey: `${year}-01-01T00`,
           irradianceWm2: 100,
           sourceIndex: 0
         },
         {
           timestamp: t1,
-          stamp: { year, monthIndex: 0, day: 1, hour: 1 },
+          stamp: { year, monthIndex: 0, day: 1, hour: 1, minute: 0 },
           hourKey: `${year}-01-01T01`,
           irradianceWm2: 100,
           sourceIndex: 1

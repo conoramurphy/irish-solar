@@ -228,13 +228,17 @@ export function ResultsSection({
             {/* Savings Breakdown Compact Section */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
-                 <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">Total Annual Savings</div>
+                 <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
+                   Total Annual Savings {config?.excludeVat && '(Ex. VAT)'}
+                 </div>
                  <div className="text-2xl font-bold text-emerald-700">{formatCurrency(activeResult.annualSavings)}</div>
                  <div className="text-xs text-emerald-600/80 mt-1">Bill reduction + export credits (net)</div>
               </div>
               
               <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
-                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Solar Displacement</div>
+                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                   Solar Displacement {config?.excludeVat && '(Ex. VAT)'}
+                 </div>
                  <div className="text-xl font-bold text-slate-700">{formatCurrency(activeResult.annualSolarToLoadSavings)}</div>
                  <div className="text-xs text-slate-400 mt-1">Direct to Load</div>
                  {solarYield > 0 && (
@@ -248,7 +252,9 @@ export function ResultsSection({
               </div>
 
               <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
-                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Battery Displacement</div>
+                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                   Battery Displacement {config?.excludeVat && '(Ex. VAT)'}
+                 </div>
                  <div className="text-xl font-bold text-slate-700">{formatCurrency(activeResult.annualBatteryToLoadSavings)}</div>
                  <div className="text-xs text-slate-400 mt-1">Stored & Discharged</div>
                  {batteryYield > 0 && (
@@ -262,7 +268,9 @@ export function ResultsSection({
               </div>
 
               <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
-                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Export Credits</div>
+                 <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                   Export Credits {config?.excludeVat && '(Ex. VAT)'}
+                 </div>
                  <div className="text-xl font-bold text-slate-700">{formatCurrency(activeResult.annualExportRevenue)}</div>
                  <div className="text-xs text-slate-400 mt-1">Feed-in / market value</div>
               </div>
@@ -271,7 +279,9 @@ export function ResultsSection({
             {/* Bill Comparison Card */}
             {annualBill && (
               <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200 mb-8">
-                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6">Estimated Annual Electricity Bill (Net)</h3>
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-6">
+                  Estimated Annual Electricity Bill (Net) {config?.excludeVat && '(Ex. VAT)'}
+                </h3>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12">
                    <div className="text-center md:text-left">
                      <div className="text-sm font-medium text-slate-500 mb-1">Current Bill</div>
@@ -325,7 +335,9 @@ export function ResultsSection({
             {activeResult.audit?.monthly && activeResult.audit.monthly.length === 12 && (
               <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
                 <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                  <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Monthly Bill Comparison</h3>
+                  <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">
+                    Monthly Bill Comparison {config?.excludeVat && '(Ex. VAT)'}
+                  </h3>
                   <p className="text-xs text-slate-400 mt-1">After = import charges minus export credits (net)</p>
                 </div>
                 <div className="overflow-x-auto">
@@ -886,7 +898,13 @@ export function ResultsSection({
           </div>
         </div>
 
-        {auditOpen && activeResult && activeResult.audit && <AuditModal audit={activeResult.audit} onClose={() => setAuditOpen(false)} />}
+        {auditOpen && activeResult && activeResult.audit && (
+          <AuditModal 
+            audit={activeResult.audit} 
+            onClose={() => setAuditOpen(false)} 
+            excludeVat={config?.excludeVat}
+          />
+        )}
         
         <SaveReportModal
           isOpen={saveModalOpen}

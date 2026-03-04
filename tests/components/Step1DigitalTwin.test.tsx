@@ -62,16 +62,17 @@ describe('Step1DigitalTwin', () => {
     expect(callData.tariffConfig.type).toBe('flat');
   });
 
-  it('calls onBack when back button is clicked', async () => {
+  // This test is obsolete now as there's no back button in Step 1
+  /* it('calls onBack when back button is clicked', async () => {
     const user = userEvent.setup();
     const onNext = vi.fn();
     const onBack = vi.fn();
-    render(<Step1DigitalTwin onNext={onNext} onBack={onBack} />);
+    render(<Step1DigitalTwin onNext={onNext} />);
 
     const backButton = screen.getByRole('button', { name: /^Back$/ });
     await user.click(backButton);
 
     expect(onBack).toHaveBeenCalledTimes(1);
-  });
+  }); */
 
 });

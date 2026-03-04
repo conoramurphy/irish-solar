@@ -65,11 +65,18 @@ export function TariffModeller() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto pb-4">
-      {/* Page header */}
-      <div className="mb-10">
-        <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 tracking-tight">Electricity Tariff Comparer</h2>
-        <p className="mt-3 text-base text-slate-500 max-w-2xl font-light leading-relaxed">
+    <div className="max-w-3xl mx-auto pb-4">
+      {/* Preamble */}
+      <div className="mb-8">
+        <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+            </svg>
+          </span>
+          Electricity Tariff Comparer
+        </h2>
+        <p className="mt-3 text-sm text-slate-500 leading-relaxed max-w-2xl">
           Upload your ESB Networks usage file and we'll rank every Irish domestic tariff by what your annual bill would be — applied to your actual hourly consumption.
         </p>
       </div>

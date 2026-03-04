@@ -13,6 +13,8 @@ export interface SystemConfiguration {
   installationCost: number;
   location: string;
   businessType: BusinessType;
+  /** Whether to exclude VAT from all calculations (for VAT-registered businesses) */
+  excludeVat?: boolean;
 }
 
 export interface Grant {
@@ -85,6 +87,8 @@ export interface Tariff {
   exportRate: number;
   /** Optional extra levy (EUR per kWh) */
   psoLevy?: number;
+  /** Whether the rates in this tariff are already ex-VAT */
+  isExVat?: boolean;
   
   // Domestic-specific features
   /** EV or boost rate (EUR per kWh) */
@@ -153,23 +157,23 @@ export interface ConsumptionProfile {
 }
 
 export interface HourlyEnergyFlow {
-  /** Hour of year (0-8759) */
+  /** Slot index within the year (0-based; covers hourly or half-hourly series) */
   hour: number;
-  /** Solar generation this hour (kWh) */
+  /** Solar generation this slot (kWh) */
   generation: number;
-  /** Site consumption this hour (kWh) */
+  /** Site consumption this slot (kWh) */
   consumption: number;
-  /** Energy imported from grid (kWh) */
+  /** Energy imported from grid this slot (kWh) */
   gridImport: number;
-  /** Energy exported to grid (kWh) */
+  /** Energy exported to grid this slot (kWh) */
   gridExport: number;
-  /** Energy charged to battery (kWh) */
+  /** Energy charged to battery this slot (kWh) */
   batteryCharge: number;
-  /** Energy discharged from battery (kWh) */
+  /** Energy discharged from battery this slot (kWh) */
   batteryDischarge: number;
-  /** Battery state of charge at end of hour (kWh) */
+  /** Battery state of charge at end of slot (kWh) */
   batterySoC: number;
-  /** Canonical hour key (YYYY-MM-DDTHH) for traceability */
+  /** Canonical slot key (YYYY-MM-DDTHH for hourly, YYYY-MM-DDTHH:MM for half-hourly) */
   hourKey?: string;
   /** Month index (0-11) from canonical timestamp */
   monthIndex?: number;
@@ -303,10 +307,10 @@ export interface PriceNormalizationCorrections {
 
 export interface SolarNormalizationCorrections {
   selectedYear: number;
-  expectedHours: number;
+  expectedSlots: number;
   actualRowsInYear: number;
   duplicatesDropped: number;
-  hoursMissingFilled: number;
+  slotsMissingFilled: number;
   rowsOutsideYearDropped: number;
   warnings: string[];
 }

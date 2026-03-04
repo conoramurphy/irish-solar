@@ -280,4 +280,51 @@ describe('runCalculation', () => {
       expect(result.annualSelfConsumption + result.annualExport).toBeCloseTo(20_000, 0);
     });
   });
+
+  describe('VAT write-off (excludeVat)', () => {
+    it('strips VAT from installation cost and tariffs when excludeVat is true', () => {
+      const installationCost = 11350; // €10,000 + 13.5% VAT
+      const config = {
+        annualProductionKwh: 10000,
+        batterySizeKwh: 0,
+        installationCost,
+        location: 'Dublin',
+        businessType: 'hotel' as const,
+        excludeVat: true
+      };
+
+      const tariff = {
+        ...tariffsData[0],
+        standingCharge: 1.135, // €1.00 + 13.5% VAT
+        rates: [{ period: 'all-day', rate: 0.3405 }] // €0.30 + 13.5% VAT
+      };
+
+      const result = runCalculation(
+        config,
+        [],
+        { equity: 10000, interestRate: 0, termYears: 0 },
+        tariff as any,
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        1,
+        undefined,
+        makeSolar()
+      );
+
+      // System cost should be stripped of 13.5% VAT (default for solar in engine)
+      expect(result.systemCost).toBeCloseTo(10000, 0);
+      
+      // Net cost should also be ex-VAT
+      expect(result.netCost).toBeCloseTo(10000, 0);
+
+      // Savings should be based on ex-VAT tariff rates
+      // Baseline cost for 0 consumption should be just standing charge (ex-VAT)
+      // Wait, runCalculation uses simulateHourlyEnergyFlow which uses effectiveTariff.
+      // If consumption is 0, baselineCost = standingCharge / slotsPerDay.
+      // Total annual baseline = standingCharge * 365.
+      // ex-VAT standing charge = 1.00. Total = 365.
+      expect(result.audit?.monthly[0].baselineCost).toBeCloseTo(1.00 * 31, 1);
+    });
+  });
 });

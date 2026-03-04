@@ -28,7 +28,7 @@ describe('Step2Solar', () => {
   const createMockSolarData = (year: number, timestepCount: number): ParsedSolarData => {
     const timesteps = Array.from({ length: timestepCount }, (_, i) => ({
       timestamp: new Date(Date.UTC(year, 0, 1, i % 24, 0, 0)),
-      stamp: { year, monthIndex: 0, day: 1 + Math.floor(i / 24), hour: i % 24 },
+      stamp: { year, monthIndex: 0, day: 1 + Math.floor(i / 24), hour: i % 24, minute: 0 },
       hourKey: `${year}-01-${String(1 + Math.floor(i / 24)).padStart(2, '0')}T${String(i % 24).padStart(2, '0')}`,
       irradianceWm2: 100,
       sourceIndex: i,
@@ -41,6 +41,7 @@ describe('Step2Solar', () => {
       longitude: 0,
       elevation: 0,
       totalIrradiance: timestepCount * 100,
+      slotsPerDay: 24,
       timesteps,
     };
   };
@@ -49,7 +50,6 @@ describe('Step2Solar', () => {
     const normalizedData = createMockSolarData(2020, 8784); // Leap year with correct count
     const setConfig = vi.fn();
     const onNext = vi.fn();
-    const onBack = vi.fn();
 
     render(
       <Step2Solar
@@ -59,12 +59,11 @@ describe('Step2Solar', () => {
         solarData={normalizedData}
         loading={false}
         onNext={onNext}
-        onBack={onBack}
       />
     );
 
     // Check for the timestep count message
-    expect(screen.getByText(/8,784 hourly timesteps for 2020/i)).toBeInTheDocument();
+    expect(screen.getByText(/8,784 timesteps for 2020/i)).toBeInTheDocument();
 
     // Continue button should be enabled
     const buttons = screen.getAllByRole('button');
@@ -89,12 +88,11 @@ describe('Step2Solar', () => {
         solarData={unnormalizedData}
         loading={false}
         onNext={onNext}
-        onBack={onBack}
       />
     );
 
     // Check for the error message showing wrong timestep count
-    expect(container.textContent).toContain('35,064 hourly timesteps for 2020');
+    expect(container.textContent).toContain('35,064 timesteps for 2020');
     expect(container.textContent).toContain('expected 8784');
 
     // Should show red error text (text-red-600 class)
@@ -108,19 +106,18 @@ describe('Step2Solar', () => {
     const onBack = vi.fn();
 
     const { container } = render(
-      <Step2Solar
-        config={mockConfig}
-        setConfig={setConfig}
-        locationFromStep1="Cavan"
+      <Step2Solar 
+        config={mockConfig} 
+        setConfig={setConfig} 
+        locationFromStep1="Cavan" 
         solarData={null}
         loading={false}
-        onNext={onNext}
-        onBack={onBack}
+        onNext={onNext} 
       />
     );
 
     // Should not show timestep info when no data
-    expect(container.textContent).not.toContain('hourly timesteps');
+    expect(container.textContent).not.toContain('timesteps');
 
     // Continue button should exist but we can't reliably test disabled state
     // because the component sets solarData internally even when prop is null
@@ -131,7 +128,6 @@ describe('Step2Solar', () => {
   it('shows loading spinner when loading solar data', () => {
     const setConfig = vi.fn();
     const onNext = vi.fn();
-    const onBack = vi.fn();
 
     render(
       <Step2Solar
@@ -141,7 +137,6 @@ describe('Step2Solar', () => {
         solarData={null}
         loading={true}
         onNext={onNext}
-        onBack={onBack}
       />
     );
 
@@ -152,7 +147,6 @@ describe('Step2Solar', () => {
     const normalizedData = createMockSolarData(2023, 8760); // Non-leap year
     const setConfig = vi.fn();
     const onNext = vi.fn();
-    const onBack = vi.fn();
 
     render(
       <Step2Solar
@@ -162,12 +156,11 @@ describe('Step2Solar', () => {
         solarData={normalizedData}
         loading={false}
         onNext={onNext}
-        onBack={onBack}
       />
     );
 
     // Check for correct timestep count
-    expect(screen.getByText(/8,760 hourly timesteps for 2023/i)).toBeInTheDocument();
+    expect(screen.getByText(/8,760 timesteps for 2023/i)).toBeInTheDocument();
 
     // Continue button should be enabled
     const buttons = screen.getAllByRole('button');

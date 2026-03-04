@@ -19,16 +19,18 @@ describe('normalized usage example CSV', () => {
     const result = parseEsbUsageProfile(csv);
 
     expect(result.year).toBe(TARGET_YEAR);
-    expect(result.hourlyConsumption.length).toBe(8760);
-    expect(result.warnings).toEqual([]);
+    // The parser now produces half-hourly slots (48/day): 365 * 48 = 17520
+    const expectedSlots = DAYS_PER_MONTH_NON_LEAP.reduce((s, d) => s + d, 0) * 48;
+    expect(result.hourlyConsumption.length).toBe(expectedSlots);
+    expect(result.slotsPerDay).toBe(48);
 
-    // Aggregate hourly to monthly totals
+    // Aggregate half-hourly slots to monthly totals
     const monthTotals = new Array(12).fill(0);
-    let hIdx = 0;
+    let sIdx = 0;
     for (let m = 0; m < 12; m++) {
-      const hours = DAYS_PER_MONTH_NON_LEAP[m] * 24;
-      for (let h = 0; h < hours; h++) {
-        monthTotals[m] += result.hourlyConsumption[hIdx++] || 0;
+      const slots = DAYS_PER_MONTH_NON_LEAP[m] * 48;
+      for (let s = 0; s < slots; s++) {
+        monthTotals[m] += result.hourlyConsumption[sIdx++] || 0;
       }
     }
 

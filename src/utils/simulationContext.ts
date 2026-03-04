@@ -7,9 +7,10 @@ import type {
 import { normalizeConsumptionProfile } from './consumption';
 import { generateHourlyConsumption } from './hourlyConsumption';
 import { normalizePriceTimeseries, type ParsedPriceData } from './priceTimeseriesParser';
-import { type ParsedSolarData } from './solarTimeseriesParser';
+import { type ParsedSolarData, type SlotsPerDay } from './solarTimeseriesParser';
 import { normalizeHourlyConsumptionLength } from './hourlyConsumptionNormalizer';
 import { logInfo } from './logger';
+import { stripVat, VAT_RATE_REDUCED } from './vat';
 
 export interface ConsumptionNormalizationCorrections {
   originalLength: number;
@@ -20,20 +21,24 @@ export interface ConsumptionNormalizationCorrections {
 }
 
 export interface SimulationContext {
-  /** 8760/8784 hourly timestamps */
-  timeStamps: Array<{ year: number; monthIndex: number; day: number; hour: number }>;
-  /** Hourly grid consumption (kWh) before solar */
+  /** Timestamps for each slot in the year */
+  timeStamps: Array<{ year: number; monthIndex: number; day: number; hour: number; minute: number }>;
+  /** Grid consumption (kWh) per slot before solar */
   hourlyConsumption: number[];
-  /** Hourly market prices (EUR/kWh) - already normalized and converted */
+  /** Market prices (EUR/kWh) per slot - already normalized and converted */
   hourlyPrices?: number[];
-  /** Total solar hours (8760 or 8784) */
+  /** Total slots in year (8760/8784 hourly, or 17520/17568 half-hourly) */
   totalHours: number;
-  /** Whether consumption came from an imported hourly override or a derived monthly profile */
+  /** Resolution: 24 = hourly, 48 = half-hourly */
+  slotsPerDay: SlotsPerDay;
+  /** Whether consumption came from an imported override or a derived monthly profile */
   consumptionSource: 'override' | 'monthly-profile';
   /** If consumption needed leap-year normalization */
   consumptionNormalization?: ConsumptionNormalizationCorrections;
-  /** If prices were normalized and/or missing hours filled */
+  /** If prices were normalized and/or missing slots filled */
   priceNormalization?: import('./priceTimeseriesParser').PriceNormalizationCorrections;
+  /** The tariff used for the simulation (potentially ex-VAT) */
+  effectiveTariff: Tariff;
 }
 
 /**
@@ -51,11 +56,31 @@ export function prepareSimulationContext(
   hourlyConsumptionOverride?: number[]
 ): SimulationContext {
   const totalHours = solarTimeseriesData.timesteps.length;
-  if (totalHours !== 8760 && totalHours !== 8784) {
+  const validLengths = [8760, 8784, 17520, 17568];
+  if (!validLengths.includes(totalHours)) {
     throw new Error(
-      `Solar timeseries must contain exactly 8,760 (non-leap year) or 8,784 (leap year) hourly timesteps. ` +
+      `Solar timeseries must contain 8,760/8,784 (hourly) or 17,520/17,568 (half-hourly) timesteps. ` +
       `Received ${totalHours} timesteps.`
     );
+  }
+  const slotsPerDay = solarTimeseriesData.slotsPerDay;
+
+  // 0. Adjust Tariff for VAT exclusion if requested
+  // Businesses can often write off VAT on utilities (typically 13.5% in Ireland)
+  let effectiveTariff = tariff;
+  if (config.excludeVat && !tariff.isExVat) {
+    effectiveTariff = {
+      ...tariff,
+      standingCharge: stripVat(tariff.standingCharge, VAT_RATE_REDUCED),
+      psoLevy: tariff.psoLevy !== undefined ? stripVat(tariff.psoLevy, VAT_RATE_REDUCED) : undefined,
+      rates: tariff.rates.map(r => ({
+        ...r,
+        rate: stripVat(r.rate, VAT_RATE_REDUCED)
+      })),
+      // Note: exportRate is usually not subject to VAT in the same way, 
+      // but we'll keep it as is unless specified otherwise.
+      isExVat: true
+    };
   }
 
   const timeStamps = solarTimeseriesData.timesteps.map((ts) => ts.stamp);
@@ -99,10 +124,10 @@ export function prepareSimulationContext(
     consumptionSource = 'monthly-profile';
 
     // Generate from monthly profile (Commercial/Estimated Mode)
-    const monthlyConsumption = normalizeConsumptionProfile(consumptionProfile, tariff);
+    const monthlyConsumption = normalizeConsumptionProfile(consumptionProfile, effectiveTariff);
     hourlyConsumption = generateHourlyConsumption(
       monthlyConsumption,
-      tariff,
+      effectiveTariff,
       totalHours,
       timeStamps,
       config.businessType
@@ -114,10 +139,11 @@ export function prepareSimulationContext(
   let priceNormalization: SimulationContext['priceNormalization'];
 
   if (trading.enabled && priceTimeseriesData) {
-    // Normalize prices to match solar year
-    const { normalized, corrections } = normalizePriceTimeseries(priceTimeseriesData, solarTimeseriesData.year);
+    // Normalize prices to match solar year and resolution
+    const { normalized, corrections } = normalizePriceTimeseries(priceTimeseriesData, solarTimeseriesData.year, slotsPerDay);
     priceNormalization = corrections;
     // Extract simple array AND convert MWh -> kWh
+    // Market prices are typically already ex-VAT
     hourlyPrices = normalized.timesteps.map((ts) => ts.priceEur / 1000);
   }
 
@@ -126,8 +152,11 @@ export function prepareSimulationContext(
     hourlyConsumption,
     hourlyPrices,
     totalHours,
+    slotsPerDay,
     consumptionSource,
     consumptionNormalization,
-    priceNormalization
+    priceNormalization,
+    // Pass the effective tariff back if needed, but for now we just use it for generation
+    effectiveTariff
   };
 }

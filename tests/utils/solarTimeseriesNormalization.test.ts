@@ -25,6 +25,7 @@ function makeParsed(year: number, timesteps: SolarTimestep[]): ParsedSolarData {
     longitude: 0,
     elevation: 0,
     year,
+    slotsPerDay: 24,
     timesteps,
     totalIrradiance: timesteps.reduce((s, t) => s + t.irradianceWm2, 0)
   };
@@ -33,14 +34,14 @@ function makeParsed(year: number, timesteps: SolarTimestep[]): ParsedSolarData {
 describe('normalizeSolarTimeseriesYear', () => {
   it('returns exact 8760 hours for non-leap year and fills missing with 0', () => {
     const year = 2021; // non-leap
-    const a = makeTs({ year, monthIndex: 0, day: 1, hour: 0 }, 100, 0);
-    const b = makeTs({ year, monthIndex: 0, day: 1, hour: 1 }, 200, 1);
+    const a = makeTs({ year, monthIndex: 0, day: 1, hour: 0, minute: 0 }, 100, 0);
+    const b = makeTs({ year, monthIndex: 0, day: 1, hour: 1, minute: 0 }, 200, 1);
 
     const parsed = makeParsed(year, [a, b]);
     const { normalized, corrections } = normalizeSolarTimeseriesYear(parsed, year);
 
     expect(normalized.timesteps).toHaveLength(expectedHoursInYear(year));
-    expect(corrections.hoursMissingFilled).toBe(expectedHoursInYear(year) - 2);
+    expect(corrections.slotsMissingFilled).toBe(expectedHoursInYear(year) - 2);
 
     // First two canonical hours preserved
     expect(normalized.timesteps[0].irradianceWm2).toBe(100);
@@ -52,7 +53,7 @@ describe('normalizeSolarTimeseriesYear', () => {
 
   it('drops duplicates deterministically (keep max irradiance)', () => {
     const year = 2021;
-    const stamp = { year, monthIndex: 0, day: 1, hour: 0 };
+    const stamp = { year, monthIndex: 0, day: 1, hour: 0, minute: 0 };
     const low = makeTs(stamp, 10, 0);
     const high = makeTs(stamp, 99, 1);
 
@@ -67,8 +68,8 @@ describe('normalizeSolarTimeseriesYear', () => {
     const y = 2021;
     const other = 2020;
 
-    const ts1 = makeTs({ year: y, monthIndex: 0, day: 1, hour: 0 }, 10, 0);
-    const ts2 = makeTs({ year: other, monthIndex: 0, day: 1, hour: 0 }, 999, 1);
+    const ts1 = makeTs({ year: y, monthIndex: 0, day: 1, hour: 0, minute: 0 }, 10, 0);
+    const ts2 = makeTs({ year: other, monthIndex: 0, day: 1, hour: 0, minute: 0 }, 999, 1);
 
     const parsed = makeParsed(other, [ts1, ts2]);
     const { normalized, corrections } = normalizeSolarTimeseriesYear(parsed, y);
@@ -92,7 +93,7 @@ describe('normalizeSolarTimeseriesYear', () => {
           const hoursInDay = (m === 2 && d === 14) ? 23 : 24; // Skip hour 2 on March 14
           for (let h = 0; h < hoursInDay; h++) {
             const actualHour = (m === 2 && d === 14 && h >= 2) ? h + 1 : h;
-            timesteps.push(makeTs({ year, monthIndex: m, day: d, hour: actualHour }, 100, hourCount++));
+            timesteps.push(makeTs({ year, monthIndex: m, day: d, hour: actualHour, minute: 0 }, 100, hourCount++));
           }
         }
       }
@@ -102,7 +103,7 @@ describe('normalizeSolarTimeseriesYear', () => {
 
       // Should fill the missing hour with 0
       expect(normalized.timesteps).toHaveLength(expectedHoursInYear(year));
-      expect(corrections.hoursMissingFilled).toBe(1);
+      expect(corrections.slotsMissingFilled).toBe(1);
       expect(corrections.warnings.length).toBeGreaterThan(0);
     });
 
@@ -118,7 +119,7 @@ describe('normalizeSolarTimeseriesYear', () => {
           const hoursInDay = (m === 10 && d === 7) ? 25 : 24; // Duplicate hour 2 on Nov 7
           for (let h = 0; h < hoursInDay; h++) {
             const actualHour = (m === 10 && d === 7 && h > 2 && h < 25) ? h - 1 : (h === 25 ? 3 : h);
-            timesteps.push(makeTs({ year, monthIndex: m, day: d, hour: actualHour }, 100 + h, hourCount++));
+            timesteps.push(makeTs({ year, monthIndex: m, day: d, hour: actualHour, minute: 0 }, 100 + h, hourCount++));
           }
         }
       }
@@ -140,18 +141,18 @@ describe('normalizeSolarTimeseriesYear', () => {
       for (let h = 0; h < 8755; h++) {
         const d = Math.floor(h / 24) + 1;
         const hourOfDay = h % 24;
-        timesteps.push(makeTs({ year, monthIndex: 0, day: Math.min(d, 31), hour: hourOfDay }, 100, h));
+        timesteps.push(makeTs({ year, monthIndex: 0, day: Math.min(d, 31), hour: hourOfDay, minute: 0 }, 100, h));
       }
       
       // Add duplicates
-      timesteps.push(makeTs({ year, monthIndex: 0, day: 5, hour: 10 }, 200, 8755));
-      timesteps.push(makeTs({ year, monthIndex: 0, day: 5, hour: 10 }, 150, 8756));
+      timesteps.push(makeTs({ year, monthIndex: 0, day: 5, hour: 10, minute: 0 }, 200, 8755));
+      timesteps.push(makeTs({ year, monthIndex: 0, day: 5, hour: 10, minute: 0 }, 150, 8756));
 
       const parsed = makeParsed(year, timesteps);
       const { normalized, corrections } = normalizeSolarTimeseriesYear(parsed, year);
 
       expect(normalized.timesteps).toHaveLength(expectedHoursInYear(year));
-      expect(corrections.hoursMissingFilled).toBeGreaterThan(0);
+      expect(corrections.slotsMissingFilled).toBeGreaterThan(0);
       expect(corrections.duplicatesDropped).toBeGreaterThan(0);
     });
   });

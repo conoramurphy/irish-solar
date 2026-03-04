@@ -11,9 +11,10 @@ function makeSolar(year: number, hours: number): ParsedSolarData {
     longitude: 0,
     elevation: 0,
     year,
+    slotsPerDay: 24,
     timesteps: Array.from({ length: hours }, (_, i) => ({
       timestamp: new Date(Date.UTC(year, 0, 1, 0, 0, 0)),
-      stamp: { year, monthIndex: 0, day: 1, hour: i % 24 },
+      stamp: { year, monthIndex: 0, day: 1, hour: i % 24, minute: 0 },
       hourKey: `${year}-01-01T${String(i % 24).padStart(2, '0')}`,
       irradianceWm2: 1,
       sourceIndex: i
@@ -61,7 +62,7 @@ describe('prepareSimulationContext diagnostics', () => {
       timesteps: [
         {
           timestamp: new Date(Date.UTC(2021, 0, 1, 0, 0, 0)),
-          stamp: { year: 2021, monthIndex: 0, day: 1, hour: 0 },
+          stamp: { year: 2021, monthIndex: 0, day: 1, hour: 0, minute: 0 },
           hourKey: '2021-01-01T00',
           priceEur: 100,
           sourceIndex: 0

@@ -26,7 +26,7 @@ interface Step1DigitalTwinProps {
 
 const MONTHS = MONTH_LABELS.map((name, index) => ({ index, name }));
 
-export function Step1DigitalTwin({ businessType, onNext, onBack }: Step1DigitalTwinProps) {
+export function Step1DigitalTwin({ businessType, onNext }: Step1DigitalTwinProps) {
   const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
   const selectClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
 
@@ -282,17 +282,17 @@ export function Step1DigitalTwin({ businessType, onNext, onBack }: Step1DigitalT
   return (
     <div className="max-w-4xl mx-auto">
       {/* Preamble */}
-      <div className="mb-10 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-tines-purple to-indigo-600 mb-6 shadow-lg shadow-indigo-500/20">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-white">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
-          </svg>
-        </div>
-        <h2 className="text-3xl font-serif font-bold text-tines-dark mb-4">
+      <div className="mb-6">
+        <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
+            </svg>
+          </span>
           Building Your Digital Twin
         </h2>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-          Let's model your current building's energy profile. We need your <span className="font-semibold text-tines-purple">location</span> and <span className="font-semibold text-tines-purple">consumption patterns</span>.
+        <p className="mt-3 text-sm text-slate-500 leading-relaxed max-w-2xl">
+          Let's model your current building's energy profile. We need your <span className="font-medium text-slate-900">location</span> and <span className="font-medium text-slate-900">consumption patterns</span>.
         </p>
       </div>
 
@@ -664,25 +664,12 @@ export function Step1DigitalTwin({ businessType, onNext, onBack }: Step1DigitalT
       </div>
 
       {/* Navigation */}
-      <div className="flex justify-between">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="px-6 py-3 bg-white text-slate-700 font-medium rounded-lg border border-slate-200 hover:bg-slate-50 transition-all flex items-center gap-2"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-            </svg>
-            Back
-          </button>
-        )}
-
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={handleContinue}
           disabled={!canContinue}
-          className="px-8 py-3 bg-tines-purple text-white font-medium rounded-lg shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2 ml-auto"
+          className="px-8 py-3 bg-tines-purple text-white font-medium rounded-lg shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2"
         >
           Continue to Solar Configuration
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">

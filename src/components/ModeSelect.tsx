@@ -36,11 +36,11 @@ export function ModeSelect({ onSelectSolarBattery, onSelectTariff }: ModeSelectP
 
   return (
     <section className="max-w-4xl mx-auto py-8">
-      <div className="text-center mb-14">
-        <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 tracking-tight">
+      <div className="mb-10">
+        <h2 className="text-3xl font-serif font-bold text-slate-900 tracking-tight">
           What would you like to model?
         </h2>
-        <p className="mt-4 text-base text-slate-500 max-w-xl mx-auto font-light leading-relaxed">
+        <p className="mt-3 text-base text-slate-500 max-w-xl font-light leading-relaxed">
           Two independent tools, each built for a different question. Pick one to get started.
         </p>
       </div>

@@ -2,16 +2,33 @@
 
 ## Overview
 
-The solar ROI calculator now uses **CSV timeseries files** containing hourly solar irradiance data to distribute annual PV production across time with high fidelity.
+The solar ROI calculator uses **CSV timeseries files** containing **half-hourly** solar irradiance data (CAMS Radiation Service, 2020-2025) to distribute annual PV production across time with high fidelity.
+
+Legacy hourly PVGIS files (24 slots/day) are still accepted for backward compatibility.
 
 ## Data Format
 
 ### File Naming
 - Pattern: `{Location}_{Year}.csv`
-- Example: `Cavan_2020.csv`
+- Examples: `Cavan_2020.csv`, `Cork_North_2022.csv`
 - Location: Place files in `public/data/solar/`
 
-### CSV Structure
+### CAMS CSV Structure (current — half-hourly)
+
+```csv
+Latitude (decimal degrees):	53.835
+Longitude (decimal degrees):	-7.072
+Radiation database:	CAMS
+Representative town:	Cavan
+
+time,GHI,DHI,BHI,BNI
+20200101:0000,0.0,0.0,0.0,0.0
+20200101:0030,0.0,0.0,0.0,0.0
+20200101:0100,3.2,1.1,2.1,4.5
+...
+```
+
+### Legacy PVGIS CSV Structure (hourly, backward-compatible)
 
 ```csv
 Latitude (decimal degrees):	53.835
@@ -29,17 +46,27 @@ time,G(i),H_sun,T2m,WS10m,Int
 
 ### Key Columns
 
-1. **Header Metadata** (Tab-separated):
-   - Latitude, Longitude, Elevation
-   - Radiation database source
+1. **Header Metadata** (Tab-separated key: value pairs):
+   - Latitude, Longitude
+   - Radiation database source (`CAMS` or `PVGIS-SARAH3`)
+   - Representative town (CAMS files)
 
-2. **Data Columns** (Comma-separated):
-   - `time`: Format `YYYYMMdd:HHmm` (e.g., `20200101:0011`)
-   - `G(i)`: **Global Horizontal Irradiance (W/m²)** - This is the primary column used
-   - `H_sun`: Sun height (degrees)
-   - `T2m`: Temperature at 2m (°C)
-   - `WS10m`: Wind speed at 10m (m/s)
-   - `Int`: Irradiance interpolation flag
+2. **CAMS Data Columns** (Comma-separated):
+   - `time`: Format `YYYYMMdd:HHMM` (e.g., `20200101:0030`)
+   - `GHI`: **Global Horizontal Irradiance (W/m²)** — primary column
+   - `DHI`: Diffuse Horizontal Irradiance (W/m²)
+   - `BHI`: Beam (Direct) Horizontal Irradiance (W/m²)
+   - `BNI`: Beam Normal Irradiance (W/m²)
+
+3. **PVGIS Data Columns** (Comma-separated):
+   - `time`: Format `YYYYMMdd:HHmm`
+   - `G(i)`: Global Horizontal Irradiance (W/m²)
+
+### Resolution Detection
+
+The parser auto-detects resolution from the data header line:
+- Header contains `time,GHI` → **CAMS half-hourly** (48 slots/day, 17 520/17 568 per year)
+- Header contains `time,G(i)` → **PVGIS hourly** (24 slots/day, 8 760/8 784 per year)
 
 ## Distribution Algorithm
 
@@ -106,16 +133,17 @@ const monthlyProduction = aggregateToMonthly(hourlyProduction, solarData);
 
 ### 3. Display
 - Shows monthly breakdown with realistic seasonal variation
-- Indicates number of hourly timesteps loaded
+- Indicates number of timesteps loaded and detected resolution
 - Peak month identification
 
 ## Important Notes
 
 ### What This Does
 ✅ Distributes annual PV energy proportionally to ground irradiance  
-✅ Preserves realistic dawn/dusk patterns  
+✅ Preserves realistic dawn/dusk patterns at half-hourly resolution  
 ✅ Captures seasonal day length variations  
-✅ Provides hourly resolution for future time-of-use matching  
+✅ Provides half-hourly resolution for accurate time-of-use matching  
+✅ Includes cloud cover (CAMS all-sky GHI)  
 
 ### What This Does NOT Do
 ❌ Model PV module efficiency  
@@ -123,18 +151,21 @@ const monthlyProduction = aggregateToMonthly(hourlyProduction, solarData);
 ❌ Include inverter losses  
 ❌ Calculate system sizing  
 
-**Why**: The annual production value is designed elsewhere with proper modeling tools. This file only provides the **temporal shape** to distribute that pre-calculated energy.
+**Why**: The annual production value is pre-calculated from external design tools. This file only provides the **temporal shape** to distribute that energy.
 
 ## Adding New Locations
 
-1. Obtain PVGIS CSV file for location (horizontal plane, tilt=0°)
+1. Download CAMS data using `scripts/download_cams.py` for the desired location
 2. Save as `{LocationName}_{Year}.csv` in `public/data/solar/`
-3. Add location name to `availableLocations` array in `src/components/steps/Step1DigitalTwin.tsx`
+3. Add location name to `ALL_LOCATIONS` in `src/utils/solarLocationDiscovery.ts`
 4. The system will automatically load and process the file via `loadSolarData()`
 
 ## Data Source
 
-Recommended: [PVGIS (Photovoltaic Geographical Information System)](https://re.jrc.ec.europa.eu/pvgis/)
+Current: [CAMS Radiation Service](https://www.soda-pro.com/web-services/radiation/cams-radiation-service)  
+accessed via `pvlib.iotools.get_cams()` — 15-min data aggregated to 30-min.
+
+Legacy: [PVGIS (Photovoltaic Geographical Information System)](https://re.jrc.ec.europa.eu/pvgis/)
 - Database: PVGIS-SARAH3
 - Configuration: Horizontal plane (Slope: 0°)
 - Output: Hourly irradiance data

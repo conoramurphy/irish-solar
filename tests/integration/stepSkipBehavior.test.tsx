@@ -13,9 +13,8 @@ vi.mock('../../src/components/steps/Step0BuildingType', () => ({
 }));
 
 vi.mock('../../src/components/steps/Step1DigitalTwin', () => ({
-  Step1DigitalTwin: ({ onNext, onBack }: any) => (
+  Step1DigitalTwin: ({ onNext }: any) => (
     <div data-testid="step1">
-      <button onClick={onBack}>Back</button>
       <button onClick={() => onNext({
         location: 'Cavan',
         exampleMonths: [],
@@ -28,16 +27,16 @@ vi.mock('../../src/components/steps/Step1DigitalTwin', () => ({
 }));
 
 vi.mock('../../src/components/steps/Step2Solar', () => ({
-  Step2Solar: ({ onNext, onBack }: any) => (
+  Step2Solar: ({ onNext }: any) => (
     <div data-testid="step2">
-      <button onClick={onBack}>Back</button>
       <button
         onClick={() =>
           onNext({
             solarData: {
               year: 2020,
+              slotsPerDay: 24,
               timesteps: Array.from({ length: 8760 }, (_, i) => ({
-                stamp: { year: 2020, monthIndex: 0, day: 1, hour: 0 },
+                stamp: { year: 2020, monthIndex: 0, day: 1, hour: 0, minute: 0 },
                 hourKey: `2020-01-01T00`,
                 irradianceWm2: 0,
                 sourceIndex: i
@@ -54,18 +53,16 @@ vi.mock('../../src/components/steps/Step2Solar', () => ({
 }));
 
 vi.mock('../../src/components/steps/Step3Battery', () => ({
-  Step3Battery: ({ onNext, onBack }: any) => (
+  Step3Battery: ({ onNext }: any) => (
     <div data-testid="step3">
-      <button onClick={onBack}>Back</button>
       <button onClick={onNext}>Next</button>
     </div>
   ),
 }));
 
 vi.mock('../../src/components/steps/Step4Finance', () => ({
-  Step4Finance: ({ onBack, onGenerateReport }: any) => (
+  Step4Finance: ({ onGenerateReport }: any) => (
     <div data-testid="step4">
-      <button onClick={onBack}>Back</button>
       <button onClick={() => onGenerateReport({
         grants: [],
         upfrontCost: 15000,
@@ -94,9 +91,10 @@ vi.mock('../../src/utils/solarDataLoader', () => ({
     longitude: 0,
     elevation: 0,
     year,
+    slotsPerDay: 24,
     timesteps: Array.from({ length: 8760 }, (_, i) => ({
       timestamp: new Date(Date.UTC(year, 0, 1, 0, 0, 0)),
-      stamp: { year, monthIndex: 0, day: 1, hour: 0 },
+      stamp: { year, monthIndex: 0, day: 1, hour: 0, minute: 0 },
       hourKey: `${year}-01-01T00`,
       irradianceWm2: 0,
       sourceIndex: i
@@ -222,8 +220,8 @@ describe('Step Skip Behavior', () => {
     await user.click(screen.getByText('Select Hotel'));
     await waitFor(() => expect(screen.getByTestId('step1')).toBeInTheDocument());
 
-    // Click back
-    const backButtons = screen.getAllByText('Back');
+    // Click back using global back button
+    const backButtons = screen.getAllByRole('button', { name: /Back/i });
     await user.click(backButtons[0]);
 
     // Should go back to Step 0

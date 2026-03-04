@@ -75,10 +75,24 @@ export function getTariffBucketForHour(hour: number, tariff: Tariff): TariffBuck
 }
 
 /**
- * Generate a realistic daily consumption curve (0-23 hours)
- * Returns normalized values that sum to 1
+ * Expand an hourly curve (24 values) to a half-hourly curve (48 values) by
+ * repeating each hourly value into two equal 30-minute slots.
  */
-export function generateDailyConsumptionCurve(businessType: BusinessType = 'hotel'): number[] {
+function expandHourlyTo30Min(hourly: number[]): number[] {
+  const result: number[] = [];
+  for (const v of hourly) {
+    result.push(v / 2, v / 2);
+  }
+  return result;
+}
+
+/**
+ * Generate a realistic daily consumption curve.
+ * @param businessType Business type
+ * @param slotsPerDay 24 for hourly, 48 for half-hourly
+ * Returns normalized values that sum to 1 (length equals slotsPerDay).
+ */
+export function generateDailyConsumptionCurve(businessType: BusinessType = 'hotel', slotsPerDay: 24 | 48 = 24): number[] {
   if (businessType === 'farm') {
     // Dairy Farm Profile (MECD mechanistic framework)
     // Two-peak pattern: Morning (07:00) and Evening (17:00) milking
@@ -121,15 +135,11 @@ export function generateDailyConsumptionCurve(businessType: BusinessType = 'hote
     ];
 
     const sum = hourlyFactors.reduce((a, b) => a + b, 0);
-    return hourlyFactors.map(f => f / sum);
+    const normalized = hourlyFactors.map(f => f / sum);
+    return slotsPerDay === 48 ? expandHourlyTo30Min(normalized) : normalized;
   }
 
   // Default: Commercial/Hotel consumption pattern
-  // - Low at night (00:00-06:00)
-  // - Rising in morning (06:00-09:00)
-  // - High during day (09:00-18:00)
-  // - Moderate evening (18:00-23:00)
-  
   const hourlyFactors = [
     0.6, 0.5, 0.5, 0.5, 0.5, 0.6,  // 00-05: night (low)
     0.8, 1.0, 1.2, 1.3, 1.3, 1.3,  // 06-11: morning ramp + midday
@@ -138,25 +148,30 @@ export function generateDailyConsumptionCurve(businessType: BusinessType = 'hote
   ];
   
   const sum = hourlyFactors.reduce((a, b) => a + b, 0);
-  return hourlyFactors.map(f => f / sum);
+  const normalized = hourlyFactors.map(f => f / sum);
+  return slotsPerDay === 48 ? expandHourlyTo30Min(normalized) : normalized;
 }
 
 /**
- * Distribute monthly consumption across hours based on bucket shares
+ * Distribute monthly consumption across slots based on bucket shares.
+ * Supports both hourly (slotsPerDay=24) and half-hourly (slotsPerDay=48) output.
+ *
  * @param monthlyKwh Total consumption for the month
  * @param bucketShares Share of consumption in each tariff bucket (should sum to 1)
  * @param daysInMonth Number of days in the month
  * @param tariff Tariff configuration to determine hour-to-bucket mapping
  * @param businessType Business type to determine daily profile shape
+ * @param slotsPerDay 24 for hourly, 48 for half-hourly
  */
 export function distributeMonthlyConsumptionToHourly(
   monthlyKwh: number,
   bucketShares: Record<TariffBucketKey, number>,
   daysInMonth: number,
   tariff: Tariff,
-  businessType: BusinessType = 'hotel'
+  businessType: BusinessType = 'hotel',
+  slotsPerDay: 24 | 48 = 24
 ): number[] {
-  const dailyCurve = generateDailyConsumptionCurve(businessType);
+  const dailyCurve = generateDailyConsumptionCurve(businessType, slotsPerDay);
   
   // First, determine how much energy belongs to each bucket
   const bucketAllocations = new Map<TariffBucketKey, number>();
@@ -164,21 +179,23 @@ export function distributeMonthlyConsumptionToHourly(
     bucketAllocations.set(bucket, monthlyKwh * share);
   }
   
-  // Count hours in each bucket
-  const bucketHourCounts = new Map<TariffBucketKey, number>();
-  for (let hour = 0; hour < 24; hour++) {
+  // Count slots in each bucket (TOU is still based on the wall-clock hour)
+  const bucketSlotCounts = new Map<TariffBucketKey, number>();
+  for (let slot = 0; slot < slotsPerDay; slot++) {
+    const hour = Math.floor(slot / (slotsPerDay / 24));
     const bucket = getTariffBucketForHour(hour, tariff);
-    bucketHourCounts.set(bucket, (bucketHourCounts.get(bucket) || 0) + 1);
+    bucketSlotCounts.set(bucket, (bucketSlotCounts.get(bucket) || 0) + 1);
   }
   
-  // Calculate daily curve factors normalized per bucket
+  // Build per-bucket daily curve arrays
   const bucketCurves = new Map<TariffBucketKey, number[]>();
-  for (let hour = 0; hour < 24; hour++) {
+  for (let slot = 0; slot < slotsPerDay; slot++) {
+    const hour = Math.floor(slot / (slotsPerDay / 24));
     const bucket = getTariffBucketForHour(hour, tariff);
     if (!bucketCurves.has(bucket)) {
       bucketCurves.set(bucket, []);
     }
-    bucketCurves.get(bucket)!.push(dailyCurve[hour]);
+    bucketCurves.get(bucket)!.push(dailyCurve[slot]);
   }
   
   // Normalize curves per bucket so they sum to 1
@@ -189,47 +206,44 @@ export function distributeMonthlyConsumptionToHourly(
   }
   
   // Distribute consumption across the month
-  const hourlyConsumption: number[] = [];
+  const slotConsumption: number[] = [];
   for (let day = 0; day < daysInMonth; day++) {
-    const bucketHourIndices = new Map<TariffBucketKey, number>();
+    const bucketSlotIndices = new Map<TariffBucketKey, number>();
     
-    for (let hour = 0; hour < 24; hour++) {
+    for (let slot = 0; slot < slotsPerDay; slot++) {
+      const hour = Math.floor(slot / (slotsPerDay / 24));
       const bucket = getTariffBucketForHour(hour, tariff);
       const bucketEnergy = bucketAllocations.get(bucket) || 0;
-      const bucketHourCount = bucketHourCounts.get(bucket) || 1;
+      const bucketSlotCount = bucketSlotCounts.get(bucket) || 1;
       const bucketCurve = normalizedBucketCurves.get(bucket) || [];
-      const bucketHourIndex = bucketHourIndices.get(bucket) || 0;
+      const bucketSlotIndex = bucketSlotIndices.get(bucket) || 0;
       
-      // Daily energy for this bucket
       const dailyBucketEnergy = bucketEnergy / daysInMonth;
-      
-      // Hour's share of daily bucket energy (using normalized curve)
-      const curveFactor = bucketCurve[bucketHourIndex] || (1 / bucketHourCount);
-      const hourConsumption = dailyBucketEnergy * curveFactor;
-      
-      hourlyConsumption.push(hourConsumption);
-      bucketHourIndices.set(bucket, bucketHourIndex + 1);
+      const curveFactor = bucketCurve[bucketSlotIndex] || (1 / bucketSlotCount);
+      slotConsumption.push(dailyBucketEnergy * curveFactor);
+      bucketSlotIndices.set(bucket, bucketSlotIndex + 1);
     }
   }
   
-  return hourlyConsumption;
+  return slotConsumption;
 }
 
 /**
- * Convert a monthly consumption profile into hourly consumption for a full year
- * Returns an array of 8760 hourly consumption values (kWh)
+ * Convert a monthly consumption profile into per-slot consumption for a full year.
+ * Supports both hourly (slotsPerDay=24) and half-hourly (slotsPerDay=48) output.
+ * Returns an array of totalSlotsInYear consumption values (kWh per slot).
  */
 export function generateHourlyConsumption(
   consumptionProfile: ConsumptionProfile,
   tariff: Tariff,
   totalHoursInYear = 8760,
-  timeStamps?: Array<{ monthIndex: number; day: number; hour: number }>,
+  timeStamps?: Array<{ monthIndex: number; day: number; hour: number; minute?: number }>,
   businessType: BusinessType = 'hotel'
 ): number[] {
-  const hourlyConsumption: number[] = [];
+  const slotsPerDay: 24 | 48 = totalHoursInYear > 10000 ? 48 : 24;
+  const slotConsumption: number[] = [];
   const daysPerMonth = getDaysPerMonthFromHours(totalHoursInYear);
   
-  // For each month
   for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
     const month = consumptionProfile.months[monthIndex];
     if (!month) continue;
@@ -238,58 +252,48 @@ export function generateHourlyConsumption(
     const bucketShares = month.bucketShares || {};
     const daysInMonth = daysPerMonth[monthIndex] ?? DAYS_PER_MONTH_NON_LEAP[monthIndex];
     
-    const monthHourly = distributeMonthlyConsumptionToHourly(
+    const monthSlots = distributeMonthlyConsumptionToHourly(
       monthlyKwh,
       bucketShares,
       daysInMonth,
       tariff,
-      businessType
+      businessType,
+      slotsPerDay
     );
     
-    hourlyConsumption.push(...monthHourly);
+    slotConsumption.push(...monthSlots);
   }
   
-  // Should be exactly totalHoursInYear hours (8760 non-leap, 8784 leap)
-  if (hourlyConsumption.length !== totalHoursInYear) {
-    throw new Error(`generateHourlyConsumption produced ${hourlyConsumption.length} hours, expected ${totalHoursInYear}`);
+  if (slotConsumption.length !== totalHoursInYear) {
+    throw new Error(`generateHourlyConsumption produced ${slotConsumption.length} slots, expected ${totalHoursInYear}`);
   }
 
   if (timeStamps && timeStamps.length !== totalHoursInYear) {
     throw new Error('timeStamps length must match totalHoursInYear');
   }
 
-  // If stamps are provided, sanity-check that our month/day/hour sequence matches.
-  if (timeStamps) {
-    for (let i = 0; i < timeStamps.length; i++) {
-      const stamp = timeStamps[i]!;
-      const expectedMonth = stamp.monthIndex;
-      // We cannot cheaply validate day/hour without rebuilding the same loop; month alignment is the main risk.
-      // Month mismatch indicates a sliding bug.
-      // Note: distribution logic still uses hour-of-day for TOU bucketing.
-      void expectedMonth;
-    }
-  }
-
-  return hourlyConsumption;
+  return slotConsumption;
 }
 
 /**
- * Aggregate hourly consumption back to monthly totals (for validation)
+ * Aggregate per-slot consumption back to monthly totals (for validation).
+ * Works for both hourly (8760/8784) and half-hourly (17520/17568) arrays.
  */
 export function aggregateHourlyToMonthly(hourlyConsumption: number[]): number[] {
   const monthlyTotals: number[] = [];
-  let hourIndex = 0;
+  let slotIndex = 0;
 
+  const slotsPerDay: 24 | 48 = hourlyConsumption.length > 10000 ? 48 : 24;
   const daysPerMonth = getDaysPerMonthFromHours(hourlyConsumption.length);
   
   for (let monthIndex = 0; monthIndex < 12; monthIndex++) {
     const daysInMonth = daysPerMonth[monthIndex] ?? DAYS_PER_MONTH_NON_LEAP[monthIndex];
-    const hoursInMonth = daysInMonth * 24;
+    const slotsInMonth = daysInMonth * slotsPerDay;
     
     let monthTotal = 0;
-    for (let i = 0; i < hoursInMonth; i++) {
-      monthTotal += hourlyConsumption[hourIndex] || 0;
-      hourIndex++;
+    for (let i = 0; i < slotsInMonth; i++) {
+      monthTotal += hourlyConsumption[slotIndex] || 0;
+      slotIndex++;
     }
     
     monthlyTotals.push(monthTotal);

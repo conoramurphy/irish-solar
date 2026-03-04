@@ -22,24 +22,27 @@ function downloadCsv(filename: string, rows: Array<Record<string, string | numbe
   URL.revokeObjectURL(url);
 }
 
-function hourToMonthIndexFallback(hour: number, totalHoursInYear: number): number {
-  const febDays = totalHoursInYear === 8784 ? 29 : 28;
+function hourToMonthIndexFallback(slotIndex: number, totalSlotsInYear: number): number {
+  const slotsPerDay: 24 | 48 = totalSlotsInYear > 10000 ? 48 : 24;
+  const febDays = (totalSlotsInYear === 8784 || totalSlotsInYear === 17568) ? 29 : 28;
   const daysPerMonth = [31, febDays, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-  let cumulativeHours = 0;
+  let cumulative = 0;
   for (let m = 0; m < 12; m++) {
-    const monthHours = daysPerMonth[m] * 24;
-    if (hour < cumulativeHours + monthHours) return m;
-    cumulativeHours += monthHours;
+    const monthSlots = daysPerMonth[m] * slotsPerDay;
+    if (slotIndex < cumulative + monthSlots) return m;
+    cumulative += monthSlots;
   }
   return 11;
 }
 
-export function AuditModal({ audit, onClose }: { audit: NonNullable<CalculationResult['audit']>; onClose: () => void }) {
+export function AuditModal({ audit, onClose, excludeVat }: { audit: NonNullable<CalculationResult['audit']>; onClose: () => void; excludeVat?: boolean }) {
   const [tab, setTab] = useState<'hourly' | 'monthly'>('monthly');
   const [query, setQuery] = useState('');
   const [bucket, setBucket] = useState<string>('');
   const [page, setPage] = useState(1);
   const pageSize = 200;
+
+  const vatSuffix = excludeVat ? ' (Ex. VAT)' : ' (Inc. VAT)';
 
   const bucketOptions = useMemo(() => {
     const set = new Set(audit.hourly.map((h) => h.tariffBucket));
@@ -179,7 +182,7 @@ export function AuditModal({ audit, onClose }: { audit: NonNullable<CalculationR
 
           <div className="text-xs text-slate-600">
             Totals: {formatKwh(totals.generation)} kWh gen · {formatKwh(totals.consumption)} kWh load ·{' '}
-            {formatCurrency(totals.savings)} savings
+            {formatCurrency(totals.savings)} savings {vatSuffix}
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -216,10 +219,10 @@ export function AuditModal({ audit, onClose }: { audit: NonNullable<CalculationR
 
         <div className="flex-1 overflow-auto">
           {tab === 'monthly' ? (
-            <MonthlyTable monthly={audit.monthly} />
+            <MonthlyTable monthly={audit.monthly} vatSuffix={vatSuffix} />
           ) : (
             <>
-              <HourlyTable rows={pagedHourly} />
+              <HourlyTable rows={pagedHourly} vatSuffix={vatSuffix} />
               <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-white">
                 <div className="text-xs text-slate-500">
                   Showing {pagedHourly.length.toLocaleString()} of {filteredHourly.length.toLocaleString()} rows (page {page} / {pageCount}).
@@ -260,7 +263,7 @@ export function AuditModal({ audit, onClose }: { audit: NonNullable<CalculationR
   );
 }
 
-function MonthlyTable({ monthly }: { monthly: NonNullable<CalculationResult['audit']>['monthly'] }) {
+function MonthlyTable({ monthly, vatSuffix }: { monthly: NonNullable<CalculationResult['audit']>['monthly']; vatSuffix: string }) {
   return (
     <table className="min-w-full text-sm">
       <thead className="sticky top-0 bg-white">
@@ -271,12 +274,12 @@ function MonthlyTable({ monthly }: { monthly: NonNullable<CalculationResult['aud
           <th className="px-4 py-3 text-right font-semibold text-slate-700">Import (kWh)</th>
           <th className="px-4 py-3 text-right font-semibold text-slate-700">Export (kWh)</th>
           <th className="px-4 py-3 text-right font-semibold text-slate-700">Self-cons (kWh)</th>
-          <th className="px-4 py-3 text-right font-semibold text-slate-700">Baseline (€)</th>
-          <th className="px-4 py-3 text-right font-semibold text-slate-700">Import cost (€)</th>
-          <th className="px-4 py-3 text-right font-semibold text-slate-700">Export rev (€)</th>
-          <th className="px-4 py-3 text-right font-semibold text-slate-700">Savings (€)</th>
-          <th className="px-4 py-3 text-right font-semibold text-slate-700">Debt pay (€)</th>
-          <th className="px-4 py-3 text-right font-semibold text-slate-700">Out of pocket (€)</th>
+          <th className="px-4 py-3 text-right font-semibold text-slate-700">Baseline{vatSuffix}</th>
+          <th className="px-4 py-3 text-right font-semibold text-slate-700">Import cost{vatSuffix}</th>
+          <th className="px-4 py-3 text-right font-semibold text-slate-700">Export rev{vatSuffix}</th>
+          <th className="px-4 py-3 text-right font-semibold text-slate-700">Savings{vatSuffix}</th>
+          <th className="px-4 py-3 text-right font-semibold text-slate-700">Debt pay{vatSuffix}</th>
+          <th className="px-4 py-3 text-right font-semibold text-slate-700">Out of pocket{vatSuffix}</th>
         </tr>
       </thead>
       <tbody>
@@ -305,7 +308,7 @@ function MonthlyTable({ monthly }: { monthly: NonNullable<CalculationResult['aud
   );
 }
 
-function HourlyTable({ rows }: { rows: HourlyEnergyFlow[] }) {
+function HourlyTable({ rows, vatSuffix }: { rows: HourlyEnergyFlow[]; vatSuffix: string }) {
   return (
     <table className="min-w-full text-xs">
       <thead className="sticky top-0 bg-white">
@@ -319,10 +322,10 @@ function HourlyTable({ rows }: { rows: HourlyEnergyFlow[] }) {
           <th className="px-3 py-2 text-right font-semibold text-slate-700">Import</th>
           <th className="px-3 py-2 text-right font-semibold text-slate-700">Export</th>
           <th className="px-3 py-2 text-right font-semibold text-slate-700">SoC</th>
-          <th className="px-3 py-2 text-right font-semibold text-slate-700">Baseline €</th>
-          <th className="px-3 py-2 text-right font-semibold text-slate-700">Import €</th>
-          <th className="px-3 py-2 text-right font-semibold text-slate-700">Export €</th>
-          <th className="px-3 py-2 text-right font-semibold text-slate-700">Savings €</th>
+          <th className="px-3 py-2 text-right font-semibold text-slate-700">Baseline{vatSuffix}</th>
+          <th className="px-3 py-2 text-right font-semibold text-slate-700">Import{vatSuffix}</th>
+          <th className="px-3 py-2 text-right font-semibold text-slate-700">Export{vatSuffix}</th>
+          <th className="px-3 py-2 text-right font-semibold text-slate-700">Savings{vatSuffix}</th>
         </tr>
       </thead>
       <tbody>

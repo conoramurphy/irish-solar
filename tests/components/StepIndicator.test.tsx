@@ -34,10 +34,11 @@ describe('StepIndicator', () => {
     expect(container.querySelectorAll('.bg-indigo-600').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('uses a 4-column grid layout', () => {
+  it('uses a flex row layout', () => {
     const { container } = render(<StepIndicator steps={steps} currentStep={1} completedSteps={new Set()} />);
 
-    const gridContainer = container.querySelector('ol.grid');
-    expect(gridContainer).toHaveClass('grid-cols-4');
+    const gridContainer = container.querySelector('ol.flex');
+    expect(gridContainer).toBeInTheDocument();
+    expect(gridContainer).toHaveClass('items-center');
   });
 });

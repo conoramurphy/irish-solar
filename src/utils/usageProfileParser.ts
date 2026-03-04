@@ -1,14 +1,16 @@
 import { startSpan, endSpan, logError, logInfo } from './logger';
 
 export interface UsageProfileParseResult {
-  /** 8760 (or 8784) hourly kWh values */
+  /** Per-slot kWh values. 17520/17568 for half-hourly, 8760/8784 for legacy hourly. */
   hourlyConsumption: number[];
   /** The primary year detected in the file */
   year: number;
   /** Total kWh consumption */
   totalKwh: number;
-  /** Warnings (e.g. missing hours, filled gaps) */
+  /** Warnings (e.g. missing slots, filled gaps) */
   warnings: string[];
+  /** Resolution: 24 = hourly, 48 = half-hourly */
+  slotsPerDay: 24 | 48;
 }
 
 /**
@@ -19,8 +21,8 @@ export interface UsageProfileParseResult {
  * 1. Parse CSV to extract { timestamp, value, type }
  * 2. Filter for "Active Import Interval (kW)"
  * 3. Convert 30-min kW readings to kWh (Value * 0.5)
- * 4. Aggregate to hourly (sum of XX:30 and (XX+1):00)
- * 5. Normalize to a full year grid
+ * 4. Map each 30-min reading to its half-hourly slot (native resolution — no aggregation to hourly)
+ * 5. Normalize to a full year half-hourly grid (17520 or 17568 slots)
  */
 export function parseEsbUsageProfile(csvText: string, targetYear?: number): UsageProfileParseResult {
   const spanId = startSpan('parser', 'parseEsbUsageProfile', { targetYear });
@@ -77,25 +79,23 @@ export function parseEsbUsageProfile(csvText: string, targetYear?: number): Usag
 
       if (!day || !month || !year) continue;
 
-      // Create UTC date to avoid timezone issues (we treat the file times as "wall clock" for the site)
-      // We align to UTC because the solar engine uses UTC.
-      // 00:00 in file -> 00:00 in engine.
-      const ts = Date.UTC(year, month - 1, day, hour, min);
-      
-      // Value is kW average for 30 mins -> kWh = kW * 0.5
-      const val = parseFloat(valStr);
-      if (isNaN(val)) continue;
-      
-      const kwh = val * 0.5;
+    // Create UTC date to avoid timezone issues (we treat the file times as "wall clock" for the site)
+    const ts = Date.UTC(year, month - 1, day, hour, min);
+    
+    // Value is kW average for 30 mins -> kWh = kW * 0.5
+    const val = parseFloat(valStr);
+    if (isNaN(val)) continue;
+    
+    const kwh = val * 0.5;
 
-      points.push({ time: ts, kwh });
-      
-      // Count years based on INTERVAL START, not End Time.
-      // End Time 00:00 on Jan 1 belongs to Dec 31 of previous year.
-      const intervalStart = ts - 30 * 60 * 1000;
-      const sYear = new Date(intervalStart).getUTCFullYear();
-      
-      yearCounts.set(sYear, (yearCounts.get(sYear) || 0) + 1);
+    points.push({ time: ts, kwh });
+    
+    // Count years based on INTERVAL START, not End Time.
+    // End Time 00:00 on Jan 1 belongs to Dec 31 of previous year.
+    const intervalStart = ts - 30 * 60 * 1000;
+    const sYear = new Date(intervalStart).getUTCFullYear();
+    
+    yearCounts.set(sYear, (yearCounts.get(sYear) || 0) + 1);
     }
 
     if (points.length === 0) {
@@ -119,78 +119,62 @@ export function parseEsbUsageProfile(csvText: string, targetYear?: number): Usag
 
     logInfo('parser', `Selected year for usage profile: ${year}`);
 
-    // Create grid for the selected year
+    // Build a half-hourly grid (48 slots/day) — native ESB resolution
     const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
     const daysInYear = isLeap ? 366 : 365;
-    const hoursInYear = daysInYear * 24;
-    const hourlyConsumption = new Float32Array(hoursInYear);
+    const slotsPerDay = 48;
+    const slotsInYear = daysInYear * slotsPerDay; // 17520 or 17568
+    const slotConsumption = new Float32Array(slotsInYear);
 
     // Sort points
     points.sort((a, b) => a.time - b.time);
 
-    // Map points to grid
-    // Logic: 
-    // Grid Hour 0 (00:00-01:00) should sum points ending at 00:30 and 01:00.
-    // Point timestamp is "End Time".
-    // So timestamp T belongs to the hour (T - 1ms).getHours()?
-    // Example: 
-    // 00:30 belongs to 00:00-01:00 segment (Hour 0).
-    // 01:00 belongs to 00:00-01:00 segment (Hour 0).
-    // 01:30 belongs to 01:00-02:00 segment (Hour 1).
-    
+    // Map each 30-min ESB reading to its half-hourly slot.
+    // ESB timestamp is "End Time" of the interval, so interval start = ts - 30 min.
+    // Slot index = minutes since start of year / 30.
     let mappedCount = 0;
 
     for (const p of points) {
-      // Calculate Interval Start
       const intervalStart = p.time - 30 * 60 * 1000;
       const dStart = new Date(intervalStart);
       const sYear = dStart.getUTCFullYear();
 
-      // If we are strictly filtering by year:
-      if (targetYear && sYear !== targetYear) {
-        continue;
-      }
-      
-      // If we inferred the year, we should only use points from that year 
+      if (targetYear && sYear !== targetYear) continue;
       if (sYear !== year) continue;
 
-      // Calculate hour index 0..8759
       const startOfCurrentYear = Date.UTC(year, 0, 1);
-      const diffSinceStart = intervalStart - startOfCurrentYear;
-      const hoursSinceStart = Math.floor(diffSinceStart / (1000 * 60 * 60));
-      
-      if (hoursSinceStart >= 0 && hoursSinceStart < hoursInYear) {
-        hourlyConsumption[hoursSinceStart] += p.kwh;
+      const diffMs = intervalStart - startOfCurrentYear;
+      const slotIndex = Math.floor(diffMs / (30 * 60 * 1000));
+
+      if (slotIndex >= 0 && slotIndex < slotsInYear) {
+        slotConsumption[slotIndex] += p.kwh;
         mappedCount++;
       }
     }
 
-    const totalKwh = hourlyConsumption.reduce((a, b) => a + b, 0);
+    const totalKwh = slotConsumption.reduce((a, b) => a + b, 0);
     
-    // Check for gaps
-    // We expect 2 points per hour. If usage is low, it might be valid.
-    // But if 0, it might be missing.
-    // Let's count zeros?
     let zeroCount = 0;
-    for (let i = 0; i < hourlyConsumption.length; i++) {
-      if (hourlyConsumption[i] === 0) zeroCount++;
+    for (let i = 0; i < slotConsumption.length; i++) {
+      if (slotConsumption[i] === 0) zeroCount++;
     }
     
-    if (zeroCount > 24) { // somewhat arbitrary threshold
-      warnings.push(`${zeroCount} hours have 0 consumption. This might indicate missing data.`);
+    if (zeroCount > slotsPerDay) {
+      warnings.push(`${zeroCount} half-hourly slots have 0 consumption. This might indicate missing data.`);
     }
     
-    if (mappedCount < hoursInYear * 2 * 0.9) {
-       warnings.push(`Only found ${mappedCount} half-hourly readings for year ${year}. Expected ~${hoursInYear * 2}. Data may be incomplete.`);
+    if (mappedCount < slotsInYear * 0.9) {
+      warnings.push(`Only found ${mappedCount} half-hourly readings for year ${year}. Expected ~${slotsInYear}. Data may be incomplete.`);
     }
 
     endSpan(spanId, 'success', { year, totalKwh, warnings: warnings.length });
 
     return {
-      hourlyConsumption: Array.from(hourlyConsumption),
+      hourlyConsumption: Array.from(slotConsumption),
       year,
       totalKwh,
-      warnings
+      warnings,
+      slotsPerDay
     };
 
   } catch (e) {

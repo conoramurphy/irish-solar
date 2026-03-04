@@ -29,9 +29,9 @@ import { SavedReportsList } from './components/SavedReportsList';
 import { useSavedReports } from './hooks/useSavedReports';
 import type { SavedReport } from './types/savedReports';
 import { Hero } from './components/Hero';
+import { UnifiedWizardBar } from './components/UnifiedWizardBar';
 import { ModeSelect } from './components/ModeSelect';
 import { TariffModeller } from './components/TariffModeller';
-import { StepIndicator } from './components/StepIndicator';
 import { Step0BuildingType } from './components/steps/Step0BuildingType';
 import { Step1DigitalTwin } from './components/steps/Step1DigitalTwin';
 import { Step2Solar } from './components/steps/Step2Solar';
@@ -288,9 +288,10 @@ function App() {
     // Consumption must be provided either via an imported hourly override OR a non-zero monthly profile.
     if (hourlyConsumptionOverride) {
       const n = hourlyConsumptionOverride.length;
-      if (n !== 8760 && n !== 8784) {
+      const validConsumptionLengths = [8760, 8784, 17520, 17568];
+      if (!validConsumptionLengths.includes(n)) {
         setCalculationError(
-          `Imported hourly consumption must have 8,760 or 8,784 hours. Received ${n}. ` +
+          `Imported consumption must have 8,760/8,784 (hourly) or 17,520/17,568 (half-hourly) slots. Received ${n}. ` +
             'Please re-import a full-year file.'
         );
         return;
@@ -760,22 +761,26 @@ function App() {
 
   return (
     <div className="min-h-screen bg-tines-light font-sans text-slate-600">
-      <Hero 
-        compact={appMode !== null} 
-        rightContent={
-          showSolarBattery ? (
-            <button
-              onClick={() => setShowSavedReports(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-white/90 bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
-              </svg>
-              Saved Reports
-            </button>
-          ) : null
-        }
-      />
+      {appMode === null ? (
+        <Hero compact={false} />
+      ) : (
+        <UnifiedWizardBar
+          appMode={appMode}
+          onBack={() => {
+            if (appMode === 'solar-battery' && currentStep > 0 && !standardResult) {
+              handleBackStep();
+            } else {
+              setAppMode(null);
+            }
+          }}
+          onExit={() => setAppMode(null)}
+          onOpenSavedReports={showSolarBattery ? () => setShowSavedReports(true) : undefined}
+          showExit={appMode === 'solar-battery' && (currentStep > 0 || standardResult !== null)}
+          steps={appMode === 'solar-battery' && currentStep > 0 && !standardResult ? steps : undefined}
+          currentStep={currentStep > 0 && !standardResult ? currentStep : undefined}
+          completedSteps={completedSteps}
+        />
+      )}
 
       {/* Saved Reports List Modal (solar & battery mode only) */}
       {showSolarBattery && (
@@ -790,22 +795,7 @@ function App() {
           />
       )}
 
-      <main className="mx-auto max-w-7xl px-6 py-6 md:py-8 relative z-20">
-        {/* Global Breadcrumb Navigation */}
-        {appMode !== null && (
-          <div className="mb-6 max-w-5xl mx-auto xl:max-w-none">
-            <button
-              type="button"
-              onClick={() => setAppMode(null)}
-              className="flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-              </svg>
-              Home
-            </button>
-          </div>
-        )}
+      <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 md:py-8 relative z-20">
 
         {appMode === null && (
           <ModeSelect
@@ -896,18 +886,12 @@ function App() {
                   />
                 </div>
 
-                {/* Step Indicator */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-3 md:p-4 mb-6">
-                  <StepIndicator steps={steps} currentStep={currentStep} completedSteps={completedSteps} />
-                </div>
-
                 {/* Step Content — max-w constrained for comfortable reading */}
-                <div className="max-w-3xl">
+                <div className="max-w-3xl mx-auto w-full mt-6">
                   {currentStep === 1 && (
                     <Step1DigitalTwin
                       businessType={config.businessType}
                       onNext={(data) => handleNextStep(1, data)}
-                      onBack={handleBackStep}
                     />
                   )}
 
@@ -919,7 +903,6 @@ function App() {
                       solarData={solarTimeseriesData}
                       loading={solarDataLoading}
                       onNext={(data) => handleNextStep(2, data)}
-                      onBack={handleBackStep}
                     />
                   )}
 
@@ -936,7 +919,6 @@ function App() {
                         curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
                       }
                       onNext={() => handleNextStep(3)}
-                      onBack={handleBackStep}
                     />
                   )}
 
@@ -950,7 +932,6 @@ function App() {
                       financing={financing}
                       setFinancing={setFinancing}
                       onGenerateReport={() => handleCalculate()}
-                      onBack={handleBackStep}
                     />
                   )}
                 </div>

@@ -48,12 +48,14 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
     return hourlyData.filter((h) => h.hourKey?.startsWith(String(selectedYear)));
   }, [availableYears.length, hourlyData, selectedYear]);
 
-  // Group hourly data by day
+  // Group slot data by day (works for both hourly and half-hourly)
+  const slotsPerDay = hourlyForSelectedYear.length > 10000 ? 48 : 24;
+
   const dailyData = useMemo((): DayData[] => {
     const daysMap = new Map<number, HourlyEnergyFlow[]>();
     
     hourlyForSelectedYear.forEach((hour, index) => {
-      const dayOfYear = Math.floor(index / 24);
+      const dayOfYear = Math.floor(index / slotsPerDay);
       if (!daysMap.has(dayOfYear)) {
         daysMap.set(dayOfYear, []);
       }

@@ -30,6 +30,7 @@ function calculateBaselineCost(
   hourOfDay: number,
   tariff: Tariff,
   dayOfWeek: number | undefined,
+  slotsPerDay: number,
   hourlyPrice?: number,
   tradingConfig?: TradingConfig
 ): number {
@@ -45,8 +46,8 @@ function calculateBaselineCost(
 
   const pso = tariff.psoLevy || 0;
   
-  // Standing charge is per day, so divide by 24 for hourly cost
-  const standingCharge = tariff.standingCharge / 24;
+  // Standing charge is per day; slotsPerDay splits it across the resolution
+  const standingCharge = tariff.standingCharge / slotsPerDay;
   
   return standingCharge + (consumption * (unitRate + pso));
 }
@@ -97,25 +98,23 @@ function calculateDomesticTariffSignals(
   // Process day by day (24-hour chunks)
   const peakStartHours: number[] = [];
   
-  for (let dayStart = 0; dayStart < totalHours; dayStart += 24) {
-    const dayEnd = Math.min(dayStart + 24, totalHours);
+  const slotsPerDay = totalHours > 10000 ? 48 : 24;
+  for (let dayStart = 0; dayStart < totalHours; dayStart += slotsPerDay) {
+    const dayEnd = Math.min(dayStart + slotsPerDay, totalHours);
     const dayRates = hourlyRates.slice(dayStart, dayEnd);
     
-    // Find first occurrence of peak rate in this day
     const peakStartInDay = dayRates.findIndex(r => r === expensiveThreshold);
     if (peakStartInDay !== -1) {
       peakStartHours.push(dayStart + peakStartInDay);
     }
   }
   
-  // Apply signals based on rate levels
   for (let hour = 0; hour < totalHours; hour++) {
     const rate = hourlyRates[hour];
-    const hourInDay = hour % 24;
-    const dayStart = hour - hourInDay;
+    const slotInDay = hour % slotsPerDay;
+    const dayStart = hour - slotInDay;
     
-    // Find peak start for this day
-    const peakStart = peakStartHours.find(ps => ps >= dayStart && ps < dayStart + 24);
+    const peakStart = peakStartHours.find(ps => ps >= dayStart && ps < dayStart + slotsPerDay);
     
     // CHARGE: Only during absolute cheapest rate (EV rate, free electricity)
     if (rate === cheapThreshold) {
@@ -146,13 +145,10 @@ function calculateTradingSignals(
   
   if (windowSize <= 0) return signals;
 
-  // Process day by day (24-hour chunks)
-  // Note: This assumes 00:00 to 23:00 alignment.
-  // Ideally, we should align with days using timeStamps, but strict 24h blocks is a reasonable approximation for "Day Ahead".
+  const slotsPerDay = totalHours > 10000 ? 48 : 24;
   
-  for (let i = 0; i < totalHours; i += 24) {
-    // Get prices for this day (handle end of year truncation if any)
-    const dayPrices = hourlyPrices.slice(i, Math.min(i + 24, totalHours));
+  for (let i = 0; i < totalHours; i += slotsPerDay) {
+    const dayPrices = hourlyPrices.slice(i, Math.min(i + slotsPerDay, totalHours));
     if (dayPrices.length === 0) break;
 
     // Create array of { price, hourIndex }
@@ -215,13 +211,19 @@ export function simulateHourlyEnergyFlow(
   useDomesticOptimization = false
 ): HourlySimulationResult {
   if (hourlyGeneration.length !== hourlyConsumption.length) {
-    throw new Error('Generation and consumption arrays must have the same number of hours');
+    throw new Error('Generation and consumption arrays must have the same length');
   }
-  if (hourlyGeneration.length !== 8760 && hourlyGeneration.length !== 8784) {
-    throw new Error('Hourly simulation supports only 8760 (non-leap) or 8784 (leap) hours');
+  const validLengths = [8760, 8784, 17520, 17568];
+  if (!validLengths.includes(hourlyGeneration.length)) {
+    throw new Error(
+      `Simulation supports 8760/8784 (hourly) or 17520/17568 (half-hourly) slots, got ${hourlyGeneration.length}`
+    );
   }
 
   const useTrading = tradingConfig?.enabled && hourlyPrices && hourlyPrices.length === hourlyGeneration.length;
+
+  // Derive resolution from input length: 48 slots/day for half-hourly, 24 for hourly
+  const slotsPerDay = hourlyGeneration.length > 10000 ? 48 : 24;
 
   const battery = batteryConfig ? {
     capacity: Math.max(0, batteryConfig.capacityKwh),
@@ -284,7 +286,7 @@ export function simulateHourlyEnergyFlow(
 
     // Calculate baseline cost (no solar, for comparison)
     // If trading enabled, baseline uses dynamic price too (fair comparison)
-    const baselineCost = calculateBaselineCost(consumption, hourOfDay, tariff, dayOfWeek, hourlyPrice, tradingConfig);
+    const baselineCost = calculateBaselineCost(consumption, hourOfDay, tariff, dayOfWeek, slotsPerDay, hourlyPrice, tradingConfig);
     totalBaselineCost += baselineCost;
 
     let gridImport = 0;
@@ -617,7 +619,7 @@ export function simulateHourlyEnergyFlow(
     }
 
     const pso = tariff.psoLevy || 0;
-    const standingCharge = tariff.standingCharge / 24;
+    const standingCharge = tariff.standingCharge / slotsPerDay;
     
     // Value of displaced energy (avoided cost)
     // Avoided cost = unitRate + pso
@@ -746,13 +748,18 @@ export function aggregateHourlyResultsToMonthly(
   return monthlyResults;
 }
 
-function hourToMonthIndexFallback(hourIndex: number, totalHoursInYear: number): number {
-  const daysPerMonth = getDaysPerMonthFromHours(totalHoursInYear);
-  let cumulativeHours = 0;
+function hourToMonthIndexFallback(slotIndex: number, totalSlotsInYear: number): number {
+  const slotsPerDay = totalSlotsInYear > 10000 ? 48 : 24;
+  const totalDays = totalSlotsInYear / slotsPerDay;
+  const isLeap = totalDays > 365;
+  const dpm = isLeap
+    ? [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    : DAYS_PER_MONTH_NON_LEAP;
+  let cumulativeSlots = 0;
   for (let m = 0; m < 12; m++) {
-    const monthHours = (daysPerMonth[m] ?? DAYS_PER_MONTH_NON_LEAP[m] ?? 30) * 24;
-    if (hourIndex < cumulativeHours + monthHours) return m;
-    cumulativeHours += monthHours;
+    const monthSlots = (dpm[m] ?? 30) * slotsPerDay;
+    if (slotIndex < cumulativeSlots + monthSlots) return m;
+    cumulativeSlots += monthSlots;
   }
   return 11;
 }

@@ -3,29 +3,29 @@
  * 
  * Discovers available locations from solar data files in public/data/solar/.
  * File naming convention: {Location}_{Year}.csv
- * Example: Cavan_2020.csv -> location: "Cavan"
+ * Examples: Cavan_2020.csv, Cork_North_2020.csv
  */
 
 const SOLAR_DATA_BASE_PATH = '/data/solar/';
 
+const ALL_LOCATIONS: string[] = [
+  // Republic of Ireland (26 counties, 30 points)
+  'Carlow', 'Cavan', 'Clare',
+  'Cork_North', 'Cork_East', 'Cork_West',
+  'Donegal_North', 'Donegal_South',
+  'Dublin', 'Galway', 'Kerry', 'Kildare', 'Kilkenny',
+  'Laois', 'Leitrim', 'Limerick', 'Longford', 'Louth',
+  'Mayo', 'Meath', 'Monaghan', 'Offaly', 'Roscommon', 'Sligo',
+  'Tipperary_North', 'Tipperary_South',
+  'Waterford', 'Westmeath', 'Wexford', 'Wicklow',
+  // Northern Ireland (6 counties)
+  'Antrim', 'Armagh', 'Down', 'Fermanagh', 'Derry', 'Tyrone',
+];
+
 /**
  * Fetch the list of available solar data files and extract unique locations.
- * 
- * This function makes runtime requests to discover what CSV files exist.
- * In production, this could be replaced with a manifest file or build-time generation.
- * 
- * @returns Promise resolving to array of location names (e.g., ["Cavan", "Dublin"])
  */
 export async function discoverAvailableLocations(): Promise<string[]> {
-  // For now, we'll use a known list since we can't easily list directory contents
-  // from the browser without a directory listing endpoint or manifest file.
-  // 
-  // In a production setup, you would either:
-  // 1. Generate a manifest.json at build time listing all files
-  // 2. Have an API endpoint that lists available locations
-  // 3. Hardcode the known locations in a config file
-  
-  // Try to fetch a manifest file if it exists
   try {
     const response = await fetch(`${SOLAR_DATA_BASE_PATH}manifest.json`);
     if (response.ok) {
@@ -36,23 +36,19 @@ export async function discoverAvailableLocations(): Promise<string[]> {
     // Manifest doesn't exist, fall back to known list
   }
   
-  // Fallback: known locations
-  // TODO: Generate manifest.json at build time
-  return ['Cavan'];
+  return getKnownLocations();
 }
 
 /**
  * Extract unique location names from filenames.
- * 
- * @param filenames - Array of filenames (e.g., ["Cavan_2020.csv", "Cavan_2021.csv", "Dublin_2020.csv"])
- * @returns Array of unique location names (e.g., ["Cavan", "Dublin"])
+ * Handles multi-part names with underscores (e.g. Cork_North_2020.csv -> Cork_North).
  */
 function extractLocationsFromFilenames(filenames: string[]): string[] {
   const locations = new Set<string>();
   
   for (const filename of filenames) {
-    // Match pattern: {Location}_{Year}.csv
-    const match = filename.match(/^([^_]+)_\d{4}\.csv$/);
+    // Match everything before the final _YYYY.csv
+    const match = filename.match(/^(.+)_\d{4}\.csv$/);
     if (match) {
       locations.add(match[1]);
     }
@@ -62,10 +58,8 @@ function extractLocationsFromFilenames(filenames: string[]): string[] {
 }
 
 /**
- * Get a static list of known locations (synchronous fallback).
- * 
- * @returns Array of known location names
+ * Get the static list of all known Irish county locations.
  */
 export function getKnownLocations(): string[] {
-  return ['Cavan'];
+  return [...ALL_LOCATIONS];
 }

@@ -20,8 +20,8 @@ function safeNumber(v: unknown): number {
 
 function parseHourKey(hourKey: string | undefined): { year: number; monthIndex: number; day: number; hour: number } | null {
   if (!hourKey) return null;
-  // Expected: YYYY-MM-DDTHH
-  const m = hourKey.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})$/);
+  // Supports both YYYY-MM-DDTHH (legacy hourly) and YYYY-MM-DDTHH:MM (half-hourly)
+  const m = hourKey.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})(?::\d{2})?$/);
   if (!m) return null;
   const year = Number(m[1]);
   const monthIndex = Number(m[2]) - 1;
@@ -56,7 +56,8 @@ export function calculateMonthlyBillBreakdown(hourly: HourlyEnergyFlow[], tariff
     kwhByBucketAfter: {}
   }));
 
-  const standingPerHour = safeNumber(tariff.standingCharge) / 24;
+  const slotsPerDay = hourly.length > 10000 ? 48 : 24;
+  const standingPerHour = safeNumber(tariff.standingCharge) / slotsPerDay;
   const pso = safeNumber(tariff.psoLevy);
 
   for (const row of hourly) {

@@ -1,5 +1,11 @@
-import { expectedHoursInYear, buildCanonicalHourStampsForYear, toHourKey } from './solarTimeseriesParser';
-import type { HourKey, HourStamp } from './solarTimeseriesParser';
+import {
+  expectedHoursInYear,
+  expectedSlotsInYear,
+  buildCanonicalHourStampsForYear,
+  buildCanonicalStampsForYear,
+  toHourKey,
+} from './solarTimeseriesParser';
+import type { HourKey, HourStamp, SlotsPerDay } from './solarTimeseriesParser';
 
 export interface PriceTimestep {
   timestamp: Date;
@@ -21,6 +27,7 @@ export interface PriceNormalizationCorrections {
   duplicatesDropped: number;
   hoursMissingFilled: number;
   warnings: string[];
+  slotsPerDay?: SlotsPerDay;
 }
 
 /**
@@ -119,24 +126,25 @@ export function parsePriceTimeseriesCSV(csvContent: string): ParsedPriceData {
 }
 
 /**
- * Normalize price data to match the target simulation year (8760/8784 hours)
+ * Normalize price data to match the target simulation year.
+ * @param data Parsed hourly price data
+ * @param targetYear Calendar year to normalize to
+ * @param slotsPerDay 24 = hourly output, 48 = half-hourly output (each hourly price duplicated into two 30-min slots)
  */
 export function normalizePriceTimeseries(
   data: ParsedPriceData,
-  targetYear: number
+  targetYear: number,
+  slotsPerDay: SlotsPerDay = 24
 ): { normalized: ParsedPriceData; corrections: PriceNormalizationCorrections } {
-  const expectedHours = expectedHoursInYear(targetYear);
+  const expectedHours = expectedSlotsInYear(targetYear, slotsPerDay);
+  // Always build canonical hourly stamps as the source lookup; we expand to 30-min below if needed.
   const canonicalStamps = buildCanonicalHourStampsForYear(targetYear);
   
-  // Index source data by "MM-DD-HH" key to map across years
+  // Index source data by "monthIndex-day-hour" key to map across years
   const sourceMap = new Map<string, number>(); // Key -> Price
   
   for (const ts of data.timesteps) {
-    // Key format: MM-DD-HH
     const key = `${ts.stamp.monthIndex}-${ts.stamp.day}-${ts.stamp.hour}`;
-    // If duplicate (e.g. multiple years in source), keep last or first? 
-    // Let's keep last (arbitrary, or maybe we want average?)
-    // Simple: keep last.
     sourceMap.set(key, ts.priceEur);
   }
 
@@ -148,43 +156,39 @@ export function normalizePriceTimeseries(
     let price = sourceMap.get(key);
 
     if (price === undefined) {
-      // Fallback strategies:
-      // 1. If Feb 29 and missing, look for Feb 28
       if (stamp.monthIndex === 1 && stamp.day === 29) {
-         const feb28Key = `1-28-${stamp.hour}`;
-         price = sourceMap.get(feb28Key);
+        const feb28Key = `1-28-${stamp.hour}`;
+        price = sourceMap.get(feb28Key);
       }
-      
-      // 2. If still missing, look for previous hour?
-      // 3. Default to 0? Or average?
-      // Let's default to a "safe" reasonable price or 0?
-      // 0 might mislead battery to charge aggressively.
-      // Let's use 0 but warn.
       if (price === undefined) {
         price = 0;
         hoursMissingFilled++;
       }
     }
 
-    const hourKey = toHourKey(stamp);
-    const timestamp = new Date(Date.UTC(targetYear, stamp.monthIndex, stamp.day, stamp.hour, 0, 0));
-
-    normalizedTimesteps.push({
-      timestamp,
-      stamp,
-      hourKey,
-      priceEur: price,
-      sourceIndex: -1 // Synthetic
-    });
+    if (slotsPerDay === 48) {
+      // Duplicate the hourly price into two 30-minute slots
+      for (const minute of [0, 30] as const) {
+        const halfStamp: HourStamp = { ...stamp, minute };
+        const hourKey = toHourKey(halfStamp);
+        const timestamp = new Date(Date.UTC(targetYear, stamp.monthIndex, stamp.day, stamp.hour, minute, 0));
+        normalizedTimesteps.push({ timestamp, stamp: halfStamp, hourKey, priceEur: price, sourceIndex: -1 });
+      }
+    } else {
+      const hourKey = toHourKey(stamp);
+      const timestamp = new Date(Date.UTC(targetYear, stamp.monthIndex, stamp.day, stamp.hour, 0, 0));
+      normalizedTimesteps.push({ timestamp, stamp, hourKey, priceEur: price, sourceIndex: -1 });
+    }
   }
 
   const corrections: PriceNormalizationCorrections = {
     targetYear,
     expectedHours,
     actualRowsParsed: data.timesteps.length,
-    duplicatesDropped: 0, // Simplified
+    duplicatesDropped: 0,
     hoursMissingFilled,
-    warnings: hoursMissingFilled > 0 ? [`Filled ${hoursMissingFilled} hours with 0 price.`] : []
+    slotsPerDay,
+    warnings: hoursMissingFilled > 0 ? [`Filled ${hoursMissingFilled} slots with 0 price.`] : []
   };
 
   return {
