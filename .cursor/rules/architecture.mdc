@@ -1,0 +1,37 @@
+---
+description: Core architectural contracts and invariants for the solar ROI calculator
+alwaysApply: true
+---
+
+# Architecture
+
+## Two app modes
+`ModeSelect` routes to either the **solar-battery wizard** (`src/App.tsx`, steps 0–4) or the **tariff modeller** (`src/components/TariffModeller.tsx`). These share `simulateHourlyEnergyFlow` but nothing else. Do not couple them.
+
+## Single sources of truth — never bypass these
+- **Consumption normalisation**: `prepareSimulationContext()` in `simulationContext.ts`. All new consumption sources go through here; no mode-specific branches downstream.
+- **Tariff rate resolution**: `getTariffRateForHour()` in `tariffRate.ts`. Do not inline rate logic anywhere else.
+- **Month/day constants**: `src/constants/calendar.ts`. Do not define inline month arrays in engine files.
+- **Domestic tariff data**: import from `domesticTariffParser.ts`, never directly from `domesticTariffs.json`.
+- **Formatting**: `src/utils/format.ts` (`formatCurrency`, `formatKwh`, etc.). No local formatting functions in components.
+
+## Hourly simulation invariants
+- Hour-of-day and month attribution must use canonical `stamp`/`hourKey`, never `index % 24` or fixed block math.
+- Monthly figures must be strict sums of hourly rows grouped by `timeStamps[i].monthIndex` — never recomputed independently.
+- Display components only read from `result.audit`; they never recalculate costs or bills.
+- Normalisation (missing fills, deduplication) must surface as audit warnings, not silent changes.
+
+## No silent failure
+- Missing required inputs (e.g. no solar timeseries) must throw a visible error — no silent fallback to lower-fidelity.
+- Prefer a user-visible error state over `console.warn`.
+- If a fallback is unreachable because the UI enforces valid state, delete it rather than leaving dead code.
+
+## Active stubs (not wired — do not assume otherwise)
+- **Farm mode**: disabled in Step 0. Engine has a daily curve but Steps 1–4, grants, and tariffs are not wired. See `TODO [farm-mode]`.
+- **Seasonal hotel**: disabled in Step 0, no engine support.
+
+## Data locations
+- Solar CSVs: `public/data/solar/{Location}_{Year}.csv` — fetched at runtime via `solarDataLoader.ts`
+- Domestic tariffs: `src/data/domesticTariffs.json` (access via `domesticTariffParser.ts`)
+- Grants / commercial tariffs: `src/data/grants.json`, `src/data/tariffs.json`
+- Solar data format details: `SOLAR_DATA_FORMAT.md`

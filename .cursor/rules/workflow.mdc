@@ -1,0 +1,29 @@
+---
+description: Commands, testing requirements, and commit conventions
+alwaysApply: true
+---
+
+# Workflow
+
+## Commands (cwd: `solar-roi-calculator/`)
+- Install: `npm install`
+- Dev: `npm run dev`
+- Build: `npm run build`
+- Lint: `npm run lint`
+- All tests: `npm run test:run`
+- Watch: `npm run test`
+- Coverage: `npm run test:coverage`
+- Single file: `npm run test:run -- tests/utils/calculations.test.ts`
+- Single test: `npx vitest run tests/utils/calculations.test.ts -t "produces a result"`
+
+## Testing
+- Run `npm run test:run` after every change. All tests must pass before committing.
+- Every new function needs tests: unit (happy path + edge cases), integration for new flows.
+- New utility → `tests/utils/`, new model → `tests/models/`, new wizard flow → `tests/integration/`.
+- Bug fixes require a regression test that would have caught the bug.
+
+## Commits
+One commit per logical chunk with a descriptive message.
+
+## Keeping rules current
+Update `.cursor/rules/architecture.mdc` when you: add a shared utility/constant/data pattern, change an architectural contract, add/remove a stub, or change how data files are accessed.

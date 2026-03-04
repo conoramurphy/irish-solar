@@ -1,0 +1,35 @@
+---
+description: Unit conventions for all energy, power, and price values
+globs: solar-roi-calculator/src/**/*.ts
+alwaysApply: false
+---
+
+# Unit Standards
+
+## Internal representations
+- Energy: **kWh**
+- Power ratings: **kW** (e.g. `maxChargeRateKw`, `systemSizeKwp`)
+- Prices / rates: **€/kWh**
+- Standing charges: **€/day** — divide by 24 for hourly use
+- Efficiency / SoC: **decimal 0–1**
+
+## Conversion points
+- Market prices arrive as **€/MWh** → divide by 1000 in `simulationContext.ts` before use
+- Display of market prices converts back to €/MWh (×1000) in `MarketAnalysis.tsx` for readability only
+
+## Naming
+Include the unit in parameter and variable names:
+- ✅ `annualProductionKwh`, `batterySizeKwh`, `ratePerKwh`, `standingChargePerDay`
+- ❌ `annualProduction`, `batterySize`, `rate`
+
+Document units in JSDoc for all energy/power/price parameters.
+
+## Never mix without conversion
+```typescript
+// ❌ Wrong
+const cost = consumption * marketPriceInMwh; // kWh × €/MWh
+
+// ✅ Correct
+const pricePerKwh = marketPriceInMwh / 1000;
+const cost = consumption * pricePerKwh;
+```
