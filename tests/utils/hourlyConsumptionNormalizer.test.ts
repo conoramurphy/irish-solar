@@ -69,7 +69,8 @@ describe('normalizeHourlyConsumptionLength', () => {
   });
 
   it('preserves total consumption when padding (within rounding)', () => {
-    const data = new Array(8760).fill(0).map(() => Math.random() * 10);
+    // Use a fixed pattern instead of Math.random() to avoid flaky tests
+    const data = new Array(8760).fill(0).map((_, i) => (i % 24) * 0.5 + 1);
     const originalTotal = data.reduce((a, b) => a + b, 0);
     
     const result = normalizeHourlyConsumptionLength(data, 8784);

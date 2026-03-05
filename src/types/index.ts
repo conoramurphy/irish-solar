@@ -1,6 +1,6 @@
 export type BusinessType = 'hotel' | 'farm' | 'commercial' | 'other' | 'house';
 
-export type BuildingTypeSelection = 'hotel-year-round' | 'house' | 'farm' | 'hotel-seasonal';
+export type BuildingTypeSelection = 'hotel-year-round' | 'house' | 'farm';
 
 export interface SystemConfiguration {
   annualProductionKwh: number; // Total annual production from solar system
@@ -15,6 +15,15 @@ export interface SystemConfiguration {
   businessType: BusinessType;
   /** Whether to exclude VAT from all calculations (for VAT-registered businesses) */
   excludeVat?: boolean;
+  /** Persisted VAT rate for installation costs (decimal, e.g. 0.135) */
+  installationVatRate?: number;
+}
+
+export interface UploadSummary {
+  filename: string;
+  year: number;
+  totalKwh: number;
+  slotsPerDay: 24 | 48;
 }
 
 export interface Grant {
@@ -234,36 +243,32 @@ export interface SolarSpillageAnalysis {
   note: string;
 }
 
+export interface SensitivityVariant {
+  /** Multiplier of base battery kWh/kWp: 0 = no battery, 0.5 = half, 1.0 = full, 2.0 = double. */
+  batteryFactor: 0 | 0.5 | 1.0 | 2.0;
+  batterySizeKwh: number;
+  systemCost: number;
+  netCost: number;
+  annualSavings: number;
+  /** 25-year IRR, or NaN if not solvable. */
+  irr: number;
+  year1NetCashFlow: number;
+  year10NetCashFlow: number;
+  spillageFraction: number;
+  /** Fraction of generation exported AND paid for. */
+  exportPaidFraction: number;
+  /** Fraction of generation curtailed above export cap (unpaid). */
+  exportUnpaidFraction: number;
+}
+
 export interface SensitivityScenario {
   scaleFactor: number;
   annualGenerationKwh: number;
   systemSizeKwp: number;
-  
-  // Scenario 1: No Battery
-  noBattery: {
-    batterySizeKwh: number;
-    systemCost: number;
-    netCost: number;
-    annualSavings: number;
-    year1NetCashFlow: number;
-    year10NetCashFlow: number;
-    spillageFraction: number;
-    exportPaidFraction: number; // Fraction of generation exported AND paid for
-    exportUnpaidFraction: number; // Fraction of generation spilled above cap (unpaid)
-  };
-  
-  // Scenario 2: With Comparable Battery
-  withBattery: {
-    batterySizeKwh: number;
-    systemCost: number;
-    netCost: number;
-    annualSavings: number;
-    year1NetCashFlow: number;
-    year10NetCashFlow: number;
-    spillageFraction: number;
-    exportPaidFraction: number; // Fraction of generation exported AND paid for
-    exportUnpaidFraction: number; // Fraction of generation spilled above cap (unpaid)
-  };
+  noBattery: SensitivityVariant;     // batteryFactor: 0
+  halfBattery: SensitivityVariant;   // batteryFactor: 0.5
+  fullBattery: SensitivityVariant;   // batteryFactor: 1.0
+  doubleBattery: SensitivityVariant; // batteryFactor: 2.0
 }
 
 export interface SensitivityAnalysis {

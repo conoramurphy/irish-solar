@@ -6,7 +6,11 @@ alwaysApply: true
 # Architecture
 
 ## Two app modes
-`ModeSelect` routes to either the **solar-battery wizard** (`src/App.tsx`, steps 0–4) or the **tariff modeller** (`src/components/TariffModeller.tsx`). These share `simulateHourlyEnergyFlow` but nothing else. Do not couple them.
+`ModeSelect` routes to either the **solar-battery wizard** (`src/App.tsx`, steps 0–4) or the **tariff modeller** (`src/components/TariffModeller.tsx`). Do not couple their computation engines.
+
+**Permitted shared UI** (display-only, no engine coupling):
+- `SampleHouseSelector` (`src/components/SampleHouseSelector.tsx`) — sample house buttons used by both Step1 (house mode) and TariffModeller.
+- `src/data/sampleHouses.ts` — metadata for Irish domestic sample profiles; CSV files live in `public/data/usages/sample_house_*.csv`.
 
 ## Single sources of truth — never bypass these
 - **Consumption normalisation**: `prepareSimulationContext()` in `simulationContext.ts`. All new consumption sources go through here; no mode-specific branches downstream.

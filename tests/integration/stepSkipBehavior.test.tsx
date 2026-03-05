@@ -18,7 +18,7 @@ vi.mock('../../src/components/steps/Step1DigitalTwin', () => ({
       <button onClick={() => onNext({
         location: 'Cavan',
         exampleMonths: [],
-        tariffConfig: { type: 'flat', unitRate: 0.20 },
+        tariffConfig: { type: 'preset' },
         curvedMonthlyKwh: Array.from({ length: 12 }, () => 1000),
         estimatedMonthlyBills: Array.from({ length: 12 }, () => 200),
       })}>Next</button>

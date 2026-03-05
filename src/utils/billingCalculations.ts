@@ -65,9 +65,7 @@ export function calculateMonthlyBill(
 ): number {
   let energyCost = 0;
   
-  if (tariffConfig.type === 'flat' && tariffConfig.flatRate) {
-    energyCost = monthKwh * tariffConfig.flatRate;
-  } else if (tariffConfig.type === 'custom' && tariffConfig.customSlots && tariffSlotUsage) {
+  if (tariffConfig.type === 'custom' && tariffConfig.customSlots && tariffSlotUsage) {
     for (const slot of tariffConfig.customSlots) {
       const slotUsageFraction = tariffSlotUsage[slot.id] || 0;
       const slotKwh = monthKwh * slotUsageFraction;
@@ -90,18 +88,6 @@ function getDaysInMonth(monthIndex?: number): number {
   if (monthIndex === undefined) return 30; // Default fallback
   const daysPerMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   return daysPerMonth[monthIndex] || 30;
-}
-
-/**
- * Calculate average flat rate from example months (if using flat tariff)
- */
-export function calculateAverageFlatRate(exampleMonths: ExampleMonth[]): number {
-  if (exampleMonths.length === 0) return 0;
-  
-  const totalKwh = exampleMonths.reduce((sum, m) => sum + m.totalKwh, 0);
-  const totalBill = exampleMonths.reduce((sum, m) => sum + m.totalBillEur, 0);
-  
-  return calculateImpliedRate(totalKwh, totalBill);
 }
 
 /**

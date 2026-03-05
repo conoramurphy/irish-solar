@@ -295,6 +295,7 @@ describe('runCalculation', () => {
 
       const tariff = {
         ...tariffsData[0],
+        isExVat: false,
         standingCharge: 1.135, // €1.00 + 13.5% VAT
         rates: [{ period: 'all-day', rate: 0.3405 }] // €0.30 + 13.5% VAT
       };

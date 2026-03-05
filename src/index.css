@@ -12,5 +12,66 @@
 }
 
 body {
-  @apply bg-tines-light text-tines-dark;
+  background-color: #F7FAF7;
+  color: #0D4027;
+}
+
+/* Grid on the app shell — matches the landing page grid style */
+.app-root {
+  background-color: #F7FAF7;
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-attachment: fixed;
+}
+
+/* Tines-inspired dot grid — applied to hero sections via class */
+.dot-grid-bg {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.09) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ── Nav bar buttons (soft sage green bar) ── */
+.nav-btn-ghost {
+  color: rgba(13, 64, 39, 0.65);
+  transition: color 0.15s ease;
+}
+.nav-btn-ghost:hover { color: rgba(13, 64, 39, 0.95); }
+
+.nav-btn-gold {
+  background: #D97706;
+  transition: background 0.15s ease;
+}
+.nav-btn-gold:hover { background: #B45309; }
+
+.nav-btn-frosted {
+  color: rgba(13, 64, 39, 0.75);
+  background: rgba(255, 255, 255, 0.35);
+  border-color: rgba(13, 64, 39, 0.18);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.nav-btn-frosted:hover {
+  background: rgba(255, 255, 255, 0.55);
+  color: rgba(13, 64, 39, 0.95);
+  border-color: rgba(13, 64, 39, 0.28);
+}
+
+/* Landing card hover */
+.landing-card {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.landing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Smooth scrollbar hide for stepper overflow */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Soft edge fade for overflowing stepper */
+.mask-edges {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
 }

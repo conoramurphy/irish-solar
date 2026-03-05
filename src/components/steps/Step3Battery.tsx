@@ -73,7 +73,7 @@ export function Step3Battery({
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="mb-6">
         <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-3">
-          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-sky-50 text-sky-600 border border-sky-100">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-100">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
             </svg>
@@ -88,7 +88,7 @@ export function Step3Battery({
       {/* Battery Section */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mr-2 text-indigo-600">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mr-2 text-amber-600">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
           </svg>
           Battery Capacity
@@ -106,7 +106,7 @@ export function Step3Battery({
                 step="1"
                 value={config.batterySizeKwh}
                 onChange={(e) => setConfig({ ...config, batterySizeKwh: parseFloat(e.target.value) || 0 })}
-                className="block w-full rounded-lg border-slate-300 pl-4 pr-12 py-3 focus:border-indigo-500 focus:ring-indigo-500 text-lg shadow-sm"
+                className="block w-full rounded-lg border-slate-300 pl-4 pr-12 py-3 focus:border-emerald-600 focus:ring-emerald-600 text-lg shadow-sm"
               />
               <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
                 <span className="text-slate-500">kWh</span>
@@ -232,7 +232,7 @@ export function Step3Battery({
           className={`px-8 py-3 rounded-lg font-bold text-white shadow-lg transition-all transform hover:-translate-y-0.5 ${
             trading.enabled && !priceData
               ? 'bg-slate-400 cursor-not-allowed shadow-none' 
-              : 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400'
+              : 'bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500'
           }`}
         >
           Next Step

@@ -1,27 +1,115 @@
 [
   {
-    "id": "ei-business-standard",
+    "id": "ei-business-24hr",
     "supplier": "Electric Ireland",
     "product": "Business Standard 24hr",
     "type": "24-hour",
-    "standingCharge": 0.9,
-    "rates": [{ "period": "all-day", "rate": 0.295 }],
-    "exportRate": 0.14,
-    "psoLevy": 0.0234
+    "isExVat": true,
+    "standingCharge": 0.822,
+    "rates": [{ "period": "all-day", "rate": 0.3397 }],
+    "exportRate": 0.195,
+    "psoLevy": 0.005,
+    "lastVerified": "2026-03"
   },
   {
-    "id": "energia-smart",
-    "supplier": "Energia",
-    "product": "Smart Business",
+    "id": "ei-business-day-night",
+    "supplier": "Electric Ireland",
+    "product": "Business Day/Night (NightSaver)",
     "type": "time-of-use",
-    "standingCharge": 0.95,
+    "isExVat": true,
+    "standingCharge": 0.960,
     "rates": [
-      { "period": "night", "hours": "23:00-08:00", "rate": 0.185 },
-      { "period": "day", "hours": "09:00-17:00", "rate": 0.32 },
-      { "period": "peak", "hours": "17:00-19:00,07:00-09:00", "rate": 0.42 },
-      { "period": "other", "rate": 0.28 }
+      { "period": "night", "hours": "23:00-08:00", "rate": 0.1679 },
+      { "period": "day",   "hours": "08:00-23:00", "rate": 0.3404 }
     ],
-    "exportRate": 0.14,
-    "psoLevy": 0.0234
+    "exportRate": 0.195,
+    "psoLevy": 0.005,
+    "lastVerified": "2026-03"
+  },
+  {
+    "id": "energia-business-24hr",
+    "supplier": "Energia",
+    "product": "Business Standard 24hr",
+    "type": "24-hour",
+    "isExVat": true,
+    "standingCharge": 0.740,
+    "rates": [{ "period": "all-day", "rate": 0.3913 }],
+    "exportRate": 0.185,
+    "psoLevy": 0.005,
+    "lastVerified": "2026-03"
+  },
+  {
+    "id": "energia-business-day-night",
+    "supplier": "Energia",
+    "product": "Business Day/Night",
+    "type": "time-of-use",
+    "isExVat": true,
+    "standingCharge": 0.910,
+    "rates": [
+      { "period": "night", "hours": "23:00-08:00", "rate": 0.1791 },
+      { "period": "day",   "hours": "08:00-23:00", "rate": 0.3758 }
+    ],
+    "exportRate": 0.185,
+    "psoLevy": 0.005,
+    "lastVerified": "2026-03"
+  },
+  {
+    "id": "energia-business-smart-tou",
+    "supplier": "Energia",
+    "product": "Business Smart Time-of-Use",
+    "type": "time-of-use",
+    "isExVat": true,
+    "standingCharge": 0.740,
+    "rates": [
+      { "period": "night", "hours": "23:00-08:00", "rate": 0.1950 },
+      { "period": "peak",  "hours": "17:00-19:00", "rate": 0.3982 },
+      { "period": "day",   "hours": "08:00-17:00,19:00-23:00", "rate": 0.3546 }
+    ],
+    "exportRate": 0.185,
+    "psoLevy": 0.005,
+    "lastVerified": "2026-03"
+  },
+  {
+    "id": "sse-business-24hr",
+    "supplier": "SSE Airtricity",
+    "product": "Business Standard 24hr",
+    "type": "24-hour",
+    "isExVat": true,
+    "standingCharge": 0.776,
+    "rates": [{ "period": "all-day", "rate": 0.3773 }],
+    "exportRate": 0.195,
+    "psoLevy": 0.005,
+    "lastVerified": "2026-03"
+  },
+  {
+    "id": "sse-business-day-night",
+    "supplier": "SSE Airtricity",
+    "product": "Business Day/Night (NightSaver)",
+    "type": "time-of-use",
+    "isExVat": true,
+    "standingCharge": 0.952,
+    "rates": [
+      { "period": "night", "hours": "23:00-08:00", "rate": 0.2079 },
+      { "period": "day",   "hours": "08:00-23:00", "rate": 0.3823 }
+    ],
+    "exportRate": 0.195,
+    "psoLevy": 0.005,
+    "lastVerified": "2026-03"
+  },
+  {
+    "id": "sse-business-smart-tou",
+    "supplier": "SSE Airtricity",
+    "product": "Business Smart Time-of-Use",
+    "type": "time-of-use",
+    "isExVat": true,
+    "standingCharge": 0.776,
+    "rates": [
+      { "period": "night", "hours": "23:00-08:00", "rate": 0.1668 },
+      { "period": "peak",  "hours": "17:00-19:00", "rate": 0.2907 },
+      { "period": "day",   "hours": "08:00-17:00,19:00-23:00", "rate": 0.2595 }
+    ],
+    "exportRate": 0.195,
+    "psoLevy": 0.005,
+    "lastVerified": "2026-03"
   }
 ]

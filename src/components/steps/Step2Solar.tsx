@@ -21,9 +21,18 @@ interface Step2SolarProps {
   loading: boolean;
   onNext: (data: { solarData: ParsedSolarData; corrections: SolarNormalizationCorrections | null }) => void;
   onBack: () => void;
+  initialCorrections?: SolarNormalizationCorrections | null;
 }
 
-export function Step2Solar({ config, setConfig, locationFromStep1, solarData: initialSolarData, loading: externalLoading, onNext }: Step2SolarProps) {
+export function Step2Solar({
+  config,
+  setConfig,
+  locationFromStep1,
+  solarData: initialSolarData,
+  loading: externalLoading,
+  onNext,
+  initialCorrections
+}: Step2SolarProps) {
   const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
   const selectClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
 
@@ -31,21 +40,22 @@ export function Step2Solar({ config, setConfig, locationFromStep1, solarData: in
   const [loading, setLoading] = useState(false);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | null>(initialSolarData?.year || null);
-  const [corrections, setCorrections] = useState<SolarNormalizationCorrections | null>(null);
+  const [corrections, setCorrections] = useState<SolarNormalizationCorrections | null>(initialCorrections ?? null);
 
   // Initialize years when solar data arrives
   useMemo(() => {
     if (initialSolarData) {
       const years = listSolarTimeseriesYears(initialSolarData);
       setAvailableYears(years);
+      const PREFERRED_YEAR = 2024;
       if (years.length === 1) {
         setSolarData(initialSolarData);
         setSelectedYear(years[0]);
       } else if (years.length > 1) {
-        // For multi-year files, use the initialSolarData if it's already normalized
-        // (App.tsx loads and normalizes it based on selected year)
+        // Prefer 2024, then most recent
+        const best = years.includes(PREFERRED_YEAR) ? PREFERRED_YEAR : years[years.length - 1];
         setSolarData(initialSolarData);
-        setSelectedYear(initialSolarData.year);
+        setSelectedYear(initialSolarData.year ?? best);
       }
     }
   }, [initialSolarData]);
@@ -105,7 +115,7 @@ export function Step2Solar({ config, setConfig, locationFromStep1, solarData: in
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
         <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-3">
-          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50 text-orange-600 border border-orange-100">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-100">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
             </svg>
@@ -116,7 +126,7 @@ export function Step2Solar({ config, setConfig, locationFromStep1, solarData: in
           Enter your annual solar production. We'll distribute it using real irradiance data from <span className="font-medium text-slate-900">{locationFromStep1}</span>.
         </p>
         <p className="mt-1 text-sm text-slate-500">
-          Need help sizing? Use the <a href="https://pvwatts.nrel.gov/pvwatts.php" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-700 hover:underline font-medium">PVWatts Calculator</a> to estimate annual production.
+          Need help sizing? Use the <a href="https://pvwatts.nrel.gov/pvwatts.php" target="_blank" rel="noopener noreferrer" className="text-amber-700 hover:text-amber-800 hover:underline font-medium">PVWatts Calculator</a> to estimate annual production.
         </p>
       </div>
 
@@ -230,7 +240,7 @@ export function Step2Solar({ config, setConfig, locationFromStep1, solarData: in
       <div className="flex justify-end">
         <button type="button" onClick={handleContinue}
           disabled={!config.annualProductionKwh || config.annualProductionKwh <= 0 || !solarData || !selectedYearHoursOk}
-          className="px-8 py-3 bg-tines-purple text-white font-medium rounded-lg shadow-lg shadow-indigo-500/20 hover:bg-indigo-600 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2">
+          className="px-8 py-3 bg-tines-purple text-white font-medium rounded-lg shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center gap-2">
           Continue to Finance
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />

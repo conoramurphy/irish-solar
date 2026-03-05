@@ -30,8 +30,8 @@ describe('StepIndicator', () => {
     const completedSteps = new Set<number>([1, 2]);
     const { container } = render(<StepIndicator steps={steps} currentStep={3} completedSteps={completedSteps} />);
 
-    // Completed steps use the "bg-indigo-600" class.
-    expect(container.querySelectorAll('.bg-indigo-600').length).toBeGreaterThanOrEqual(2);
+    // Completed steps use the "bg-green-700" class.
+    expect(container.querySelectorAll('.bg-green-700').length).toBeGreaterThanOrEqual(2);
   });
 
   it('uses a flex row layout', () => {

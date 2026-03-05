@@ -3,6 +3,8 @@ import { domesticTariffs } from '../utils/domesticTariffParser';
 import { compareDomesticTariffsForUsage } from '../utils/tariffComparison';
 import { formatCurrency } from '../utils/format';
 import { parseEsbUsageProfile } from '../utils/usageProfileParser';
+import { SampleHouseSelector } from './SampleHouseSelector';
+import type { SampleHouseLoadResult } from './SampleHouseSelector';
 
 function formatUnitRate(value: number) {
   return `€${value.toFixed(4)}/kWh`;
@@ -21,7 +23,9 @@ export function TariffModeller() {
     year: number;
     totalKwh: number;
     warnings: string[];
+    filename?: string;
   } | null>(null);
+  const [activeHouseId, setActiveHouseId] = useState<string | null>(null);
 
   const [selectedTariffId, setSelectedTariffId] = useState<string | null>(null);
 
@@ -47,6 +51,7 @@ export function TariffModeller() {
     setUploadError(null);
     setParsedProfile(null);
     setSelectedTariffId(null);
+    setActiveHouseId(null);
 
     try {
       const text = await file.text();
@@ -56,7 +61,8 @@ export function TariffModeller() {
         hourly: result.hourlyConsumption,
         year: result.year,
         totalKwh: result.totalKwh,
-        warnings: result.warnings
+        warnings: result.warnings,
+        filename: file.name,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to parse file';
@@ -64,12 +70,25 @@ export function TariffModeller() {
     }
   };
 
+  const handleSampleLoad = (result: SampleHouseLoadResult, houseId: string) => {
+    setUploadError(null);
+    setSelectedTariffId(null);
+    setActiveHouseId(houseId);
+    setParsedProfile({
+      hourly: result.hourly,
+      year: result.year,
+      totalKwh: result.totalKwh,
+      warnings: result.warnings,
+      filename: result.filename,
+    });
+  };
+
   return (
     <div className="max-w-3xl mx-auto pb-4">
       {/* Preamble */}
       <div className="mb-8">
         <h2 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-3">
-          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+          <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
             </svg>
@@ -87,10 +106,10 @@ export function TariffModeller() {
           <label className="block text-sm font-semibold text-slate-900 mb-2">Your usage file</label>
           <p className="text-sm text-slate-500 mb-5 leading-relaxed">
             Download your HDF data from{' '}
-            <a href="https://myaccount.esbnetworks.ie/" target="_blank" rel="noreferrer" className="font-medium text-indigo-600 hover:text-indigo-700 underline decoration-indigo-200 underline-offset-2">ESB Networks My Account</a>, 
+            <a href="https://myaccount.esbnetworks.ie/" target="_blank" rel="noreferrer" className="font-medium text-blue-600 hover:text-blue-700 underline decoration-blue-200 underline-offset-2">ESB Networks My Account</a>, 
             then upload the CSV file here.
           </p>
-          <div className="relative border-2 border-dashed border-slate-200 hover:border-indigo-300 rounded-2xl p-6 transition-colors group bg-slate-50/50 hover:bg-indigo-50/30">
+          <div className="relative border-2 border-dashed border-slate-200 hover:border-blue-300 rounded-2xl p-6 transition-colors group bg-slate-50/50 hover:bg-blue-50/30">
             <input
               ref={fileInputRef}
               type="file"
@@ -99,7 +118,7 @@ export function TariffModeller() {
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
             <div className="flex items-center justify-center gap-4 pointer-events-none">
-              <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-slate-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
                 </svg>
@@ -115,6 +134,14 @@ export function TariffModeller() {
           </p>}
         </div>
 
+        {/* Sample house profiles */}
+        <div className="mb-8 pt-2 border-t border-slate-100">
+          <SampleHouseSelector
+            activeId={activeHouseId}
+            onLoad={(result) => handleSampleLoad(result, result.houseId)}
+          />
+        </div>
+
         {/* Empty state — shown before any file is uploaded */}
         {!parsedProfile && (
           <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-8">
@@ -126,7 +153,7 @@ export function TariffModeller() {
                 'Tariffs are ranked by estimated annual bill, so you can see exactly how much each plan would have cost you.',
               ].map((point) => (
                 <li key={point} className="flex items-start gap-4 text-sm text-slate-600 leading-relaxed">
-                  <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                  <span className="mt-0.5 shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
                       <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
                     </svg>
@@ -151,7 +178,9 @@ export function TariffModeller() {
           <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-5 mb-8">
             <div className="flex items-center justify-between gap-6">
               <div>
-                <div className="text-sm font-semibold text-emerald-900">File processed</div>
+                <div className="text-sm font-semibold text-emerald-900">
+                  {parsedProfile.filename ? `${parsedProfile.filename}` : 'Profile loaded'}
+                </div>
                 <div className="text-sm text-emerald-800 mt-1">
                   Year: <span className="font-medium">{parsedProfile.year}</span> · Total usage:{' '}
                   <span className="font-medium">{Math.round(parsedProfile.totalKwh).toLocaleString()} kWh</span>
@@ -204,7 +233,7 @@ export function TariffModeller() {
                         onClick={() => setSelectedTariffId(r.tariff.id)}
                         className={
                           'cursor-pointer hover:bg-slate-50 ' +
-                          (isSelected ? 'bg-indigo-50/50' : 'bg-white')
+                          (isSelected ? 'bg-blue-50/50' : 'bg-white')
                         }
                       >
                         <td className="px-4 py-3 text-slate-500">{idx + 1}</td>

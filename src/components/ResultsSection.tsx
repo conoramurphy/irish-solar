@@ -9,16 +9,19 @@ import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
 import { MarketAnalysis } from './MarketAnalysis';
 import { InputsUsedPanel } from './InputsUsedPanel';
 import { SaveReportModal } from './SaveReportModal';
+import { TariffComparisonTab } from './TariffComparisonTab';
+import type { TariffComparisonRow } from './TariffComparisonTab';
 
 interface ResultsSectionProps {
   standardResult: CalculationResult | null;
   marketResult?: CalculationResult | null;
+  tariffComparisonResults?: TariffComparisonRow[] | null;
   config?: SystemConfiguration;
   tariff?: Tariff;
   availableYears?: number[];
   selectedYear?: number;
   onSelectYear?: (year: number) => void;
-  onSelectSimulation?: (annualProduction: number) => void;
+  onSelectSimulation?: (annualProduction: number, batterySizeKwh?: number) => void;
   onBack?: () => void;
   onSaveReport?: (name: string) => void;
   existingReportNames?: string[];
@@ -38,6 +41,7 @@ function formatPercentFraction(fraction: number, digits = 1) {
 export function ResultsSection({ 
   standardResult,
   marketResult,
+  tariffComparisonResults,
   config,
   tariff,
   availableYears = [], 
@@ -48,17 +52,14 @@ export function ResultsSection({
   onSaveReport,
   existingReportNames = []
 }: ResultsSectionProps) {
-  const [activeTab, setActiveTab] = useState<'standard' | 'market' | 'comparison' | 'financial'>('standard');
+  const [activeTab, setActiveTab] = useState<'standard' | 'tariff-comparison' | 'financial'>('standard');
   const [auditOpen, setAuditOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
 
   const reportDate = new Date().toLocaleDateString();
 
-  // Use the result based on active tab
-  const activeResult = useMemo(() => {
-    if (activeTab === 'market' && marketResult) return marketResult;
-    return standardResult;
-  }, [activeTab, standardResult, marketResult]);
+  // Use the standard result for all content tabs
+  const activeResult = useMemo(() => standardResult, [standardResult]);
 
   const analyticsYear = useMemo(() => {
     const y = activeResult?.audit?.year;
@@ -148,7 +149,7 @@ export function ResultsSection({
                   id="year-select"
                   value={selectedYear}
                   onChange={(e) => onSelectYear(Number(e.target.value))}
-                  className="rounded-md border-slate-200 py-1 pl-3 pr-8 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  className="rounded-md border-slate-200 py-1 pl-3 pr-8 text-sm focus:border-emerald-700 focus:ring-emerald-700"
                 >
                   {availableYears.map((y) => (
                     <option key={y} value={y}>
@@ -171,34 +172,25 @@ export function ResultsSection({
             onClick={() => setActiveTab('standard')}
             className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'standard'
-                ? 'border-indigo-600 text-indigo-700'
+                ? 'border-emerald-700 text-emerald-800'
                 : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
             }`}
           >
             Standard Analysis
           </button>
-          {marketResult && (
+          {tariffComparisonResults && tariffComparisonResults.length > 0 && (
             <button
-              onClick={() => setActiveTab('market')}
+              onClick={() => setActiveTab('tariff-comparison')}
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'market'
-                  ? 'border-indigo-600 text-indigo-700'
+                activeTab === 'tariff-comparison'
+                  ? 'border-emerald-700 text-emerald-800'
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}
             >
-              Market Rate Analysis
-            </button>
-          )}
-          {marketResult && standardResult && (
-            <button
-              onClick={() => setActiveTab('comparison')}
-              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'comparison'
-                  ? 'border-indigo-600 text-indigo-700'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-              }`}
-            >
-              Comparison
+              Tariff Comparison
+              {marketResult && (
+                <span className="ml-1.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full align-middle">+ Market</span>
+              )}
             </button>
           )}
           {config?.businessType === 'house' && (
@@ -206,7 +198,7 @@ export function ResultsSection({
               onClick={() => setActiveTab('financial')}
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'financial'
-                  ? 'border-indigo-600 text-indigo-700'
+                  ? 'border-emerald-700 text-emerald-800'
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}
             >
@@ -215,8 +207,8 @@ export function ResultsSection({
           )}
         </div>
 
-        {/* --- STANDARD ANALYSIS TAB (combines overview + financials) --- */}
-        {(activeTab === 'standard' || activeTab === 'market') && activeResult && (
+        {/* --- STANDARD ANALYSIS TAB --- */}
+        {activeTab === 'standard' && activeResult && (
           <div className="animate-in fade-in duration-300">
             {/* 1. Energy Analytics Chart (Top) */}
             {activeResult.audit?.hourly && activeResult.audit.hourly.length > 0 && (
@@ -412,102 +404,177 @@ export function ResultsSection({
               </div>
             )}
 
-            {/* Solar Sizing Sensitivity Analysis */}
-            {activeResult && activeResult.sensitivityAnalysis && (
-              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
+            {/* Solar Sizing Sensitivity — Heat-Map Grid */}
+            {activeResult && activeResult.sensitivityAnalysis && (() => {
+              const sens = activeResult.sensitivityAnalysis;
+              const currentBattery = config?.batterySizeKwh ?? 0;
+
+              const COLUMNS: Array<{
+                key: 'noBattery' | 'halfBattery' | 'fullBattery' | 'doubleBattery';
+                label: string;
+                factorLabel: string;
+              }> = [
+                { key: 'noBattery',     label: 'No Battery',    factorLabel: '0×' },
+                { key: 'halfBattery',   label: '½ Battery',     factorLabel: '0.5×' },
+                { key: 'fullBattery',   label: 'Full Battery',  factorLabel: '1×' },
+                { key: 'doubleBattery', label: '2× Battery',    factorLabel: '2×' },
+              ];
+
+              // Linear IRR colour: worst (red) → best (green) using min/max across grid
+              const allIrrs = sens.rows.flatMap((r) => COLUMNS.map((c) => r[c.key].irr)).filter(Number.isFinite);
+              const irrMin = allIrrs.length ? Math.min(...allIrrs) : 0;
+              const irrMax = allIrrs.length ? Math.max(...allIrrs) : 0.25;
+              const irrRange = Math.max(irrMax - irrMin, 0.01);
+
+              const irrColour = (irr: number) => {
+                if (!Number.isFinite(irr)) return { bg: 'bg-slate-100', text: 'text-slate-400', border: 'border-slate-200', style: {} as React.CSSProperties };
+                const t = Math.max(0, Math.min(1, (irr - irrMin) / irrRange));
+                const hue = 120 * t; // 0 = red, 120 = green
+                return {
+                  bg: '',
+                  text: 'text-slate-800',
+                  border: 'border-slate-200',
+                  style: {
+                    backgroundColor: `hsl(${hue}, 70%, 94%)`,
+                    borderColor: `hsl(${hue}, 50%, 85%)`
+                  }
+                };
+              };
+
+              const formatIrr = (irr: number) =>
+                Number.isFinite(irr) ? `${(irr * 100).toFixed(1)}%` : 'N/A';
+
+              return (
+                <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-8">
+                  {/* Header */}
+                  <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">
+                      Solar &amp; Battery Sizing — IRR Heat Map
+                    </h3>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Year 1 vs Year 10 cumulative net cash flow. Click a row to simulate that system size.
+                      25-year IRR on equity · Yr1 and yr10 cash flow · Click any cell to re-run that configuration
                     </p>
                   </div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                      <tr>
-                        <th className="px-6 py-3">PV Size (Annual kWh)</th>
-                        <th className="px-6 py-3 text-right">No Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
-                        <th className="px-6 py-3 text-right">With Battery <span className="block text-[10px] font-normal text-slate-400">Yr1 | Yr10 Net</span></th>
-                        <th className="px-6 py-3 text-right">Scale Factor</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {activeResult.sensitivityAnalysis.rows.map((row) => {
-                        const isCurrent = Math.abs(row.scaleFactor - 1.0) < 0.01;
-                        
-                        const formatProfit = (val: number) => {
-                           const isPos = val >= 0;
-                           return (
-                             <span className={isPos ? 'text-emerald-700 font-bold' : 'text-rose-600 font-medium'}>
-                               {formatSignedCurrency(val)}
-                             </span>
-                           );
-                        };
 
-                        return (
-                          <tr 
-                            key={row.scaleFactor} 
-                            onClick={() => !isCurrent && onSelectSimulation?.(row.annualGenerationKwh)}
-                            className={`transition-colors ${
-                              isCurrent 
-                                ? 'bg-slate-50/80 cursor-default' 
-                                : 'hover:bg-indigo-50 cursor-pointer group'
+                  <div className="overflow-x-auto">
+                    {/* Column headers */}
+                    <div className="grid grid-cols-[180px_repeat(4,1fr)] min-w-[640px]">
+                      <div className="px-4 py-3 bg-slate-50 border-b border-r border-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-end">
+                        Solar size
+                      </div>
+                      {COLUMNS.map((col) => (
+                        <div
+                          key={col.key}
+                          className="px-3 py-3 bg-slate-50 border-b border-r border-slate-100 text-center last:border-r-0"
+                        >
+                          <div className="text-xs font-semibold text-slate-700">{col.label}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{col.factorLabel} battery</div>
+                        </div>
+                      ))}
+
+                      {/* Data rows */}
+                      {sens.rows.map((row) => {
+                        const isSolarCurrent = Math.abs(row.scaleFactor - 1.0) < 0.01;
+
+                        return [
+                          // Row label cell
+                          <div
+                            key={`label-${row.scaleFactor}`}
+                            className={`px-4 py-3 border-b border-r border-slate-100 flex flex-col justify-center ${
+                              isSolarCurrent ? 'bg-indigo-50/40' : 'bg-white'
                             }`}
                           >
-                            <td className="px-6 py-3">
-                              <div className="font-medium text-slate-700 group-hover:text-indigo-700 tabular-nums">
-                                {formatNumber(row.annualGenerationKwh)} kWh
-                              </div>
-                              {isCurrent && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 mt-1">
-                                  Current
+                            <span className="text-sm font-semibold text-slate-800 tabular-nums">
+                              {row.systemSizeKwp.toFixed(1)} kWp
+                            </span>
+                            <span className="text-xs text-slate-500 tabular-nums">
+                              {formatNumber(row.annualGenerationKwh)} kWh/yr
+                            </span>
+                            {isSolarCurrent && (
+                              <span className="mt-1 text-[10px] font-medium text-indigo-600 bg-indigo-100 rounded px-1.5 py-0.5 self-start">
+                                Current size
+                              </span>
+                            )}
+                          </div>,
+
+                          // Four battery variant cells
+                          ...COLUMNS.map((col) => {
+                            const v = row[col.key];
+                            const isBatteryCurrent =
+                              isSolarCurrent &&
+                              Math.abs(v.batterySizeKwh - currentBattery) < 0.5 &&
+                              v.batteryFactor === (currentBattery > 0 ? 1.0 : 0);
+                            const colours = irrColour(v.irr);
+                            const isClickable = !isBatteryCurrent;
+
+                            return (
+                              <div
+                                key={`${row.scaleFactor}-${col.key}`}
+                                onClick={() =>
+                                  isClickable &&
+                                  onSelectSimulation?.(row.annualGenerationKwh, v.batterySizeKwh)
+                                }
+                                className={[
+                                  'px-3 py-3 border-b border-r border-slate-100 last:border-r-0 flex flex-col items-center justify-center text-center transition-all',
+                                  colours.bg || '',
+                                  isClickable
+                                    ? 'cursor-pointer hover:brightness-95 hover:shadow-inner'
+                                    : 'cursor-default',
+                                  isBatteryCurrent
+                                    ? 'ring-2 ring-inset ring-indigo-400'
+                                    : '',
+                                ].join(' ')}
+                                style={colours.style}
+                              >
+                                {/* IRR — primary metric, reduced size */}
+                                <span className={`text-sm font-semibold tabular-nums leading-none ${colours.text}`}>
+                                  {formatIrr(v.irr)}
                                 </span>
-                              )}
-                            </td>
-                            
-                            <td className="px-6 py-3 text-right tabular-nums">
-                               <div className="flex flex-col items-end gap-0.5">
-                                 <div className="text-sm font-medium">{formatProfit(row.noBattery.year1NetCashFlow)}</div>
-                                 <div className="text-xs">{formatProfit(row.noBattery.year10NetCashFlow)}</div>
-                               </div>
-                               <div className="text-[10px] text-slate-400 mt-1">
-                                 Export: {(row.noBattery.exportPaidFraction * 100).toFixed(0)}% paid
-                                 {row.noBattery.exportUnpaidFraction > 0.01 && (
-                                   <span className="text-amber-600"> + {(row.noBattery.exportUnpaidFraction * 100).toFixed(0)}% unpaid</span>
-                                 )}
-                               </div>
-                            </td>
+                                <span className="text-[10px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">IRR</span>
 
-                            <td className="px-6 py-3 text-right tabular-nums">
-                               <div className="flex flex-col items-end gap-0.5">
-                                 <div className="text-sm font-medium">{formatProfit(row.withBattery.year1NetCashFlow)}</div>
-                                 <div className="text-xs">{formatProfit(row.withBattery.year10NetCashFlow)}</div>
-                               </div>
-                               <div className="text-[10px] text-slate-400 mt-1">
-                                 {formatNumber(row.withBattery.batterySizeKwh)} kWh | Export: {(row.withBattery.exportPaidFraction * 100).toFixed(0)}%
-                                 {row.withBattery.exportUnpaidFraction > 0.01 && (
-                                   <span className="text-amber-600"> +{(row.withBattery.exportUnpaidFraction * 100).toFixed(0)}%</span>
-                                 )}
-                               </div>
-                            </td>
+                                {/* Yr1 cashflow — value and label on same row */}
+                                <div className="flex items-baseline gap-1 mt-1.5">
+                                  <span className={`text-xs tabular-nums font-medium ${v.year1NetCashFlow >= 0 ? 'text-slate-600' : 'text-rose-500'}`}>
+                                    {formatSignedCurrency(v.year1NetCashFlow)}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">yr1</span>
+                                </div>
 
-                            <td className="px-6 py-3 text-right tabular-nums text-slate-500">
-                              {row.scaleFactor}×
-                            </td>
-                          </tr>
-                        );
+                                {/* Yr10 cumulative — value and label on same row */}
+                                <div className="flex items-baseline gap-1 mt-0.5">
+                                  <span className={`text-xs tabular-nums font-medium ${v.year10NetCashFlow >= 0 ? 'text-slate-600' : 'text-rose-500'}`}>
+                                    {formatSignedCurrency(v.year10NetCashFlow)}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">yr10</span>
+                                </div>
+
+                                {/* Battery size label */}
+                                {v.batterySizeKwh > 0 && (
+                                  <span className="text-[10px] text-slate-400 mt-1">
+                                    {v.batterySizeKwh.toFixed(1)} kWh
+                                  </span>
+                                )}
+
+                                {/* Active badge */}
+                                {isBatteryCurrent && (
+                                  <span className="mt-1.5 text-[10px] font-semibold text-indigo-600 bg-indigo-100 rounded px-1.5 py-0.5">
+                                    Running
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }),
+                        ];
                       })}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
+
+                  <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
+                    {sens.note}
+                  </div>
                 </div>
-                <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
-                  {activeResult.sensitivityAnalysis.note}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Legacy Solar Spillage Sensitivity Analysis (Fallback) */}
             {activeResult && !activeResult.sensitivityAnalysis && activeResult.solarSpillageAnalysis && (
@@ -543,12 +610,12 @@ export function ResultsSection({
                             className={`transition-colors ${
                               isCurrent 
                                 ? 'bg-slate-50/80 font-medium cursor-default' 
-                                : 'hover:bg-indigo-50 cursor-pointer group'
+                                : 'hover:bg-emerald-50 cursor-pointer group'
                             }`}
                           >
-                            <td className="px-6 py-3 tabular-nums text-slate-700 group-hover:text-indigo-700">
+                            <td className="px-6 py-3 tabular-nums text-slate-700 group-hover:text-emerald-800">
                               {formatNumber(p.annualGenerationKwh)}
-                              {isCurrent && <span className="ml-2 text-xs font-normal text-tines-purple bg-tines-purple/10 px-2 py-0.5 rounded-full">Current</span>}
+                              {isCurrent && <span className="ml-2 text-xs font-normal text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Current</span>}
                             </td>
                             <td className="px-6 py-3 text-right tabular-nums text-slate-600">{p.scaleFactor.toFixed(2)}×</td>
                             <td className="px-6 py-3 text-right tabular-nums text-slate-600">{formatNumber(p.exportKwh)} kWh</td>
@@ -567,128 +634,22 @@ export function ResultsSection({
           </div>
         )}
 
-        {/* --- COMPARISON TAB --- */}
-        {activeTab === 'comparison' && standardResult && marketResult && (
+        {/* --- TARIFF COMPARISON TAB --- */}
+        {activeTab === 'tariff-comparison' && tariffComparisonResults && tariffComparisonResults.length > 0 && (
           <div className="animate-in fade-in duration-300">
-            <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Scenario Comparison</h3>
-                <p className="text-xs text-slate-400 mt-1">Standard Tariff vs Market Rate Analysis</p>
+            <TariffComparisonTab
+              rows={tariffComparisonResults}
+              activeTariffId={tariff?.id}
+              marketResult={marketResult}
+              excludeVat={config?.excludeVat}
+            />
+            {/* Market Analysis chart (if market data available) */}
+            {marketResult?.audit?.hourly && marketResult.audit.hourly.length > 0 && (
+              <div className="mt-10">
+                <h3 className="text-base font-semibold text-slate-700 mb-4">Market Rate — Hourly Price Analysis</h3>
+                <MarketAnalysis hourlyData={marketResult.audit.hourly} year={analyticsYear} />
               </div>
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Standard Result Card */}
-                  <div className="bg-slate-50 rounded-lg p-5 border border-slate-200">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Standard Tariff</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-xs text-slate-500">Annual Savings</div>
-                        <div className="text-lg font-bold text-emerald-600">{formatCurrency(standardResult.annualSavings)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">Payback Period</div>
-                        <div className="text-lg font-bold text-slate-700">
-                          {Number.isFinite(standardResult.simplePayback) ? `${standardResult.simplePayback.toFixed(1)} years` : '∞'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">IRR (25y)</div>
-                        <div className="text-lg font-bold text-slate-700">
-                          {Number.isFinite(standardResult.irr) ? `${(standardResult.irr * 100).toFixed(1)}%` : '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">NPV (25y)</div>
-                        <div className="text-lg font-bold text-slate-700">{formatCurrency(standardResult.npv)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">Export Credits</div>
-                        <div className="text-sm font-semibold text-slate-600">{formatCurrency(standardResult.annualExportRevenue)}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Delta Card */}
-                  <div className="bg-indigo-50 rounded-lg p-5 border border-indigo-200 flex flex-col justify-center">
-                    <h4 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-4 text-center">Market Rate Difference</h4>
-                    <div className="space-y-3">
-                      <div className="text-center">
-                        <div className="text-xs text-indigo-600">Δ Annual Savings</div>
-                        <div className="text-xl font-bold text-indigo-700">
-                          {formatSignedCurrency(marketResult.annualSavings - standardResult.annualSavings)}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-indigo-600">Δ Payback</div>
-                        <div className="text-xl font-bold text-indigo-700">
-                          {(() => {
-                            const delta = marketResult.simplePayback - standardResult.simplePayback;
-                            if (!Number.isFinite(delta)) return '—';
-                            const sign = delta >= 0 ? '+' : '−';
-                            return `${sign}${Math.abs(delta).toFixed(1)}y`;
-                          })()}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-indigo-600">Δ IRR</div>
-                        <div className="text-xl font-bold text-indigo-700">
-                          {(() => {
-                            const delta = (marketResult.irr - standardResult.irr) * 100;
-                            if (!Number.isFinite(delta)) return '—';
-                            const sign = delta >= 0 ? '+' : '−';
-                            return `${sign}${Math.abs(delta).toFixed(1)}%`;
-                          })()}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-xs text-indigo-600">Δ NPV</div>
-                        <div className="text-lg font-bold text-indigo-700">
-                          {formatSignedCurrency(marketResult.npv - standardResult.npv)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Market Result Card */}
-                  <div className="bg-slate-50 rounded-lg p-5 border border-slate-200">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Market Rate</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-xs text-slate-500">Annual Savings</div>
-                        <div className="text-lg font-bold text-emerald-600">{formatCurrency(marketResult.annualSavings)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">Payback Period</div>
-                        <div className="text-lg font-bold text-slate-700">
-                          {Number.isFinite(marketResult.simplePayback) ? `${marketResult.simplePayback.toFixed(1)} years` : '∞'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">IRR (25y)</div>
-                        <div className="text-lg font-bold text-slate-700">
-                          {Number.isFinite(marketResult.irr) ? `${(marketResult.irr * 100).toFixed(1)}%` : '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">NPV (25y)</div>
-                        <div className="text-lg font-bold text-slate-700">{formatCurrency(marketResult.npv)}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">Export Credits</div>
-                        <div className="text-sm font-semibold text-slate-600">{formatCurrency(marketResult.annualExportRevenue)}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- MARKET TAB --- */}
-        {activeTab === 'market' && activeResult && activeResult.audit?.hourly && activeResult.audit.hourly.length > 0 && (
-          <div className="mb-8 animate-in fade-in duration-300">
-            <MarketAnalysis hourlyData={activeResult.audit.hourly} year={analyticsYear} />
+            )}
           </div>
         )}
 
@@ -742,20 +703,20 @@ export function ResultsSection({
               </div>
 
               {/* Advanced Metrics Card */}
-              <div className="bg-indigo-50 rounded-xl p-6 border border-indigo-200">
-                <h3 className="text-xs font-bold text-indigo-700 uppercase tracking-wider mb-4">Advanced Metrics</h3>
+              <div className="rounded-xl p-6 border" style={{ background: '#ECFDF5', borderColor: 'rgba(22,101,52,0.2)' }}>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: '#1E8A5E' }}>Advanced Metrics</h3>
                 <div className="space-y-4">
                   <div>
-                    <div className="text-xs text-indigo-600">Internal Rate of Return</div>
-                    <div className="text-2xl font-bold text-indigo-700">
+                    <div className="text-xs" style={{ color: '#1E8A5E' }}>Internal Rate of Return</div>
+                    <div className="text-2xl font-bold" style={{ color: '#0D4027' }}>
                       {Number.isFinite(standardResult.irr) ? `${(standardResult.irr * 100).toFixed(1)}%` : 'N/A'}
                     </div>
-                    <div className="text-[10px] text-indigo-500 mt-1">25-year IRR</div>
+                    <div className="text-[10px] mt-1" style={{ color: '#4ADE80', filter: 'brightness(0.7)' }}>25-year IRR</div>
                   </div>
                   <div>
-                    <div className="text-xs text-indigo-600">Net Present Value</div>
-                    <div className="text-lg font-semibold text-indigo-700">{formatCurrency(standardResult.npv)}</div>
-                    <div className="text-[10px] text-indigo-500 mt-1">@ 5% discount rate</div>
+                    <div className="text-xs" style={{ color: '#1E8A5E' }}>Net Present Value</div>
+                    <div className="text-lg font-semibold" style={{ color: '#0D4027' }}>{formatCurrency(standardResult.npv)}</div>
+                    <div className="text-[10px] mt-1 text-emerald-700">@ 5% discount rate</div>
                   </div>
                 </div>
               </div>
@@ -868,7 +829,7 @@ export function ResultsSection({
             {onBack && (
               <button
                 onClick={onBack}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
@@ -880,7 +841,7 @@ export function ResultsSection({
             {onSaveReport && (
               <button
                 onClick={() => setSaveModalOpen(true)}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
@@ -889,11 +850,11 @@ export function ResultsSection({
               </button>
             )}
 
-            <button className="inline-flex items-center gap-2 rounded-lg bg-tines-purple px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+            <button className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 opacity-50 cursor-not-allowed" disabled title="PDF export coming soon">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
               </svg>
-              Download PDF Report
+              Export Report
             </button>
           </div>
         </div>

@@ -4,17 +4,16 @@ import userEvent from '@testing-library/user-event';
 import Step0BuildingType from '../../src/components/steps/Step0BuildingType';
 
 describe('Step0BuildingType', () => {
-  it('renders 4 building type cards', () => {
+  it('renders 3 building type cards', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
-    expect(screen.getByText('Hotel')).toBeInTheDocument();
+    expect(screen.getByText('Hotel / Business')).toBeInTheDocument();
     expect(screen.getByText('House')).toBeInTheDocument();
     expect(screen.getByText('Farm')).toBeInTheDocument();
-    expect(screen.getByText('Seasonal hotel')).toBeInTheDocument();
   });
 
-  it('only hotel-year-round card is clickable', () => {
+  it('hotel-year-round card is clickable', () => {
     const onNext = vi.fn();
     render(<Step0BuildingType onNext={onNext} />);
 
@@ -44,29 +43,4 @@ describe('Step0BuildingType', () => {
     expect(onNext).toHaveBeenCalledWith({ buildingType: 'hotel-year-round' });
   });
 
-  it('displays "Coming soon" for farm and seasonal hotel', () => {
-    const onNext = vi.fn();
-    render(<Step0BuildingType onNext={onNext} />);
-
-    // Should have 2 "Coming soon" badges (farm and seasonal hotel)
-    const comingSoonBadges = screen.getAllByText('Coming soon');
-    expect(comingSoonBadges.length).toBe(2);
-  });
-
-  it('disabled cards are not clickable', async () => {
-    const user = userEvent.setup();
-    const onNext = vi.fn();
-    render(<Step0BuildingType onNext={onNext} />);
-
-    const cards = screen.getAllByRole('button');
-    const disabledCards = cards.filter(card =>
-      card.hasAttribute('disabled') || card.classList.contains('cursor-not-allowed')
-    );
-
-    for (const card of disabledCards) {
-      await user.click(card);
-    }
-
-    expect(onNext).not.toHaveBeenCalled();
-  });
 });

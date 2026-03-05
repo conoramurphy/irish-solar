@@ -3,6 +3,7 @@ import type {
   Grant,
   SensitivityAnalysis,
   SensitivityScenario,
+  SensitivityVariant,
   SystemConfiguration,
   Tariff,
   TradingConfig
@@ -12,7 +13,7 @@ import type { SimulationContext } from './simulationContext';
 import { simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
 import { estimateSystemCost } from './costEstimation';
 import { calculateGrantAmount } from '../models/grants';
-import { calculateLoanPayment } from '../models/financial';
+import { calculateLoanPayment, calculateIRR } from '../models/financial';
 import { applyDegradation } from '../models/solar';
 
 interface AnalysisContext {
@@ -25,58 +26,41 @@ interface AnalysisContext {
   solarTimeseriesData: ParsedSolarData;
 }
 
+const ANALYSIS_YEARS = 25;
+
 function computeScenarioMetrics(
   ctx: AnalysisContext,
   systemSizeKwp: number,
   annualGenerationKwh: number,
-  batterySizeKwh: number
-) {
-  const {
-    grants,
-    financing,
-    tariff,
-    trading,
-    simContext,
-    solarTimeseriesData
-  } = ctx;
-
+  batterySizeKwh: number,
+  batteryFactor: 0 | 0.5 | 1.0 | 2.0
+): SensitivityVariant {
+  const { grants, financing, tariff, trading, simContext, solarTimeseriesData } = ctx;
   const { timeStamps, hourlyConsumption, hourlyPrices } = simContext;
+
   const mode = ctx.config.businessType === 'house' ? 'domestic' : 'commercial';
   const systemCost = estimateSystemCost(systemSizeKwp, batterySizeKwh, mode);
   const { totalGrant } = calculateGrantAmount(systemCost, grants, { systemSizeKwp });
   const netCost = Math.max(0, systemCost - totalGrant);
-  
+
+  // Equity is fixed; loan scales with project cost.
   const equityAmount = Math.max(0, financing.equity);
-  // Assume equity is fixed cash available. If project scales up, loan scales up.
-  const derivedLoanAmount = Math.max(0, netCost - equityAmount);
-  // If user specified fixed loan amount, we probably should ignore it for sensitivity analysis 
-  // and rely on (Cost - Equity), otherwise a fixed small loan would make large systems look impossible.
-  // But let's respect the "derived" logic if loanAmount is not explicitly set in a way that overrides.
-  // In `calculations.ts`, it says: `const loanAmount = typeof financing.loanAmount === 'number' ? ... : derived`.
-  // Here we will force derived because we are changing the project size drastically.
-  const loanAmount = derivedLoanAmount;
+  const loanAmount = Math.max(0, netCost - equityAmount);
+  const annualLoanPayment =
+    financing.termYears > 0
+      ? calculateLoanPayment(loanAmount, financing.interestRate, financing.termYears)
+      : 0;
 
-  const annualLoanPayment = financing.termYears > 0 
-    ? calculateLoanPayment(loanAmount, financing.interestRate, financing.termYears) 
-    : 0;
+  const batteryConfig: BatteryConfig | undefined =
+    batterySizeKwh > 0
+      ? { capacityKwh: batterySizeKwh, efficiency: 0.9, initialSoC: 0 }
+      : undefined;
 
-  // 2. Prepare Timesteps
-  // (Timesteps, prices, and consumption are provided via simContext)
-
-  const batteryConfig: BatteryConfig | undefined = batterySizeKwh > 0 ? {
-    capacityKwh: batterySizeKwh,
-    efficiency: 0.9,
-    initialSoC: 0
-  } : undefined;
-
-  // let cumulativeCashFlow = -equityAmount;
-  let firstYearSavings = 0;
-  let firstYearSpillageFraction = 0;
-
-  // 3. Simulate Year 1 Only
-  const year1Generation = annualGenerationKwh;
-  const year1HourlyGeneration = distributeAnnualProductionTimeseries(year1Generation, solarTimeseriesData);
-
+  // Year 1 full hourly simulation
+  const year1HourlyGeneration = distributeAnnualProductionTimeseries(
+    annualGenerationKwh,
+    solarTimeseriesData
+  );
   const year1Result = simulateHourlyEnergyFlow(
     year1HourlyGeneration,
     hourlyConsumption,
@@ -88,100 +72,95 @@ function computeScenarioMetrics(
     trading
   );
 
-  firstYearSavings = year1Result.totalSavings;
-  firstYearSpillageFraction = year1Result.totalGridExport / (year1Generation || 1);
-  
-  // Calculate paid export vs unpaid spill
-  // Paid export = actually exported to grid (gets revenue)
-  // Unpaid = curtailed due to grid export cap (no revenue)
-  const exportPaidFraction = year1Result.totalGridExport / (year1Generation || 1);
-  const exportUnpaidFraction = year1Result.totalGridExportCurtailed / (year1Generation || 1);
-  
-  // Year 1 Net Cash Flow (ignoring loan for sensitivity comparison consistency? 
-  // No, user asked for "profit loss", usually means Net Cash Flow including debt if applicable.
-  // But debt depends on term. Let's include it.)
-  const loanPayment = financing.termYears > 0 ? annualLoanPayment : 0;
-  const netCashFlow = firstYearSavings - loanPayment;
-  
-  // Approximate 10-year cumulative cash flow
-  // (Using the same degradation logic as calculations.ts)
-  let cumulativeCashFlow10y = -equityAmount; // Start with negative equity
-  
-  for (let year = 1; year <= 10; year++) {
-     const degradationFactor = applyDegradation(1, year - 1);
-     const yearSavings = firstYearSavings * degradationFactor;
-     const yearLoanPayment = year <= financing.termYears ? annualLoanPayment : 0;
-     cumulativeCashFlow10y += (yearSavings - yearLoanPayment);
+  const firstYearSavings = year1Result.totalSavings;
+  const exportPaidFraction = year1Result.totalGridExport / (annualGenerationKwh || 1);
+  const exportUnpaidFraction = year1Result.totalGridExportCurtailed / (annualGenerationKwh || 1);
+  const spillageFraction = exportPaidFraction;
+
+  // Roll up ANALYSIS_YEARS of cash flows using Year 1 savings + degradation
+  // (same pattern as runCalculation — no re-simulation needed for years 2+)
+  const grossCashFlows: number[] = []; // savings only, before loan — used for project IRR
+  const netCashFlows: number[] = [];   // savings minus loan — used for Yr1/Yr10 display
+  let cumulativeCashFlow = -equityAmount;
+
+  for (let year = 1; year <= ANALYSIS_YEARS; year++) {
+    const degradationFactor = applyDegradation(1, year - 1);
+    const yearSavings = firstYearSavings * degradationFactor;
+    const yearLoanPayment = year <= financing.termYears ? annualLoanPayment : 0;
+    grossCashFlows.push(yearSavings);
+    const netCashFlow = yearSavings - yearLoanPayment;
+    netCashFlows.push(netCashFlow);
+    if (year <= 10) cumulativeCashFlow += netCashFlow;
   }
 
+  const year1NetCashFlow = netCashFlows[0];
+  const year10NetCashFlow = cumulativeCashFlow; // cumulative through year 10 (from -equity)
+
+  // Project IRR: return on total net capital invested (netCost), using gross savings.
+  // This is financing-agnostic and always solvable when netCost > 0 and savings > 0,
+  // unlike equity IRR which returns NaN whenever equity is €0.
+  const irr = calculateIRR(netCost, grossCashFlows);
+
   return {
+    batteryFactor,
+    batterySizeKwh,
     systemCost,
     netCost,
     annualSavings: firstYearSavings,
-    year1NetCashFlow: netCashFlow,
-    year10NetCashFlow: cumulativeCashFlow10y,
-    spillageFraction: firstYearSpillageFraction,
+    irr,
+    year1NetCashFlow,
+    year10NetCashFlow,
+    spillageFraction,
     exportPaidFraction,
-    exportUnpaidFraction
+    exportUnpaidFraction,
   };
 }
 
 
 export function runSensitivityAnalysis(context: AnalysisContext): SensitivityAnalysis {
   const { config } = context;
-  
-  // Scale factors to test
+
   const scaleFactors = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0];
-  
-  const baseKwp = config.systemSizeKwp && config.systemSizeKwp > 0 
-    ? config.systemSizeKwp 
-    : (config.annualProductionKwh / 950); // Fallback estimate
 
-  const baseBattery = config.batterySizeKwh;
+  const baseKwp =
+    config.systemSizeKwp && config.systemSizeKwp > 0
+      ? config.systemSizeKwp
+      : config.annualProductionKwh / 950;
 
-  const rows: SensitivityScenario[] = scaleFactors.map(factor => {
+  // Base battery in kWh (fallback: 1 kWh/kWp)
+  const baseBatteryKwhPerKwp =
+    config.batterySizeKwh > 0 ? config.batterySizeKwh / baseKwp : 1.0;
+
+  const rows: SensitivityScenario[] = scaleFactors.map((factor) => {
     const annualGenerationKwh = config.annualProductionKwh * factor;
     const systemSizeKwp = baseKwp * factor;
 
-    // Case 1: No Battery
-    const noBatteryMetrics = computeScenarioMetrics(
-      context, 
-      systemSizeKwp, 
-      annualGenerationKwh, 
-      0
-    );
-
-    // Case 2: With Battery
-    // If base has battery, scale it.
-    // If base has no battery, assume 1 kWh per 1 kWp.
-    const targetBattery = baseBattery > 0 
-      ? baseBattery * factor 
-      : systemSizeKwp * 1.0; // 1 kWh per kWp default
-      
-    const withBatteryMetrics = computeScenarioMetrics(
-      context, 
-      systemSizeKwp, 
-      annualGenerationKwh, 
-      targetBattery
-    );
+    // Full battery size for this system size
+    const fullBatteryKwh = baseBatteryKwhPerKwp * systemSizeKwp;
 
     return {
       scaleFactor: factor,
       annualGenerationKwh,
       systemSizeKwp,
-      noBattery: {
-        batterySizeKwh: 0,
-        ...noBatteryMetrics
-      },
-      withBattery: {
-        batterySizeKwh: targetBattery,
-        ...withBatteryMetrics
-      }
+      noBattery: computeScenarioMetrics(
+        context, systemSizeKwp, annualGenerationKwh, 0, 0
+      ),
+      halfBattery: computeScenarioMetrics(
+        context, systemSizeKwp, annualGenerationKwh, fullBatteryKwh * 0.5, 0.5
+      ),
+      fullBattery: computeScenarioMetrics(
+        context, systemSizeKwp, annualGenerationKwh, fullBatteryKwh, 1.0
+      ),
+      doubleBattery: computeScenarioMetrics(
+        context, systemSizeKwp, annualGenerationKwh, fullBatteryKwh * 2, 2.0
+      ),
     };
   });
 
   return {
     rows,
-    note: 'Sensitivity analysis showing Year 1 Net Cash Flow and 10-Year Cumulative Cash Flow (Savings - Loan Payment) for various system sizes. "With Battery" assumes scaling existing battery or adding 1 kWh storage per 1 kWp solar.'
+    note:
+      'IRR is 25-year internal rate of return on equity. Battery sizes scale with system size. ' +
+      'Click any cell to re-run the full simulation for that solar size and battery configuration.',
   };
 }

@@ -28,9 +28,9 @@ import { CalendarSidebar } from './components/CalendarSidebar';
 import { SavedReportsList } from './components/SavedReportsList';
 import { useSavedReports } from './hooks/useSavedReports';
 import type { SavedReport } from './types/savedReports';
-import { Hero } from './components/Hero';
+import { Landing } from './components/Landing';
 import { UnifiedWizardBar } from './components/UnifiedWizardBar';
-import { ModeSelect } from './components/ModeSelect';
+
 import { TariffModeller } from './components/TariffModeller';
 import { Step0BuildingType } from './components/steps/Step0BuildingType';
 import { Step1DigitalTwin } from './components/steps/Step1DigitalTwin';
@@ -67,7 +67,7 @@ function App() {
     batterySizeKwh: 0,
     installationCost: 0,
     location: '',
-    businessType: 'hotel' // Updated by Step 0
+    businessType: 'hotel'
   });
 
   // Billing profile from Step 1
@@ -75,8 +75,10 @@ function App() {
   const [tariffConfig, setTariffConfig] = useState<TariffConfiguration | null>(null);
   const [curvedMonthlyKwh, setCurvedMonthlyKwh] = useState<number[]>([]);
   const [hourlyConsumptionOverride, setHourlyConsumptionOverride] = useState<number[] | undefined>(undefined);
+  const [uploadSummary, setUploadSummary] = useState<UploadSummary | undefined>(undefined);
   const [selectedDomesticTariff, setSelectedDomesticTariff] = useState<Tariff | undefined>(undefined);
   const [previousBusinessType, setPreviousBusinessType] = useState<SystemConfiguration['businessType']>(config.businessType);
+  const [isEditingReport, setIsEditingReport] = useState(false);
 
   const [tariffId] = useState<string>(tariffsData[0]?.id ?? '');
   // Base tariff from database (used for defaults/fallbacks like export rates)
@@ -84,34 +86,13 @@ function App() {
 
   // Effective tariff: combines base tariff defaults with user's Step 1 configuration
   const tariff: Tariff | undefined = useMemo(() => {
-    // For domestic house mode, use selected domestic tariff if available
-    if (config.businessType === 'house' && selectedDomesticTariff) {
-      return selectedDomesticTariff;
+    // If house mode OR using a preset tariff in other modes, use the selected tariff directly
+    if (config.businessType === 'house' || (tariffConfig && tariffConfig.type === 'preset')) {
+      if (selectedDomesticTariff) return selectedDomesticTariff;
     }
     
     if (!baseTariff) return undefined;
     if (!tariffConfig) return baseTariff;
-
-    // 1. Flat Rate Override
-    if (tariffConfig.type === 'flat' && tariffConfig.flatRate) {
-      return {
-        ...baseTariff,
-        id: 'user-custom-flat',
-        supplier: 'User Defined',
-        product: 'Flat Rate',
-        type: '24-hour',
-        // Flat rate mode has no standing charge in input, but we preserve base or use 0?
-        // Step 1 removed standing charge from flat mode UI.
-        // If we want to strictly match "implied rate", we should arguably set standing charge to 0
-        // and let the flat rate cover everything. Or keep it separate.
-        // Given the user says "Total bill 9500", if we calculate rate = 9500/kwh, that rate is "all-inclusive".
-        // So standing charge should be 0 to avoid double counting.
-        standingCharge: 0,
-        // User enters all-inclusive rates, so PSO levy should be 0 (already included in user's rates)
-        psoLevy: 0,
-        rates: [{ period: 'all-day', rate: tariffConfig.flatRate }]
-      };
-    }
 
     // 2. Custom Time-of-Use Override
     if (tariffConfig.type === 'custom' && tariffConfig.customSlots) {
@@ -166,26 +147,28 @@ function App() {
       return [];
     }
     
-    // House mode: Calculate bills using selected domestic tariff
-    if (config.businessType === 'house' && selectedDomesticTariff) {
-      return curvedMonthlyKwh.map((monthKwh, monthIndex) => {
-        // Get days in month
-        const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][monthIndex];
-        
-        // Standing charge cost
-        const standingChargeCost = selectedDomesticTariff.standingCharge * daysInMonth;
-        
-        // Energy cost using flat rate (most domestic tariffs use this)
-        // For simplicity, we'll use the first rate or flatRate if available
-        const rate = selectedDomesticTariff.flatRate || 
-                    (selectedDomesticTariff.rates[0]?.rate ?? 0.25);
-        const energyCost = monthKwh * rate;
-        
-        // PSO levy if applicable
-        const psoLevy = (selectedDomesticTariff.psoLevy || 0) * monthKwh;
-        
-        return standingChargeCost + energyCost + psoLevy;
-      });
+    // Use selected tariff directly for house mode OR when using a preset tariff in other modes
+    if (config.businessType === 'house' || (tariffConfig && tariffConfig.type === 'preset')) {
+      if (selectedDomesticTariff) {
+        return curvedMonthlyKwh.map((monthKwh, monthIndex) => {
+          // Get days in month
+          const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][monthIndex];
+          
+          // Standing charge cost
+          const standingChargeCost = selectedDomesticTariff.standingCharge * daysInMonth;
+          
+          // Energy cost using flat rate (most domestic tariffs use this)
+          // For simplicity, we'll use the first rate or flatRate if available
+          const rate = selectedDomesticTariff.flatRate || 
+                      (selectedDomesticTariff.rates[0]?.rate ?? 0.25);
+          const energyCost = monthKwh * rate;
+          
+          // PSO levy if applicable
+          const psoLevy = (selectedDomesticTariff.psoLevy || 0) * monthKwh;
+          
+          return standingChargeCost + energyCost + psoLevy;
+        });
+      }
     }
     
     // Commercial mode: Use tariff configuration and example months
@@ -241,7 +224,9 @@ function App() {
 
   const [standardResult, setStandardResult] = useState<CalculationResult | null>(null);
   const [marketResult, setMarketResult] = useState<CalculationResult | null>(null);
+  const [tariffComparisonResults, setTariffComparisonResults] = useState<Array<{ tariff: Tariff; result: CalculationResult }> | null>(null);
   const [calculationError, setCalculationError] = useState<string | null>(null);
+  const [reportGenerating, setReportGenerating] = useState(false);
 
   // Step management - starts at 0 (building type)
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -264,6 +249,8 @@ function App() {
     setCalculationError(null);
     setStandardResult(null);
     setMarketResult(null);
+    setTariffComparisonResults(null);
+    setIsEditingReport(false); // New report generated, no longer "editing"
     const cfg = configOverride || config;
 
     // Fail fast on missing/invalid inputs (no silent fallbacks)
@@ -318,12 +305,14 @@ function App() {
 
     // (Tariff guard moved to fail-fast validation above)
 
+    setReportGenerating(true);
     const spanId = startSpan('engine', 'Run calculations', {
       analysisYears: 25,
       location: cfg.location,
       dual: trading.enabled && !!priceTimeseriesData
     });
 
+    const runReport = () => {
     try {
       // Always run standard calculation (with tariff, no market prices)
       logInfo(
@@ -396,6 +385,31 @@ function App() {
         logInfo('engine', 'Solar timeseries normalization warnings (standard)', standard.audit.corrections, { spanId });
       }
 
+      // Run tariff comparison: same system against every available business tariff
+      const comparisonResults: Array<{ tariff: Tariff; result: CalculationResult }> = [];
+      for (const compTariff of tariffsData) {
+        try {
+          const compBase = runCalculation(
+            cfg,
+            selectedGrants,
+            financing,
+            compTariff,
+            { enabled: false },
+            historicalSolarData as any,
+            historicalTariffData as any,
+            25,
+            consumptionProfile,
+            solarTimeseriesData || undefined,
+            undefined,
+            hourlyConsumptionOverride
+          );
+          comparisonResults.push({ tariff: compTariff, result: compBase });
+        } catch (compErr) {
+          logError('engine', 'Tariff comparison run failed', { tariffId: compTariff.id, error: String(compErr) });
+        }
+      }
+      setTariffComparisonResults(comparisonResults);
+
       // If market rate enabled and price data available, also run market calculation
       if (trading.enabled && priceTimeseriesData) {
         logInfo(
@@ -467,16 +481,28 @@ function App() {
       setCalculationError(msg);
       logError('engine', 'runCalculation failed', { message: msg }, { spanId });
       endSpan(spanId, 'error', { message: msg });
+    } finally {
+      setReportGenerating(false);
     }
+    };
+    setTimeout(runReport, 0);
   };
 
   // Load solar data when location is set in Step 1
   useEffect(() => {
     if (!config.location) {
+      setRawSolarData(null);
       setSolarTimeseriesData(null);
       setSolarNormalizationCorrections(null);
+      setAvailableYears([]);
       return;
     }
+
+    // Immediately clear stale data when location changes
+    setRawSolarData(null);
+    setSolarTimeseriesData(null);
+    setSolarNormalizationCorrections(null);
+    setAvailableYears([]);
 
     setSolarDataLoading(true);
     logSolarInfo('solar', 'Loading solar timeseries from location', { location: config.location });
@@ -490,8 +516,11 @@ function App() {
         const years = listSolarTimeseriesYears(parsed);
         setAvailableYears(years);
         
-        // Default to first available year if current selectedYear is invalid
-        const defaultYear = years.length > 0 ? years[0] : year;
+        // Prefer 2024 if available, then most recent, then first
+        const PREFERRED_YEAR = 2024;
+        const defaultYear = years.length > 0
+          ? (years.includes(PREFERRED_YEAR) ? PREFERRED_YEAR : years[years.length - 1])
+          : year;
         if (!selectedYear || !years.includes(selectedYear)) {
           setSelectedYear(defaultYear);
         }
@@ -576,11 +605,9 @@ function App() {
       setBuildingTypeSelection(data.buildingType);
       
       // Update config.businessType based on selection
-      // Map 'hotel-year-round'/'hotel-seasonal' -> 'hotel', 'farm' -> 'farm', etc.
+      // Map 'hotel-year-round' -> 'hotel', 'farm' -> 'farm', etc.
       let businessType: SystemConfiguration['businessType'] = 'hotel';
       if (data.buildingType === 'farm') {
-        // TODO [farm-mode]: Currently gated by disabled button in Step0.
-        // Engine has a farm daily consumption curve but Steps 1-4 lack farm-specific UI/tariffs/grants.
         businessType = 'farm';
       } else if (data.buildingType === 'commercial') {
         businessType = 'commercial';
@@ -605,6 +632,7 @@ function App() {
       // If we have an override (Domestic mode), store it.
       // If not, clear it so we don't accidentally carry it over if user switches type.
       setHourlyConsumptionOverride(data.hourlyConsumptionOverride);
+      setUploadSummary(data.uploadSummary);
       
       // Store selected domestic tariff if provided (house mode)
       if (data.selectedDomesticTariff) {
@@ -659,6 +687,7 @@ function App() {
 
   const handleLoadReport = (saved: SavedReport) => {
     setCalculationError(null);
+    setIsEditingReport(true); // Loading a report puts us in editing mode if we go back
     // 1. Restore all state
     setConfig(saved.config);
     setFinancing(saved.financing);
@@ -700,11 +729,12 @@ function App() {
     // Option A: Just set result from saved snapshot (if available)
     if (saved.result) {
       setStandardResult(saved.result);
-      setMarketResult(null); // Saved reports from before dual-calc don't have marketResult
+      setMarketResult(null);
+      setTariffComparisonResults(null); // Saved reports pre-date comparison feature
     } else {
-      // If no result snapshot, user has to click "Generate"
       setStandardResult(null);
       setMarketResult(null);
+      setTariffComparisonResults(null);
     }
     
     // 5. If we have a location, we need to ensure solar data loads.
@@ -751,18 +781,69 @@ function App() {
   const handleBackFromResults = () => {
     setStandardResult(null);
     setMarketResult(null);
+    setTariffComparisonResults(null);
+    setIsEditingReport(true);
     // Go back to the last step (Finance)
     setCurrentStep(4);
     // Ensure it's marked as completed so we can navigate freely
     setCompletedSteps(prev => new Set(prev).add(4));
   };
 
+  const handleStartNewReport = () => {
+    // Fully reset all state
+    setAppMode('solar-battery');
+    setCurrentStep(0);
+    setCompletedSteps(new Set());
+    setStandardResult(null);
+    setMarketResult(null);
+    setTariffComparisonResults(null);
+    setIsEditingReport(false);
+    setCalculationError(null);
+    
+    // Reset inputs
+    setConfig({
+      annualProductionKwh: 0,
+      batterySizeKwh: 0,
+      installationCost: 0,
+      location: '',
+      businessType: 'hotel'
+    });
+    setExampleMonths([]);
+    setTariffConfig(null);
+    setCurvedMonthlyKwh([]);
+    setHourlyConsumptionOverride(undefined);
+    setUploadSummary(undefined);
+    setSelectedDomesticTariff(undefined);
+    setSelectedGrantIds([]);
+    setFinancing({
+      equity: 0,
+      interestRate: 0.05,
+      termYears: 10
+    });
+    setTrading({ enabled: false });
+    setPriceTimeseriesData(null);
+    setRawSolarData(null);
+    setSolarTimeseriesData(null);
+    setSolarNormalizationCorrections(null);
+    setAvailableYears([]);
+    setSelectedYear(undefined);
+  };
+
   const showSolarBattery = appMode === 'solar-battery';
 
   return (
-    <div className="min-h-screen bg-tines-light font-sans text-slate-600">
+    <div className="min-h-screen font-sans text-slate-600 app-root">
       {appMode === null ? (
-        <Hero compact={false} />
+        <Landing
+          onSelectSolarBattery={() => {
+            setAppMode('solar-battery');
+            setCurrentStep(0);
+            setCompletedSteps(new Set());
+            setStandardResult(null);
+            setMarketResult(null);
+          }}
+          onSelectTariff={() => setAppMode('tariff')}
+        />
       ) : (
         <UnifiedWizardBar
           appMode={appMode}
@@ -771,9 +852,16 @@ function App() {
               handleBackStep();
             } else {
               setAppMode(null);
+              setIsEditingReport(false);
             }
           }}
-          onExit={() => setAppMode(null)}
+          onExit={() => {
+            setAppMode(null);
+            setIsEditingReport(false);
+          }}
+          onStartNew={handleStartNewReport}
+          onRecalculate={handleCalculate}
+          isEditing={isEditingReport}
           onOpenSavedReports={showSolarBattery ? () => setShowSavedReports(true) : undefined}
           showExit={appMode === 'solar-battery' && (currentStep > 0 || standardResult !== null)}
           steps={appMode === 'solar-battery' && currentStep > 0 && !standardResult ? steps : undefined}
@@ -797,19 +885,6 @@ function App() {
 
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 md:py-8 relative z-20">
 
-        {appMode === null && (
-          <ModeSelect
-            onSelectSolarBattery={() => {
-              setAppMode('solar-battery');
-              setCurrentStep(0);
-              setCompletedSteps(new Set());
-              setStandardResult(null);
-              setMarketResult(null);
-            }}
-            onSelectTariff={() => setAppMode('tariff')}
-          />
-        )}
-
         {appMode === 'tariff' && <TariffModeller />}
 
         {showSolarBattery && (
@@ -827,6 +902,7 @@ function App() {
                 <ResultsSection
                   standardResult={standardResult}
                   marketResult={marketResult}
+                  tariffComparisonResults={tariffComparisonResults}
                   config={config}
                   tariff={tariff}
                   availableYears={availableYears}
@@ -834,7 +910,7 @@ function App() {
                   onSelectYear={(y) => {
                     setSelectedYear(y);
                   }}
-                  onSelectSimulation={(newKwh) => {
+                  onSelectSimulation={(newKwh, newBatterySizeKwh) => {
                     if (config.annualProductionKwh <= 0) return;
                     const ratio = newKwh / config.annualProductionKwh;
 
@@ -844,7 +920,9 @@ function App() {
                       // Scale system size and cost linearly as a first-order approximation
                       systemSizeKwp: config.systemSizeKwp ? Number((config.systemSizeKwp * ratio).toFixed(1)) : undefined,
                       numberOfPanels: config.numberOfPanels ? Math.round(config.numberOfPanels * ratio) : undefined,
-                      installationCost: Number((config.installationCost * ratio).toFixed(0))
+                      installationCost: Number((config.installationCost * ratio).toFixed(0)),
+                      // Override battery size if the clicked cell specifies one
+                      ...(newBatterySizeKwh !== undefined ? { batterySizeKwh: newBatterySizeKwh } : {}),
                     };
 
                     setConfig(newConfig);
@@ -860,7 +938,14 @@ function App() {
               </div>
             ) : currentStep === 0 ? (
               /* Step 0: full-width building type selector, no calendar sidebar */
-              <Step0BuildingType onNext={(data) => handleNextStep(0, data)} />
+              <Step0BuildingType
+                onNext={(data) => handleNextStep(0, data)}
+                currentSelection={
+                  completedSteps.has(0)
+                    ? (config.businessType === 'hotel' ? 'hotel-year-round' : config.businessType as BuildingTypeSelection)
+                    : null
+                }
+              />
             ) : (
               /* Steps 1–4: full-width, calendar table above stepper */
               <>
@@ -892,6 +977,11 @@ function App() {
                     <Step1DigitalTwin
                       businessType={config.businessType}
                       onNext={(data) => handleNextStep(1, data)}
+                      initialLocation={config.location}
+                      initialExampleMonths={exampleMonths}
+                      initialTariffConfig={tariffConfig}
+                      initialSelectedDomesticTariff={selectedDomesticTariff}
+                      initialUploadSummary={uploadSummary}
                     />
                   )}
 
@@ -903,6 +993,7 @@ function App() {
                       solarData={solarTimeseriesData}
                       loading={solarDataLoading}
                       onNext={(data) => handleNextStep(2, data)}
+                      initialCorrections={solarNormalizationCorrections}
                     />
                   )}
 
@@ -932,6 +1023,7 @@ function App() {
                       financing={financing}
                       setFinancing={setFinancing}
                       onGenerateReport={() => handleCalculate()}
+                      reportGenerating={reportGenerating}
                     />
                   )}
                 </div>

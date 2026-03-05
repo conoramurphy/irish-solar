@@ -15,8 +15,7 @@ export interface ExampleMonth {
 }
 
 export interface TariffConfiguration {
-  type: 'flat' | 'custom';
-  flatRate?: number; // €/kWh for flat tariff
+  type: 'preset' | 'custom';
   customSlots?: TariffSlot[]; // for custom tariff
   standingChargePerDay?: number; // €/day standing charge
 }
