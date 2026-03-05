@@ -526,13 +526,15 @@ export function ResultsSection({
                                 ].join(' ')}
                                 style={colours.style}
                               >
-                                {/* IRR — primary metric, reduced size */}
-                                <span className={`text-sm font-semibold tabular-nums leading-none ${colours.text}`}>
-                                  {formatIrr(v.irr)}
-                                </span>
-                                <span className="text-[10px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">IRR</span>
+                                {/* IRR — value and label on same line */}
+                                <div className={`flex items-baseline gap-1 leading-none ${colours.text}`}>
+                                  <span className="text-sm font-semibold tabular-nums">
+                                    {formatIrr(v.irr)}
+                                  </span>
+                                  <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">IRR</span>
+                                </div>
 
-                                {/* Yr1 cashflow — value and label on same row */}
+                                {/* Yr1 cashflow */}
                                 <div className="flex items-baseline gap-1 mt-1.5">
                                   <span className={`text-xs tabular-nums font-medium ${v.year1NetCashFlow >= 0 ? 'text-slate-600' : 'text-rose-500'}`}>
                                     {formatSignedCurrency(v.year1NetCashFlow)}
@@ -540,7 +542,7 @@ export function ResultsSection({
                                   <span className="text-[10px] text-slate-400">yr1</span>
                                 </div>
 
-                                {/* Yr10 cumulative — value and label on same row */}
+                                {/* Yr10 cumulative */}
                                 <div className="flex items-baseline gap-1 mt-0.5">
                                   <span className={`text-xs tabular-nums font-medium ${v.year10NetCashFlow >= 0 ? 'text-slate-600' : 'text-rose-500'}`}>
                                     {formatSignedCurrency(v.year10NetCashFlow)}
@@ -548,9 +550,17 @@ export function ResultsSection({
                                   <span className="text-[10px] text-slate-400">yr10</span>
                                 </div>
 
-                                {/* Battery size label */}
+                                {/* Spillage */}
+                                <div className="flex items-baseline gap-1 mt-0.5">
+                                  <span className={`text-[10px] tabular-nums font-medium ${v.spillageFraction > 0.3 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                    {(v.spillageFraction * 100).toFixed(0)}%
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">spill</span>
+                                </div>
+
+                                {/* Battery size */}
                                 {v.batterySizeKwh > 0 && (
-                                  <span className="text-[10px] text-slate-400 mt-1">
+                                  <span className="text-[10px] text-slate-400 mt-0.5">
                                     {v.batterySizeKwh.toFixed(1)} kWh
                                   </span>
                                 )}

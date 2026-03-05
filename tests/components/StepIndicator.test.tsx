@@ -30,8 +30,10 @@ describe('StepIndicator', () => {
     const completedSteps = new Set<number>([1, 2]);
     const { container } = render(<StepIndicator steps={steps} currentStep={3} completedSteps={completedSteps} />);
 
-    // Completed steps use the "bg-green-700" class.
-    expect(container.querySelectorAll('.bg-green-700').length).toBeGreaterThanOrEqual(2);
+    // Completed steps render a checkmark SVG (white, 20×20 viewBox) inside the step circle.
+    // We check that at least 2 such icons are present.
+    const checkmarks = container.querySelectorAll('svg[viewBox="0 0 20 20"].text-white');
+    expect(checkmarks.length).toBeGreaterThanOrEqual(2);
   });
 
   it('uses a flex row layout', () => {

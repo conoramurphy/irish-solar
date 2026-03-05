@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { SystemConfiguration, TradingConfig } from '../../types';
-import type { ExampleMonth } from '../../types/billing';
 import { type ParsedPriceData, parsePriceTimeseriesCSV } from '../../utils/priceTimeseriesParser';
-import { curveConsumption } from '../../utils/billingCalculations';
 
 interface Step3Props {
   config: SystemConfiguration;
@@ -11,8 +9,7 @@ interface Step3Props {
   setTrading: (trading: TradingConfig) => void;
   priceData: ParsedPriceData | null;
   setPriceData: (data: ParsedPriceData | null) => void;
-  exampleMonths: ExampleMonth[];
-  annualConsumptionKwh?: number; // Optional for house mode
+  annualConsumptionKwh?: number;
   onNext: () => void;
 }
 
@@ -23,7 +20,6 @@ export function Step3Battery({
   setTrading,
   priceData,
   setPriceData,
-  exampleMonths,
   annualConsumptionKwh,
   onNext
 }: Step3Props) {
@@ -55,19 +51,12 @@ export function Step3Battery({
     }
   }, [trading.enabled, priceData, loading, setPriceData]);
 
-  // Calculate average slot consumption for guidance (kWh per hour, regardless of resolution)
   const avgHourlyKw = useMemo(() => {
-    // House mode: Use annual consumption directly if available
     if (annualConsumptionKwh && annualConsumptionKwh > 0) {
-      return annualConsumptionKwh / 8760; // Guidance value; resolution-independent annual average
+      return annualConsumptionKwh / 8760;
     }
-    
-    // Commercial mode: Calculate from example months
-    if (!exampleMonths || exampleMonths.length === 0) return 0;
-    const monthlyKwh = curveConsumption(exampleMonths);
-    const annualKwh = monthlyKwh.reduce((sum, m) => sum + m, 0);
-    return annualKwh / 8760;
-  }, [exampleMonths, annualConsumptionKwh]);
+    return 0;
+  }, [annualConsumptionKwh]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

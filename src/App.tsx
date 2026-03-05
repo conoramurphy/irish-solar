@@ -38,7 +38,6 @@ import { Step2Solar } from './components/steps/Step2Solar';
 import { Step3Battery } from './components/steps/Step3Battery';
 import { Step4Finance } from './components/steps/Step4Finance';
 import { ResultsSection } from './components/ResultsSection';
-import { estimateAnnualBills } from './utils/billingCalculations';
 import type { ExampleMonth, TariffConfiguration } from './types/billing';
 import { loadSolarData } from './utils/solarDataLoader';
 import { endSpan as endSolarSpan, logError as logSolarError, logInfo as logSolarInfo, logWarn, startSpan as startSolarSpan } from './utils/logger';
@@ -171,12 +170,8 @@ function App() {
       }
     }
     
-    // Commercial mode: Use tariff configuration and example months
-    if (!tariffConfig || exampleMonths.length === 0) {
-      return [];
-    }
-    return estimateAnnualBills(curvedMonthlyKwh, tariffConfig, exampleMonths);
-  }, [curvedMonthlyKwh, tariffConfig, exampleMonths, config.businessType, selectedDomesticTariff]);
+    return [];
+  }, [curvedMonthlyKwh, tariffConfig, config.businessType, selectedDomesticTariff]);
 
   // Solar timeseries data - loaded in App when location is set in Step 1
   const [rawSolarData, setRawSolarData] = useState<ParsedSolarData | null>(null);
@@ -626,12 +621,18 @@ function App() {
       // Step 1: Digital Twin (location + consumption + tariff)
       setConfig({ ...config, location: data.location });
       setExampleMonths(data.exampleMonths);
-      setCurvedMonthlyKwh(data.curvedMonthlyKwh);
+      // Only overwrite consumption data when fresh hourly data was parsed.
+      // If the user navigated back without re-uploading, curvedMonthlyKwh is undefined —
+      // preserve whatever App.tsx already has so the calculation can still proceed.
+      if (data.curvedMonthlyKwh !== undefined) {
+        setCurvedMonthlyKwh(data.curvedMonthlyKwh);
+      }
       setTariffConfig(data.tariffConfig);
       
-      // If we have an override (Domestic mode), store it.
-      // If not, clear it so we don't accidentally carry it over if user switches type.
-      setHourlyConsumptionOverride(data.hourlyConsumptionOverride);
+      // Only overwrite hourlyConsumptionOverride when fresh data is present.
+      if (data.hourlyConsumptionOverride !== undefined) {
+        setHourlyConsumptionOverride(data.hourlyConsumptionOverride);
+      }
       setUploadSummary(data.uploadSummary);
       
       // Store selected domestic tariff if provided (house mode)
@@ -978,7 +979,6 @@ function App() {
                       businessType={config.businessType}
                       onNext={(data) => handleNextStep(1, data)}
                       initialLocation={config.location}
-                      initialExampleMonths={exampleMonths}
                       initialTariffConfig={tariffConfig}
                       initialSelectedDomesticTariff={selectedDomesticTariff}
                       initialUploadSummary={uploadSummary}
@@ -1005,7 +1005,6 @@ function App() {
                       setTrading={setTrading}
                       priceData={priceTimeseriesData}
                       setPriceData={setPriceTimeseriesData}
-                      exampleMonths={exampleMonths}
                       annualConsumptionKwh={
                         curvedMonthlyKwh.length === 12 ? curvedMonthlyKwh.reduce((a, b) => a + b, 0) : undefined
                       }

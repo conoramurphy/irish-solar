@@ -103,9 +103,13 @@ export function BillBreakdownByTariffChart({ hourlyData, tariff }: BillBreakdown
     });
   }, [monthly, mode]);
 
-  const maxMonthlyTotal = useMemo(() => {
-    return Math.max(1, ...series.map((s) => s.total));
-  }, [series]);
+  // Stable across both modes so the Y-axis doesn't rescale on toggle
+  const stableMax = useMemo(() => {
+    const allTotals = monthly.map((m) =>
+      Math.max(sum(m.eurByBucketBaseline), sum(m.eurByBucketAfter))
+    );
+    return Math.max(1, ...allTotals);
+  }, [monthly]);
 
   const chartHeightPx = 220;
 
@@ -160,7 +164,7 @@ export function BillBreakdownByTariffChart({ hourlyData, tariff }: BillBreakdown
                     .sort((a, b) => (a === 'standing' ? -1 : b === 'standing' ? 1 : 0))
                     .map((bucket, idx) => {
                       const val = m.eurByBucket[bucket] ?? 0;
-                      const h = (val / maxMonthlyTotal) * chartHeightPx;
+                      const h = (val / stableMax) * chartHeightPx;
                       if (h <= 0.5) return null;
                       return (
                         <div

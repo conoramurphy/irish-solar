@@ -1,8 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { logInfo, logError } from '../../utils/logger';
 import { Field } from '../Field';
-import { MONTH_LABELS } from '../../utils/consumption';
-import { curveConsumption, calculateMonthlyBill } from '../../utils/billingCalculations';
 import type { ExampleMonth, TariffConfiguration, TariffSlot } from '../../types/billing';
 import type { BusinessType, Tariff, UploadSummary } from '../../types';
 import { parseEsbUsageProfile } from '../../utils/usageProfileParser';
@@ -18,7 +16,7 @@ interface Step1DigitalTwinProps {
   onNext: (data: {
     location: string;
     exampleMonths: ExampleMonth[];
-    curvedMonthlyKwh: number[];
+    curvedMonthlyKwh?: number[];
     tariffConfig: TariffConfiguration | null;
     hourlyConsumptionOverride?: number[];
     selectedDomesticTariff?: Tariff;
@@ -26,19 +24,15 @@ interface Step1DigitalTwinProps {
   }) => void;
   onBack?: () => void;
   initialLocation?: string;
-  initialExampleMonths?: ExampleMonth[];
   initialTariffConfig?: TariffConfiguration | null;
   initialSelectedDomesticTariff?: Tariff;
   initialUploadSummary?: UploadSummary;
 }
 
-const MONTHS = MONTH_LABELS.map((name, index) => ({ index, name }));
-
 export function Step1DigitalTwin({
   businessType,
   onNext,
   initialLocation,
-  initialExampleMonths,
   initialTariffConfig,
   initialSelectedDomesticTariff,
   initialUploadSummary
@@ -87,21 +81,10 @@ export function Step1DigitalTwin({
     businessType !== 'house' ? (initialSelectedDomesticTariff || null) : null
   );
 
-  // Example months (default: January and July, initially empty)
-  const [exampleMonths, setExampleMonths] = useState<ExampleMonth[]>(
-    (initialExampleMonths && initialExampleMonths.length > 0) ? initialExampleMonths : [
-      { monthIndex: 0, monthName: 'January', totalKwh: 0, totalBillEur: 0, tariffSlotUsage: {} },
-      { monthIndex: 6, monthName: 'July', totalKwh: 0, totalBillEur: 0, tariffSlotUsage: {} }
-    ]
-  );
-
   // Tariff configuration
   const [tariffType, setTariffType] = useState<'preset' | 'custom'>(initialTariffConfig?.type ?? 'preset');
   const [customSlots, setCustomSlots] = useState<TariffSlot[]>(initialTariffConfig?.customSlots ?? []);
   const [standingCharge, setStandingCharge] = useState<number>(initialTariffConfig?.standingChargePerDay ?? 0.9);
-
-  // Curved consumption
-  const curvedMonthlyKwh = useMemo(() => curveConsumption(exampleMonths), [exampleMonths]);
 
   // Build tariff config
   const tariffConfig: TariffConfiguration | null = useMemo(() => {
@@ -112,10 +95,6 @@ export function Step1DigitalTwin({
     return { type: 'custom', customSlots, standingChargePerDay: standingCharge };
   }, [businessType, tariffType, customSlots, standingCharge]);
   
-  const updateExampleMonth = (index: number, updates: Partial<ExampleMonth>) => {
-    setExampleMonths(prev => prev.map((m, i) => i === index ? { ...m, ...updates } : m));
-  };
-
   const addTariffSlot = () => {
     const newSlot: TariffSlot = {
       id: `slot-${Date.now()}`,
@@ -132,47 +111,7 @@ export function Step1DigitalTwin({
   };
 
   const removeTariffSlot = (id: string) => {
-    // 1. Remove the slot definition
-    const newSlots = customSlots.filter(s => s.id !== id);
-    setCustomSlots(newSlots);
-
-    // 2. Remove usage from months and recalculate totals
-    const newMonths = exampleMonths.map(m => {
-      const newUsage = Object.fromEntries(
-        Object.entries(m.tariffSlotUsage).filter(([slotId]) => slotId !== id)
-      );
-      
-      // Recalculate totalKwh based on remaining slots
-      const newTotal = newSlots.reduce((sum, slot) => {
-        return sum + (newUsage[slot.id] || 0);
-      }, 0);
-
-      return {
-        ...m,
-        tariffSlotUsage: newUsage,
-        totalKwh: newTotal
-      };
-    });
-    setExampleMonths(newMonths);
-  };
-
-  const updateSlotUsage = (monthIndex: number, slotId: string, kwhValue: number) => {
-    setExampleMonths(prev => prev.map(m => {
-      if (m.monthIndex !== monthIndex) return m;
-      
-      const newUsage = { ...m.tariffSlotUsage, [slotId]: kwhValue };
-      
-      // Auto-update totalKwh when slot usage changes
-      const newTotal = customSlots.reduce((sum, slot) => {
-        return sum + (newUsage[slot.id] || 0);
-      }, 0);
-
-      return { 
-        ...m, 
-        tariffSlotUsage: newUsage,
-        totalKwh: newTotal 
-      };
-    }));
+    setCustomSlots(customSlots.filter(s => s.id !== id));
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,12 +173,6 @@ export function Step1DigitalTwin({
     if (businessType === 'house') {
       if (!parsedProfile) return;
 
-      // Use either the newly parsed hourly data or the one passed in via props (if we just remounted)
-      const hourlyData = parsedProfile.hourly || initialUploadSummary ? initialUploadSummary.filename === parsedProfile.filename ? undefined : undefined : undefined;
-      // Wait, that logic is messy. Let's simplify.
-      // If parsedProfile.hourly is missing, it means we restored from initialUploadSummary.
-      // In that case, App.tsx already has the hourlyConsumptionOverride.
-      
       // Create a monthly profile from the real hourly data for display in sidebar
       let monthlyKwh = new Array(12).fill(0);
       
@@ -264,8 +197,8 @@ export function Step1DigitalTwin({
 
       onNext({
         location,
-        exampleMonths: [], // Not used for house mode
-        curvedMonthlyKwh: parsedProfile.hourly ? monthlyKwh : [], // Only update if we have new data
+        exampleMonths: [],
+        curvedMonthlyKwh: parsedProfile.hourly ? monthlyKwh : undefined,
         tariffConfig: null, // House mode uses selectedDomesticTariff directly, not tariffConfig
         hourlyConsumptionOverride: parsedProfile.hourly,
         selectedDomesticTariff: selectedDomesticTariff || undefined,
@@ -305,7 +238,7 @@ export function Step1DigitalTwin({
         onNext({
           location,
           exampleMonths: [],
-          curvedMonthlyKwh: parsedProfile.hourly ? monthlyKwh : [],
+          curvedMonthlyKwh: parsedProfile.hourly ? monthlyKwh : undefined,
           tariffConfig: { type: 'preset' },
           hourlyConsumptionOverride: parsedProfile.hourly,
           selectedDomesticTariff: selectedBusinessTariff,
@@ -318,41 +251,44 @@ export function Step1DigitalTwin({
         });
         return;
       } else {
-        // Custom Builder mode
-        const normalizedExampleMonths = exampleMonths.map(month => {
-          if (!customSlots.length) {
-            return { ...month, tariffSlotUsage: {} }; // Clear usage if not applicable
+        // Custom Builder mode — consumption comes from parsedProfile, same as preset
+        if (!parsedProfile) return;
+
+        let monthlyKwh = new Array(12).fill(0);
+
+        if (parsedProfile.hourly) {
+          const isLeapYear = parsedProfile.hourly.length === HOURS_PER_YEAR_LEAP;
+          const daysInMonth = isLeapYear ? DAYS_PER_MONTH_LEAP : DAYS_PER_MONTH_NON_LEAP;
+
+          let hIdx = 0;
+          for (let m = 0; m < 12; m++) {
+            const slotsPerDay = parsedProfile.hourly.length > 8784 ? 48 : 24;
+            const slots = daysInMonth[m] * slotsPerDay;
+            for (let h = 0; h < slots; h++) {
+              if (hIdx < parsedProfile.hourly.length) {
+                monthlyKwh[m] += parsedProfile.hourly[hIdx++];
+              }
+            }
           }
-          
-          const totalSlotKwh = customSlots.reduce((sum, slot) => {
-            return sum + (month.tariffSlotUsage[slot.id] || 0);
-          }, 0);
+        }
 
-          const normalizedSlotUsage: Record<string, number> = {};
-          for (const slot of customSlots) {
-            const kwh = month.tariffSlotUsage[slot.id] || 0;
-            normalizedSlotUsage[slot.id] = totalSlotKwh > 0 ? kwh / totalSlotKwh : 0;
-          }
-
-          return {
-            ...month,
-            totalKwh: totalSlotKwh, // Also update the month's total kWh to match the sum of slots
-            tariffSlotUsage: normalizedSlotUsage
-          };
-        });
-
-        logInfo('ui', 'Step 1 (Digital Twin) continue clicked', {
+        logInfo('ui', 'Step 1 (Digital Twin) custom tariff continue clicked', {
           location,
-          exampleMonths: normalizedExampleMonths,
-          curvedMonthlyKwhTotal: curvedMonthlyKwh.reduce((a, b) => a + b, 0),
           tariffConfig
         });
 
         onNext({
           location,
-          exampleMonths: normalizedExampleMonths,
-          curvedMonthlyKwh,
-          tariffConfig
+          exampleMonths: [],
+          curvedMonthlyKwh: parsedProfile.hourly ? monthlyKwh : undefined,
+          tariffConfig,
+          hourlyConsumptionOverride: parsedProfile.hourly,
+          uploadSummary: parsedProfile.filename ? {
+            filename: parsedProfile.filename,
+            year: parsedProfile.year,
+            totalKwh: parsedProfile.totalKwh,
+            slotsPerDay: parsedProfile.hourly && parsedProfile.hourly.length > 8784 ? 48 : 24
+          } : undefined
         });
       }
     }
@@ -370,12 +306,9 @@ export function Step1DigitalTwin({
       return !!parsedProfile && !!selectedBusinessTariff;
     }
 
-    return (
-      exampleMonths.length >= 2 && 
-      customSlots.length > 0 && 
-      exampleMonths.every(m => m.totalKwh > 0)
-    );
-  }, [location, businessType, parsedProfile, selectedDomesticTariff, selectedBusinessTariff, exampleMonths, tariffType, customSlots]);
+    // Custom tariff builder: need consumption data and at least one rate slot defined
+    return !!parsedProfile && customSlots.length > 0;
+  }, [location, businessType, parsedProfile, selectedDomesticTariff, selectedBusinessTariff, tariffType, customSlots]);
 
   return (
     <div className="max-w-4xl mx-auto">
