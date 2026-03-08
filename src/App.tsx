@@ -789,7 +789,7 @@ function WizardApp() {
     if (!standardResult) throw new Error('No result to share');
 
     const payload = {
-      name: config.name ?? 'Solar ROI Report',
+      name: 'Solar ROI Report',
       schemaVersion: 1,
       config,
       financing,
