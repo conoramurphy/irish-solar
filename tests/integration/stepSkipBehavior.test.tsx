@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import App from '../../src/App';
 
@@ -154,7 +155,7 @@ describe('Step Skip Behavior', () => {
 
   it('navigates from Step 2 to Step 3, then Step 4', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await enterSolarBatteryMode(user);
 
@@ -183,7 +184,7 @@ describe('Step Skip Behavior', () => {
 
   it('navigates back from Step 4 to Step 3', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await enterSolarBatteryMode(user);
 
@@ -212,7 +213,7 @@ describe('Step Skip Behavior', () => {
 
   it('navigates back from Step 1 to Step 0', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await enterSolarBatteryMode(user);
 
@@ -232,7 +233,7 @@ describe('Step Skip Behavior', () => {
 
   it('Step 3 is enabled in stepper', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await enterSolarBatteryMode(user);
 
@@ -247,7 +248,7 @@ describe('Step Skip Behavior', () => {
 
   it('Step3Battery is rendered during navigation', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await enterSolarBatteryMode(user);
 
@@ -272,7 +273,7 @@ describe('Step Skip Behavior', () => {
 
   it('stepper is hidden on Step 0', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await enterSolarBatteryMode(user);
 
@@ -282,7 +283,7 @@ describe('Step Skip Behavior', () => {
 
   it('stepper becomes visible after Step 0', async () => {
     const user = userEvent.setup();
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     await enterSolarBatteryMode(user);
 

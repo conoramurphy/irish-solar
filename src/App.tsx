@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Route, Routes } from 'react-router-dom';
+import { SharedReportView } from './components/SharedReportView';
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
 import rawTariffsData from './data/tariffs.json';
@@ -51,7 +53,7 @@ const historicalTariffData = rawHistoricalTariffData as unknown as HistoricalTar
 
 type AppMode = 'solar-battery' | 'tariff' | null;
 
-function App() {
+function WizardApp() {
   const [appMode, setAppMode] = useState<AppMode>(null);
 
   // Saved Reports (solar & battery mode only)
@@ -1039,6 +1041,16 @@ function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/r/:id/edit" element={<SharedReportView editMode />} />
+      <Route path="/r/:id" element={<SharedReportView />} />
+      <Route path="/*" element={<WizardApp />} />
+    </Routes>
   );
 }
 
