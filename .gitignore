@@ -30,3 +30,6 @@ Other tools/
 # Cloudflare local dev
 .dev.vars
 .wrangler/
+
+# Claude Code worktrees (nested git repos — must not be tracked as submodules)
+.claude/worktrees/
