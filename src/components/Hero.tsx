@@ -23,8 +23,8 @@ export function Hero({ compact = false, rightContent }: HeroProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
               </svg>
             </div>
-            <h1 className="text-sm font-serif font-bold tracking-tight" style={{ color: '#0D4027' }}>
-              Solar & Battery <span style={{ color: '#B45309' }}>Modeller</span>
+            <h1 className="text-sm font-serif font-bold tracking-widest uppercase" style={{ color: '#0D4027' }}>
+              Watt <span style={{ color: '#B45309' }}>Profit</span>
             </h1>
           </div>
           {rightContent && <div>{rightContent}</div>}
@@ -44,7 +44,7 @@ export function Hero({ compact = false, rightContent }: HeroProps) {
       <div className="mx-auto max-w-7xl px-6 relative z-10">
         <div className="pt-16 pb-12 md:pt-24 md:pb-16">
           {/* Eyebrow */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-5">
             <span
               className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest px-4 py-1.5 rounded-full border"
               style={{ color: '#D97706', borderColor: 'rgba(217,119,6,0.35)', background: 'rgba(217,119,6,0.08)' }}
@@ -55,14 +55,19 @@ export function Hero({ compact = false, rightContent }: HeroProps) {
           </div>
 
           {/* Headline */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-6xl font-serif font-bold text-white leading-tight tracking-tight">
-              Solar, Battery &{' '}
-              <span style={{ color: '#D97706' }}>Tariff Modeller</span>
+          <div className="text-center mb-7">
+            <h1 className="text-4xl md:text-5xl font-serif font-bold text-white leading-tight tracking-tight">
+              Make the{' '}
+              <span style={{ color: '#D97706' }}>Perfect Energy Choice</span>
             </h1>
-            <p className="mt-5 text-base md:text-lg max-w-2xl mx-auto font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
-              Hourly dispatch simulation on real Irish irradiance data. ROI, payback, and tariff comparison — built for hotels, farms, and homes.
-            </p>
+            <div className="mt-5 max-w-2xl mx-auto space-y-3 text-left md:text-center">
+              <p className="text-sm md:text-base font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>
+                With current SEAI grants, rising energy prices, and declining export tariffs set to continue over the next decade, there has never been a more profitable moment to switch to solar and batteries.
+              </p>
+              <p className="text-sm md:text-base font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                Yet the country is littered with mis-sized systems — too small, too many batteries, or simply a system that was never matched to how a building actually uses energy. We model your exact half-hour-by-half-hour consumption profile so your system is sized precisely for you.
+              </p>
+            </div>
           </div>
 
           {/* Tines-style stat bento strip */}
