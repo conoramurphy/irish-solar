@@ -20,10 +20,44 @@ interface DayData {
   hours: HourlyEnergyFlow[];
 }
 
+const MONTH_ABBREVS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function LegendToggle({
+  active,
+  onToggle,
+  color,
+  label,
+}: {
+  active: boolean;
+  onToggle: () => void;
+  color: string;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      className="flex items-center gap-2 rounded px-2 py-1 transition-opacity hover:opacity-80"
+      style={{ opacity: active ? 1 : 0.4 }}
+      aria-pressed={active}
+    >
+      <div
+        className="w-3 h-3 rounded flex-shrink-0"
+        style={{ background: active ? color : '#94a3b8' }}
+      />
+      <span className={`text-slate-600 ${active ? '' : 'line-through'}`}>{label}</span>
+    </button>
+  );
+}
+
 export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('yearly');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [selectedWeek, setSelectedWeek] = useState<number>(0);
+
+  // Series visibility toggles — all on by default
+  const [showGeneration, setShowGeneration] = useState(true);
+  const [showDaylightUsage, setShowDaylightUsage] = useState(true);
+  const [showNightUsage, setShowNightUsage] = useState(true);
 
   const availableYears = useMemo(() => {
     const years = new Set<number>();
@@ -90,7 +124,22 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
         hours
       };
     });
-  }, [hourlyForSelectedYear]);
+  }, [hourlyForSelectedYear, slotsPerDay]);
+
+  // Month boundaries for yearly x-axis labels
+  const monthBoundaries = useMemo(() => {
+    const result: { label: string; startIdx: number }[] = [];
+    let lastMonth = -1;
+    dailyData.forEach((day, i) => {
+      const parts = day.date.split('-');
+      const m = Number(parts[1]) - 1;
+      if (m !== lastMonth) {
+        result.push({ label: MONTH_ABBREVS[m] ?? String(m + 1), startIdx: i });
+        lastMonth = m;
+      }
+    });
+    return result;
+  }, [dailyData]);
 
   // Find interesting days
   const interestingDays = useMemo(() => {
@@ -238,28 +287,34 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
             <div className="text-sm font-medium text-slate-700">
               {availableYears.length > 1 ? selectedYear : year} - Daily Totals ({dailyData.length} days)
             </div>
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded" style={{ background: 'rgba(251, 191, 36, 0.9)' }} />
-                <span className="text-slate-600">Generation</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded" style={{ background: 'rgba(16, 185, 129, 0.35)' }} />
-                <span className="text-slate-600">Daylight Usage</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded" style={{ background: 'rgba(99, 102, 241, 0.25)' }} />
-                <span className="text-slate-600">Night Usage</span>
-              </div>
+            <div className="flex items-center gap-1 text-xs">
+              <LegendToggle
+                active={showGeneration}
+                onToggle={() => setShowGeneration(v => !v)}
+                color="rgba(251, 191, 36, 0.9)"
+                label="Generation"
+              />
+              <LegendToggle
+                active={showDaylightUsage}
+                onToggle={() => setShowDaylightUsage(v => !v)}
+                color="rgba(16, 185, 129, 0.35)"
+                label="Daylight Usage"
+              />
+              <LegendToggle
+                active={showNightUsage}
+                onToggle={() => setShowNightUsage(v => !v)}
+                color="rgba(99, 102, 241, 0.25)"
+                label="Night Usage"
+              />
             </div>
           </div>
 
-          <div className="relative h-64 bg-slate-50 rounded-lg p-4 overflow-x-auto">
+          <div className="relative bg-slate-50 rounded-lg p-4">
             {(() => {
-              const w = Math.max(900, dailyData.length * 4);
-              const h = 220;
-              const innerH = 200;
-              const baseY = 220;
+              const w = 1000;
+              const h = 240;
+              const innerH = 180;
+              const baseY = 200;
               const stepX = w / Math.max(1, dailyData.length - 1);
 
               const yFor = (value: number) => baseY - (value / maxDailyConsumption) * innerH;
@@ -305,7 +360,13 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
               const darkArea = `${totalLine} ${daylightRevPath} Z`;
 
               return (
-                <svg width={w} height={h} className="block">
+                <svg
+                  width="100%"
+                  height={h}
+                  viewBox={`0 0 ${w} ${h}`}
+                  preserveAspectRatio="none"
+                  className="block"
+                >
                   {/* Grid lines */}
                   {[0, 0.25, 0.5, 0.75, 1].map((p) => (
                     <line
@@ -319,16 +380,55 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                     />
                   ))}
 
+                  {/* Month boundary lines and labels */}
+                  {monthBoundaries.map((boundary, bi) => {
+                    const bx = boundary.startIdx * stepX;
+                    const nextBoundary = monthBoundaries[bi + 1];
+                    const nextBx = nextBoundary ? nextBoundary.startIdx * stepX : w;
+                    const labelX = (bx + nextBx) / 2;
+                    return (
+                      <g key={boundary.label}>
+                        {bi > 0 && (
+                          <line
+                            x1={bx}
+                            y1={0}
+                            x2={bx}
+                            y2={baseY}
+                            stroke="#cbd5e1"
+                            strokeWidth={1}
+                            strokeDasharray="4 3"
+                          />
+                        )}
+                        <text
+                          x={labelX}
+                          y={h - 6}
+                          textAnchor="middle"
+                          fill="#64748b"
+                          fontSize={14}
+                          fontFamily="sans-serif"
+                        >
+                          {boundary.label}
+                        </text>
+                      </g>
+                    );
+                  })}
+
                   {/* Soft areas */}
-                  <path d={daylightArea} fill="rgba(16, 185, 129, 0.22)" />
-                  <path d={darkArea} fill="rgba(99, 102, 241, 0.20)" />
+                  {showDaylightUsage && <path d={daylightArea} fill="rgba(16, 185, 129, 0.22)" />}
+                  {showNightUsage && <path d={darkArea} fill="rgba(99, 102, 241, 0.20)" />}
 
                   {/* Usage outlines */}
-                  <path d={daylightLine} fill="none" stroke="rgba(16, 185, 129, 0.45)" strokeWidth={1.5} />
-                  <path d={totalLine} fill="none" stroke="rgba(99, 102, 241, 0.35)" strokeWidth={1.5} />
+                  {showDaylightUsage && (
+                    <path d={daylightLine} fill="none" stroke="rgba(16, 185, 129, 0.45)" strokeWidth={1.5} />
+                  )}
+                  {showNightUsage && (
+                    <path d={totalLine} fill="none" stroke="rgba(99, 102, 241, 0.35)" strokeWidth={1.5} />
+                  )}
 
                   {/* Generation line (slightly thicker) */}
-                  <path d={genLine} fill="none" stroke="rgba(245, 158, 11, 0.95)" strokeWidth={2.6} strokeLinecap="round" />
+                  {showGeneration && (
+                    <path d={genLine} fill="none" stroke="rgba(245, 158, 11, 0.95)" strokeWidth={2.6} strokeLinecap="round" />
+                  )}
                 </svg>
               );
             })()}
@@ -347,21 +447,43 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
             <div className="text-sm font-medium text-slate-700">
               Week {selectedWeek + 1} of {weeklyData.length}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedWeek(Math.max(0, selectedWeek - 1))}
-                disabled={selectedWeek === 0}
-                className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                ← Prev
-              </button>
-              <button
-                onClick={() => setSelectedWeek(Math.min(weeklyData.length - 1, selectedWeek + 1))}
-                disabled={selectedWeek === weeklyData.length - 1}
-                className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next →
-              </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 text-xs">
+                <LegendToggle
+                  active={showGeneration}
+                  onToggle={() => setShowGeneration(v => !v)}
+                  color="#fbbf24"
+                  label="Generation"
+                />
+                <LegendToggle
+                  active={showDaylightUsage}
+                  onToggle={() => setShowDaylightUsage(v => !v)}
+                  color="#10b981"
+                  label="Daylight Usage"
+                />
+                <LegendToggle
+                  active={showNightUsage}
+                  onToggle={() => setShowNightUsage(v => !v)}
+                  color="#6366f1"
+                  label="Night Usage"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedWeek(Math.max(0, selectedWeek - 1))}
+                  disabled={selectedWeek === 0}
+                  className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ← Prev
+                </button>
+                <button
+                  onClick={() => setSelectedWeek(Math.min(weeklyData.length - 1, selectedWeek + 1))}
+                  disabled={selectedWeek === weeklyData.length - 1}
+                  className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </button>
+              </div>
             </div>
           </div>
 
@@ -391,35 +513,41 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 return (
                   <g key={index}>
                     {/* Daylight usage (bottom) */}
-                    <rect
-                      x={x - barWidth / 2}
-                      y={220 - daylightHeight}
-                      width={barWidth}
-                      height={daylightHeight}
-                      fill="#10b981"
-                      opacity="0.8"
-                      rx="2"
-                    />
+                    {showDaylightUsage && (
+                      <rect
+                        x={x - barWidth / 2}
+                        y={220 - daylightHeight}
+                        width={barWidth}
+                        height={daylightHeight}
+                        fill="#10b981"
+                        opacity="0.8"
+                        rx="2"
+                      />
+                    )}
                     {/* Night usage (top) */}
-                    <rect
-                      x={x - barWidth / 2}
-                      y={220 - daylightHeight - darkHeight}
-                      width={barWidth}
-                      height={darkHeight}
-                      fill="#6366f1"
-                      opacity="0.8"
-                      rx="2"
-                    />
+                    {showNightUsage && (
+                      <rect
+                        x={x - barWidth / 2}
+                        y={220 - daylightHeight - darkHeight}
+                        width={barWidth}
+                        height={darkHeight}
+                        fill="#6366f1"
+                        opacity="0.8"
+                        rx="2"
+                      />
+                    )}
                     {/* Generation marker */}
-                    <line
-                      x1={x - barWidth / 2 - 5}
-                      y1={220 - genHeight}
-                      x2={x + barWidth / 2 + 5}
-                      y2={220 - genHeight}
-                      stroke="#fbbf24"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                    />
+                    {showGeneration && (
+                      <line
+                        x1={x - barWidth / 2 - 5}
+                        y1={220 - genHeight}
+                        x2={x + barWidth / 2 + 5}
+                        y2={220 - genHeight}
+                        stroke="#fbbf24"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                    )}
                     {/* Day label */}
                     <text
                       x={x}
@@ -445,31 +573,53 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
             <div className="text-sm font-medium text-slate-700">
               {selectedDay.date} - Hourly Profile
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={selectedDay.date}
-                onChange={(e) => {
-                  const targetDate = e.target.value;
-                  const dayIndex = dailyData.findIndex(d => d.date === targetDate);
-                  if (dayIndex >= 0) setSelectedDayIndex(dayIndex);
-                }}
-                className="px-3 py-1 text-sm border border-slate-200 rounded-md"
-              />
-              <button
-                onClick={() => setSelectedDayIndex(Math.max(0, selectedDayIndex - 1))}
-                disabled={selectedDayIndex === 0}
-                className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50"
-              >
-                ←
-              </button>
-              <button
-                onClick={() => setSelectedDayIndex(Math.min(dailyData.length - 1, selectedDayIndex + 1))}
-                disabled={selectedDayIndex === dailyData.length - 1}
-                className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50"
-              >
-                →
-              </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 text-xs">
+                <LegendToggle
+                  active={showGeneration}
+                  onToggle={() => setShowGeneration(v => !v)}
+                  color="#fbbf24"
+                  label="Generation"
+                />
+                <LegendToggle
+                  active={showDaylightUsage}
+                  onToggle={() => setShowDaylightUsage(v => !v)}
+                  color="#10b981"
+                  label="Daylight Usage"
+                />
+                <LegendToggle
+                  active={showNightUsage}
+                  onToggle={() => setShowNightUsage(v => !v)}
+                  color="#6366f1"
+                  label="Night Usage"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={selectedDay.date}
+                  onChange={(e) => {
+                    const targetDate = e.target.value;
+                    const dayIndex = dailyData.findIndex(d => d.date === targetDate);
+                    if (dayIndex >= 0) setSelectedDayIndex(dayIndex);
+                  }}
+                  className="px-3 py-1 text-sm border border-slate-200 rounded-md"
+                />
+                <button
+                  onClick={() => setSelectedDayIndex(Math.max(0, selectedDayIndex - 1))}
+                  disabled={selectedDayIndex === 0}
+                  className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50"
+                >
+                  ←
+                </button>
+                <button
+                  onClick={() => setSelectedDayIndex(Math.min(dailyData.length - 1, selectedDayIndex + 1))}
+                  disabled={selectedDayIndex === dailyData.length - 1}
+                  className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50"
+                >
+                  →
+                </button>
+              </div>
             </div>
           </div>
 
@@ -500,26 +650,30 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
 
                 return (
                   <g key={index}>
-                    {/* Consumption bar */}
-                    <rect
-                      x={x}
-                      y={220 - consHeight}
-                      width={barWidth}
-                      height={consHeight}
-                      fill={isDaylight ? '#10b981' : '#6366f1'}
-                      opacity="0.7"
-                      rx="2"
-                    />
+                    {/* Consumption bar — coloured by daylight/night, gated by toggle */}
+                    {(isDaylight ? showDaylightUsage : showNightUsage) && (
+                      <rect
+                        x={x}
+                        y={220 - consHeight}
+                        width={barWidth}
+                        height={consHeight}
+                        fill={isDaylight ? '#10b981' : '#6366f1'}
+                        opacity="0.7"
+                        rx="2"
+                      />
+                    )}
                     {/* Generation bar */}
-                    <rect
-                      x={x}
-                      y={220 - genHeight}
-                      width={barWidth}
-                      height={genHeight}
-                      fill="#fbbf24"
-                      opacity="0.8"
-                      rx="2"
-                    />
+                    {showGeneration && (
+                      <rect
+                        x={x}
+                        y={220 - genHeight}
+                        width={barWidth}
+                        height={genHeight}
+                        fill="#fbbf24"
+                        opacity="0.8"
+                        rx="2"
+                      />
+                    )}
                     {/* Hour label (every 3 hours) */}
                     {index % 3 === 0 && (
                       <text
