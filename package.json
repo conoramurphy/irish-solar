@@ -7,7 +7,7 @@
     "dev": "concurrently -n vite,api -c cyan,yellow \"vite\" \"wrangler pages dev dist --port 8788\"",
     "dev:vite": "vite",
     "dev:api": "wrangler pages dev dist --port 8788",
-    "db:seed": "wrangler d1 execute solar-reports --local --file=./migrations/0001_initial.sql",
+    "db:seed": "wrangler d1 execute wattreports --local --file=./migrations/0001_initial.sql",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
