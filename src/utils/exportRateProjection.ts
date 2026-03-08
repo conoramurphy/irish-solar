@@ -47,17 +47,26 @@ export interface ProjectionInputs {
   equityAmount: number;
   effectiveNetCost: number;
   analysisYears?: number;
-  applyExportRateDecline: boolean;
+  /**
+   * When true, applies both:
+   * - Import tariff escalation at IMPORT_ESCALATION_RATE per year (avoided-cost savings grow)
+   * - Export rate step-down from 2031 per the solar-saturation schedule
+   */
+  applyFutureRateChanges: boolean;
   baseCalendarYear: number;
 }
+
+/** Conservative historical electricity price inflation rate (per year). */
+export const IMPORT_ESCALATION_RATE = 0.03;
 
 /**
  * Project 25-year cash flows from Year 1 results.
  *
- * When `applyExportRateDecline` is true, the export-revenue component of
- * annual savings is scaled down according to the projected export rate
- * schedule for the corresponding calendar year, while self-consumption
- * savings (avoided import costs) are unaffected.
+ * When `applyFutureRateChanges` is true:
+ * - Self-consumption savings (avoided import cost) compound at IMPORT_ESCALATION_RATE/year
+ * - Export revenue steps down from 2031 per the solar-market-saturation schedule
+ *
+ * When false, both components only decline due to panel degradation (0.5%/year).
  */
 export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
   const {
@@ -70,7 +79,7 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
     equityAmount,
     effectiveNetCost,
     analysisYears = 25,
-    applyExportRateDecline,
+    applyFutureRateChanges,
     baseCalendarYear,
   } = inputs;
 
@@ -83,12 +92,19 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
     const yearGeneration = baseGeneration * degradationFactor;
 
     const calendarYear = baseCalendarYear + year - 1;
-    const exportMultiplier = applyExportRateDecline
+
+    // Import-rate savings grow with tariff escalation (avoided cost rises as grid prices rise)
+    const importEscalation = applyFutureRateChanges
+      ? Math.pow(1 + IMPORT_ESCALATION_RATE, year - 1)
+      : 1.0;
+
+    // Export revenue shrinks as high solar penetration compresses midday wholesale prices
+    const exportMultiplier = applyFutureRateChanges
       ? getExportRateMultiplier(calendarYear)
       : 1.0;
 
     const yearExportRevenue = year1ExportRevenue * degradationFactor * exportMultiplier;
-    const yearNonExportSavings = year1NonExportSavings * degradationFactor;
+    const yearNonExportSavings = year1NonExportSavings * degradationFactor * importEscalation;
     const yearOperationalSavings = yearNonExportSavings + yearExportRevenue;
 
     const yearTotalSavings = yearOperationalSavings + (year === 1 ? year1TaxSavings : 0);

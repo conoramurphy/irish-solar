@@ -29,6 +29,7 @@ Single running list of future work items. Add new items at the top under the app
 - Accessibility pass: labels for selects/inputs, focus states, keyboard navigation, modal ARIA
 
 ## Calculation engine / audit
+- **Feed-in tariff change**: Add explanation and modelling for when feed-in tariffs will start changing (effective dates, future rate assumptions); surface in audit/report so users understand which periods use which rates and when assumptions roll over.
 - Battery model v2: explicit dispatch policies (self-consumption maximization vs peak shaving) with auditor-traceable decisions
 - Formalize baseline vs with-solar cost model to ensure tariff edge cases (standing charges, levies) are consistent
 - Validate invariants for leap years (8784) end-to-end across UI + audit export

@@ -265,7 +265,7 @@ export function runCalculation(
     equityAmount,
     effectiveNetCost,
     analysisYears,
-    applyExportRateDecline: true,
+    applyFutureRateChanges: true,
     baseCalendarYear,
   });
 

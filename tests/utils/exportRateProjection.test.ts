@@ -39,7 +39,7 @@ describe('projectCashFlows', () => {
     equityAmount: 10000,
     effectiveNetCost: 10000,
     analysisYears: 25,
-    applyExportRateDecline: false,
+    applyFutureRateChanges: false,
     baseCalendarYear: 2025,
   };
 
@@ -57,59 +57,57 @@ describe('projectCashFlows', () => {
   });
 
   it('Year 1 savings match input when decline is on (base year 2025 is before 2031)', () => {
-    const result = projectCashFlows({ ...baseInputs, applyExportRateDecline: true });
+    const result = projectCashFlows({ ...baseInputs, applyFutureRateChanges: true });
     expect(result.cashFlows[0].savings).toBeCloseTo(2000, 2);
   });
 
-  it('flat projection has higher 25-year total than declining projection', () => {
-    const flat = projectCashFlows({ ...baseInputs, applyExportRateDecline: false });
-    const declining = projectCashFlows({ ...baseInputs, applyExportRateDecline: true });
+  it('future-changes projection has higher 25-year total than flat (import escalation outweighs export decline)', () => {
+    // Import +3%/year compounds more than export decline subtracts for a typical split
+    const flat = projectCashFlows({ ...baseInputs, applyFutureRateChanges: false });
+    const future = projectCashFlows({ ...baseInputs, applyFutureRateChanges: true });
 
     const flatTotal = flat.cashFlows.reduce((s, cf) => s + cf.savings, 0);
-    const decliningTotal = declining.cashFlows.reduce((s, cf) => s + cf.savings, 0);
+    const futureTotal = future.cashFlows.reduce((s, cf) => s + cf.savings, 0);
 
-    expect(flatTotal).toBeGreaterThan(decliningTotal);
+    expect(futureTotal).toBeGreaterThan(flatTotal);
   });
 
-  it('decline kicks in at the correct calendar years', () => {
+  it('import escalation applies from year 1, export decline from 2031', () => {
     const inputs: ProjectionInputs = {
       ...baseInputs,
-      applyExportRateDecline: true,
+      applyFutureRateChanges: true,
       baseCalendarYear: 2025,
     };
     const result = projectCashFlows(inputs);
+    const flat = projectCashFlows({ ...inputs, applyFutureRateChanges: false });
 
-    // Year 1 = 2025, Year 6 = 2030, Year 7 = 2031, Year 8 = 2032, Year 9 = 2033
+    // Year 1 savings match because escalation factor is (1+0.03)^0 = 1 and no export decline yet
+    expect(result.cashFlows[0].savings).toBeCloseTo(flat.cashFlows[0].savings, 2);
 
-    const flat = projectCashFlows({ ...inputs, applyExportRateDecline: false });
+    // Year 2 (index 1): import escalation of (1.03)^1 should make future savings higher
+    // than flat for years where export decline hasn't wiped out the gain
+    expect(result.cashFlows[1].savings).toBeGreaterThan(flat.cashFlows[1].savings);
 
-    // Years 1-6 (2025-2030): no decline, should match flat (same generation & savings)
-    for (let i = 0; i < 6; i++) {
-      expect(result.cashFlows[i].savings).toBeCloseTo(flat.cashFlows[i].savings, 2);
-    }
-
-    // Year 7 (2031): decline should apply — savings should be less than flat
-    expect(result.cashFlows[6].savings).toBeLessThan(flat.cashFlows[6].savings);
-
-    // Year 8 (2032): even more decline
-    expect(result.cashFlows[7].savings).toBeLessThan(result.cashFlows[6].savings);
+    // Year 7 (index 6) = calendar 2031: export decline kicks in.
+    // Whether future > or < flat depends on the balance, but both components apply.
+    // Verify future savings differ from flat
+    expect(result.cashFlows[6].savings).not.toBeCloseTo(flat.cashFlows[6].savings, 0);
   });
 
-  it('export-only scenario sees the full decline', () => {
+  it('export-only scenario sees the full export decline (no import escalation benefit)', () => {
     const inputs: ProjectionInputs = {
       ...baseInputs,
       year1OperationalSavings: 1000,
-      year1ExportRevenue: 1000,
-      applyExportRateDecline: true,
+      year1ExportRevenue: 1000, // 100% export — no self-consumption savings to escalate
+      applyFutureRateChanges: true,
       baseCalendarYear: 2025,
     };
     const result = projectCashFlows(inputs);
 
-    // Year 9 (2033): export multiplier = 6/14 ≈ 0.4286
-    // Non-export savings = 0, so total savings should be purely export * degradation * multiplier
+    // Year 9 (index 8) = calendar 2033: export multiplier = 6/14 ≈ 0.4286
+    // Non-export savings = 0 so import escalation has nothing to compound
     const year9 = result.cashFlows[8];
     const expectedMultiplier = 6 / 14;
-    // degradation after 8 years at 0.5%
     const degradation = Math.pow(1 - 0.005, 8);
     const expectedSavings = 1000 * degradation * expectedMultiplier;
 
@@ -172,8 +170,8 @@ describe('projectCashFlows', () => {
       equityAmount: 5000,
       baseCalendarYear: 2025,
     };
-    const flat = projectCashFlows({ ...quickPayback, applyExportRateDecline: false });
-    const declining = projectCashFlows({ ...quickPayback, applyExportRateDecline: true });
+    const flat = projectCashFlows({ ...quickPayback, applyFutureRateChanges: false });
+    const declining = projectCashFlows({ ...quickPayback, applyFutureRateChanges: true });
 
     // Payback ~1 year, well before 2031. Both should be the same.
     expect(flat.simplePayback).toBeCloseTo(declining.simplePayback, 2);

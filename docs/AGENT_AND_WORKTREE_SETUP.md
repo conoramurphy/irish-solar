@@ -8,11 +8,13 @@ How **users**, **Cursor**, **Claude** (and other agents), and markdown rule file
 
 ### Rule and agent entry points
 
-| File / folder | Who uses it | Purpose |
-|---------------|-------------|---------|
-| **AGENTS.md** (repo root) | Cursor, Claude (and other agents), humans | Single entry point: points to `.cursor/rules/` and tells agents where project rules live. |
-| **.cursor/rules/*.mdc** | Cursor | Project rules with frontmatter (`alwaysApply`, `globs`). Cursor injects these into agent context. |
-| **.cursor/worktrees.json** | Cursor | Worktree setup: commands run when Cursor creates a new agent worktree (e.g. `npm ci`). |
+
+| File / folder              | Who uses it                               | Purpose                                                                                           |
+| -------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **AGENTS.md** (repo root)  | Cursor, Claude (and other agents), humans | Single entry point: points to `.cursor/rules/` and tells agents where project rules live.         |
+| **.cursor/rules/*.mdc**    | Cursor                                    | Project rules with frontmatter (`alwaysApply`, `globs`). Cursor injects these into agent context. |
+| **.cursor/worktrees.json** | Cursor                                    | Worktree setup: commands run when Cursor creates a new agent worktree (e.g. `npm ci`).            |
+
 
 ### Cursor rules (`.cursor/rules/`)
 
@@ -86,3 +88,4 @@ No symlinks into the main tree: each worktree/workspace gets its own `node_modul
 - **One setup step**: install deps in the current tree (`npm ci` in Cursor worktrees via worktrees.json; `npm install` or `npm ci` in the workspace per AGENTS.md).
 - **Same rules**: Cursor reads `.cursor/rules/*.mdc`; Claude and other agents (and humans) can follow AGENTS.md and the same rule files.
 - **Encourage work trees**: AGENTS.md instructs agents to use work trees when available; Cursor gets a proper worktree setup from `.cursor/worktrees.json`.
+

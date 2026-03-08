@@ -56,7 +56,7 @@ export function ResultsSection({
   const [activeTab, setActiveTab] = useState<'standard' | 'tariff-comparison' | 'financial'>('standard');
   const [auditOpen, setAuditOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
-  const [applyExportRateDecline, setApplyExportRateDecline] = useState(true);
+  const [applyFutureRateChanges, setApplyFutureRateChanges] = useState(true);
 
   const reportDate = new Date().toLocaleDateString();
 
@@ -121,7 +121,7 @@ export function ResultsSection({
     return !hasMarketPrices;
   }, [activeResult?.audit?.hourly, tariff]);
 
-  const financialProjection: ProjectionResult | null = useMemo(() => {
+  const financialProjection: { active: ProjectionResult; flat: ProjectionResult } | null = useMemo(() => {
     if (!standardResult) return null;
 
     const baseCalendarYear = standardResult.audit?.year
@@ -133,7 +133,7 @@ export function ResultsSection({
       ? standardResult.cashFlows.filter((cf) => cf.loanPayment > 0).length
       : 0;
 
-    return projectCashFlows({
+    const shared = {
       year1OperationalSavings: standardResult.annualSavings,
       year1ExportRevenue: standardResult.annualExportRevenue,
       year1TaxSavings: standardResult.year1TaxSavings ?? 0,
@@ -143,10 +143,14 @@ export function ResultsSection({
       equityAmount: standardResult.equityAmount ?? standardResult.netCost,
       effectiveNetCost: standardResult.effectiveNetCost ?? standardResult.netCost,
       analysisYears: 25,
-      applyExportRateDecline,
       baseCalendarYear,
-    });
-  }, [standardResult, applyExportRateDecline]);
+    };
+
+    return {
+      active: projectCashFlows({ ...shared, applyFutureRateChanges }),
+      flat: projectCashFlows({ ...shared, applyFutureRateChanges: false }),
+    };
+  }, [standardResult, applyFutureRateChanges]);
 
   if (!standardResult) {
     return (
@@ -693,33 +697,49 @@ export function ResultsSection({
 
         {/* --- FINANCIAL TAB --- */}
         {activeTab === 'financial' && standardResult && financialProjection && (() => {
-          const proj = financialProjection;
+          const proj = financialProjection.active;
+          const flatProj = financialProjection.flat;
           const projCashFlows = proj.cashFlows;
           const lastCf = projCashFlows[projCashFlows.length - 1];
+          const totalSavings = projCashFlows.reduce((s, cf) => s + cf.savings, 0);
+          const flatTotalSavings = flatProj.cashFlows.reduce((s, cf) => s + cf.savings, 0);
 
           return (
           <div className="animate-in fade-in duration-300">
-            {/* Export Rate Decline Toggle */}
-            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-5 mb-8">
+            {/* Future Rate Changes Toggle */}
+            <div className={`rounded-xl border p-5 mb-8 transition-colors ${
+              applyFutureRateChanges
+                ? 'border-amber-200 bg-amber-50/60'
+                : 'border-slate-200 bg-slate-50'
+            }`}>
               <div className="flex items-start gap-4">
                 <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5">
                   <input
                     type="checkbox"
-                    checked={applyExportRateDecline}
-                    onChange={(e) => setApplyExportRateDecline(e.target.checked)}
+                    checked={applyFutureRateChanges}
+                    onChange={(e) => setApplyFutureRateChanges(e.target.checked)}
                     className="sr-only peer"
                   />
                   <div className="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
                 </label>
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-amber-900">
-                    Apply projected export rate decline
+                <div className="min-w-0 flex-1">
+                  <div className={`text-sm font-semibold ${applyFutureRateChanges ? 'text-amber-900' : 'text-slate-600'}`}>
+                    Price in predicted future changes to import and export
                   </div>
-                  <p className="text-xs text-amber-800/80 mt-1 leading-relaxed">
-                    {applyExportRateDecline
-                      ? 'Export rates step down from 2031, stabilising at ~43% of current rate from 2033. This models the effect of rising solar penetration on grid export tariffs — a pattern already seen in California, Australia, and Germany where high solar adoption has caused midday wholesale prices to collapse.'
-                      : 'Export rate stays flat at today\'s rate for the full 25-year projection. This is optimistic — in markets where solar penetration exceeds ~15%, export tariffs typically decline as everyone exports at the same time.'}
+                  <p className={`text-xs mt-1 leading-relaxed ${applyFutureRateChanges ? 'text-amber-800/80' : 'text-slate-500'}`}>
+                    {applyFutureRateChanges
+                      ? 'Import tariffs rise at 3%/year (conservative historical rate), increasing the value of self-consumption. Export rates step down from 2031 as rising solar penetration compresses grid export prices — a pattern already seen in California, Australia, and Germany.'
+                      : 'Both import and export rates stay flat at today\'s values for the full 25-year projection. This ignores likely tariff increases and export rate pressure from high solar penetration.'}
                   </p>
+                  {applyFutureRateChanges && (
+                    <div className="flex gap-4 mt-3 text-xs">
+                      <span className="text-emerald-700 font-medium">↑ Import: +3%/yr</span>
+                      <span className="text-amber-700 font-medium">↓ Export: flat → 43% by 2033</span>
+                      <span className={`font-semibold ${totalSavings >= flatTotalSavings ? 'text-emerald-700' : 'text-slate-600'}`}>
+                        Net 25-yr difference: {formatCurrency(Math.abs(totalSavings - flatTotalSavings))} {totalSavings >= flatTotalSavings ? 'more' : 'less'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -758,8 +778,13 @@ export function ResultsSection({
                   <div>
                     <div className="text-xs text-emerald-600">25-Year Total</div>
                     <div className="text-lg font-semibold text-emerald-700">
-                      {formatCurrency(projCashFlows.reduce((sum, cf) => sum + cf.savings, 0))}
+                      {formatCurrency(totalSavings)}
                     </div>
+                    {applyFutureRateChanges && (
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        vs {formatCurrency(flatTotalSavings)} flat-rate
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="text-xs text-emerald-600">Payback Period</div>
@@ -779,11 +804,21 @@ export function ResultsSection({
                     <div className="text-2xl font-bold" style={{ color: '#0D4027' }}>
                       {Number.isFinite(proj.irr) ? `${(proj.irr * 100).toFixed(1)}%` : 'N/A'}
                     </div>
+                    {applyFutureRateChanges && Number.isFinite(flatProj.irr) && (
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        vs {(flatProj.irr * 100).toFixed(1)}% flat-rate
+                      </div>
+                    )}
                     <div className="text-[10px] mt-1" style={{ color: '#4ADE80', filter: 'brightness(0.7)' }}>25-year IRR</div>
                   </div>
                   <div>
                     <div className="text-xs" style={{ color: '#1E8A5E' }}>Net Present Value</div>
                     <div className="text-lg font-semibold" style={{ color: '#0D4027' }}>{formatCurrency(proj.npv)}</div>
+                    {applyFutureRateChanges && (
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        vs {formatCurrency(flatProj.npv)} flat-rate
+                      </div>
+                    )}
                     <div className="text-[10px] mt-1 text-emerald-700">@ 5% discount rate</div>
                   </div>
                 </div>
@@ -795,8 +830,9 @@ export function ResultsSection({
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
                 <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">25-Year Cash Flow</h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Annual savings and cumulative return
-                  {applyExportRateDecline && ' (with export rate decline)'}
+                  {applyFutureRateChanges
+                    ? 'Import +3%/yr · Export declining from 2031 · Solar degradation 0.5%/yr'
+                    : 'Flat rates · Solar degradation 0.5%/yr'}
                 </p>
               </div>
               <div className="p-6">
@@ -862,7 +898,7 @@ export function ResultsSection({
             {/* Key Assumptions */}
             <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Assumptions</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div>
                   <span className="text-slate-500">Analysis Period:</span>
                   <span className="ml-2 font-semibold text-slate-700">25 years</span>
@@ -875,14 +911,20 @@ export function ResultsSection({
                   <span className="text-slate-500">Solar Degradation:</span>
                   <span className="ml-2 font-semibold text-slate-700">0.5% per year</span>
                 </div>
-                {applyExportRateDecline && (
-                <div className="col-span-full pt-2 border-t border-slate-200 mt-2">
-                  <span className="text-slate-500">Export Rate Projection:</span>
-                  <span className="ml-2 font-semibold text-amber-700">
-                    Declining from 2031 (100% → 79% → 57% → 43% of Year 1 rate from 2033)
+                <div>
+                  <span className="text-slate-500">Import Escalation:</span>
+                  <span className={`ml-2 font-semibold ${applyFutureRateChanges ? 'text-emerald-700' : 'text-slate-400'}`}>
+                    {applyFutureRateChanges ? '+3% per year' : 'Not applied'}
                   </span>
                 </div>
-                )}
+                <div className="col-span-full pt-2 border-t border-slate-200 mt-1">
+                  <span className="text-slate-500">Export Rate:</span>
+                  <span className={`ml-2 font-semibold ${applyFutureRateChanges ? 'text-amber-700' : 'text-slate-400'}`}>
+                    {applyFutureRateChanges
+                      ? 'Flat to 2030 → 79% in 2031 → 57% in 2032 → 43% from 2033'
+                      : 'Flat (not applied)'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

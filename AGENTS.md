@@ -41,6 +41,29 @@ A task is complete when **all** of the following pass:
 - Unit standards (`src/**/*.ts`): `.cursor/rules/unit-standards.mdc`
 
 ## Work tree setup
-- Cursor worktrees: automatically run `npm ci` via `.cursor/worktrees.json`
-- Other agents / humans: run `npm ci` in the repo root before starting
-- Full layout: `docs/AGENT_AND_WORKTREE_SETUP.md`
+
+**Cursor** — worktrees are created and managed automatically. Setup runs via `.cursor/worktrees.json`.
+
+**Claude Code and other agents** — for any non-trivial or multi-step task, create a worktree first:
+
+```bash
+# from inside the repo root
+git worktree add -b <branch-name> ../solar-roi-<branch-name>
+cd ../solar-roi-<branch-name>
+npm ci
+```
+
+Work in the worktree. When done, commit there, then either:
+- Merge the branch into main from the original tree, or
+- Ask the user to review and merge
+
+Clean up when finished:
+```bash
+cd ../solar-roi-calculator          # back to main tree
+git worktree remove ../solar-roi-<branch-name>
+git branch -d <branch-name>         # if no longer needed
+```
+
+**When to use a worktree:** multi-file refactors, new features, anything where partial changes would break tests. Skip it for single-file fixes or doc edits.
+
+**Full layout:** `docs/AGENT_AND_WORKTREE_SETUP.md`
