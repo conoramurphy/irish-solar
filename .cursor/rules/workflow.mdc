@@ -27,3 +27,4 @@ One commit per logical chunk with a descriptive message.
 
 ## Keeping rules current
 Update `.cursor/rules/architecture.mdc` when you: add a shared utility/constant/data pattern, change an architectural contract, add/remove a stub, or change how data files are accessed.
+Update `docs/AGENT_AND_WORKTREE_SETUP.md` when you change how agents or work trees are configured (e.g. worktrees.json, AGENTS.md layout, or Claude/other-agent workspace usage).
