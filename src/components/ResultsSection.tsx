@@ -57,6 +57,7 @@ export function ResultsSection({
   const [auditOpen, setAuditOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [applyFutureRateChanges, setApplyFutureRateChanges] = useState(true);
+  const [ratesInfoOpen, setRatesInfoOpen] = useState(false);
 
   const reportDate = new Date().toLocaleDateString();
 
@@ -171,30 +172,94 @@ export function ResultsSection({
             <h2 className="text-3xl font-serif font-bold text-tines-dark leading-tight">Projected Impact Report</h2>
             <p className="mt-1 text-sm text-slate-500">Summary of costs, savings, and returns based on your inputs.</p>
           </div>
-          <div className="flex items-center gap-4">
-            {availableYears.length > 1 && onSelectYear && selectedYear && (
-              <div className="flex items-center gap-2">
-                <label htmlFor="year-select" className="text-sm font-medium text-slate-500">
-                  Simulation Year:
-                </label>
-                <select
-                  id="year-select"
-                  value={selectedYear}
-                  onChange={(e) => onSelectYear(Number(e.target.value))}
-                  className="rounded-md border-slate-200 py-1 pl-3 pr-8 text-sm focus:border-emerald-700 focus:ring-emerald-700"
-                >
-                  {availableYears.map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="text-sm font-medium text-slate-400 shrink-0">{reportDate}</div>
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex items-center gap-4">
+              {availableYears.length > 1 && onSelectYear && selectedYear && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="year-select" className="text-sm font-medium text-slate-500">
+                    Simulation Year:
+                  </label>
+                  <select
+                    id="year-select"
+                    value={selectedYear}
+                    onChange={(e) => onSelectYear(Number(e.target.value))}
+                    className="rounded-md border-slate-200 py-1 pl-3 pr-8 text-sm focus:border-emerald-700 focus:ring-emerald-700"
+                  >
+                    {availableYears.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="text-sm font-medium text-slate-400 shrink-0">{reportDate}</div>
+            </div>
+            {/* Future rate changes toggle */}
+            <div className="flex items-center gap-2">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyFutureRateChanges}
+                  onChange={(e) => setApplyFutureRateChanges(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-8 h-4 bg-slate-300 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:after:translate-x-4" />
+              </label>
+              <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
+                Price in future rate changes
+              </span>
+              <button
+                type="button"
+                onClick={() => setRatesInfoOpen(true)}
+                className="flex items-center justify-center w-4 h-4 rounded-full border border-slate-300 text-slate-400 hover:border-amber-500 hover:text-amber-600 transition-colors text-[10px] font-bold leading-none"
+                aria-label="Learn about future rate projections"
+              >
+                ?
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Rates info modal */}
+      {ratesInfoOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={() => setRatesInfoOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-5">
+              <h3 className="text-lg font-bold text-slate-800">Future Rate Projections</h3>
+              <button type="button" onClick={() => setRatesInfoOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
+              <p>
+                When enabled, the financial projection accounts for two opposing forces that are likely to play out over a 25-year system lifetime:
+              </p>
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+                <div className="font-semibold text-emerald-800 mb-1">↑ Import tariffs rise at +3%/year</div>
+                <p className="text-emerald-700 text-xs">
+                  A conservative estimate based on historical Irish and European electricity price trends. As grid electricity becomes more expensive, the value of every kWh your system generates and uses on-site grows proportionally.
+                </p>
+              </div>
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-4">
+                <div className="font-semibold text-amber-800 mb-1">↓ Export tariffs decline from 2031</div>
+                <p className="text-amber-700 text-xs">
+                  Once solar penetration exceeds ~15% of grid capacity, everyone is exporting at the same time (midday summer). This collapses the wholesale value of daytime electricity — a pattern already observed in California, South Australia, and Germany. The projection steps the export rate down: 100% (≤2030) → 79% (2031) → 57% (2032) → 43% (2033+).
+                </p>
+              </div>
+              <p className="text-xs text-slate-500">
+                Net effect: rising self-consumption value typically outweighs falling export value over 25 years — but this varies significantly based on how much of your generation you export vs. use on-site.
+              </p>
+              <p className="text-xs text-slate-400">
+                Toggle off to see a flat-rate projection using today's import and export rates for the full 25-year period.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="p-6 md:p-8">
         
@@ -706,42 +771,25 @@ export function ResultsSection({
 
           return (
           <div className="animate-in fade-in duration-300">
-            {/* Future Rate Changes Toggle */}
-            <div className={`rounded-xl border p-5 mb-8 transition-colors ${
-              applyFutureRateChanges
-                ? 'border-amber-200 bg-amber-50/60'
-                : 'border-slate-200 bg-slate-50'
-            }`}>
-              <div className="flex items-start gap-4">
-                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5">
-                  <input
-                    type="checkbox"
-                    checked={applyFutureRateChanges}
-                    onChange={(e) => setApplyFutureRateChanges(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
-                </label>
-                <div className="min-w-0 flex-1">
-                  <div className={`text-sm font-semibold ${applyFutureRateChanges ? 'text-amber-900' : 'text-slate-600'}`}>
-                    Price in predicted future changes to import and export
-                  </div>
-                  <p className={`text-xs mt-1 leading-relaxed ${applyFutureRateChanges ? 'text-amber-800/80' : 'text-slate-500'}`}>
-                    {applyFutureRateChanges
-                      ? 'Import tariffs rise at 3%/year (conservative historical rate), increasing the value of self-consumption. Export rates step down from 2031 as rising solar penetration compresses grid export prices — a pattern already seen in California, Australia, and Germany.'
-                      : 'Both import and export rates stay flat at today\'s values for the full 25-year projection. This ignores likely tariff increases and export rate pressure from high solar penetration.'}
-                  </p>
-                  {applyFutureRateChanges && (
-                    <div className="flex gap-4 mt-3 text-xs">
-                      <span className="text-emerald-700 font-medium">↑ Import: +3%/yr</span>
-                      <span className="text-amber-700 font-medium">↓ Export: flat → 43% by 2033</span>
-                      <span className={`font-semibold ${totalSavings >= flatTotalSavings ? 'text-emerald-700' : 'text-slate-600'}`}>
-                        Net 25-yr difference: {formatCurrency(Math.abs(totalSavings - flatTotalSavings))} {totalSavings >= flatTotalSavings ? 'more' : 'less'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+            {/* Active projection mode indicator */}
+            <div className="flex items-center gap-3 mb-6">
+              {applyFutureRateChanges ? (
+                <>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-amber-100 text-amber-800 px-3 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+                    Future rates applied
+                  </span>
+                  <span className="text-xs text-slate-400">↑ Import +3%/yr · ↓ Export declining from 2031</span>
+                  <span className={`text-xs font-semibold ml-auto ${totalSavings >= flatTotalSavings ? 'text-emerald-600' : 'text-slate-500'}`}>
+                    {formatCurrency(Math.abs(totalSavings - flatTotalSavings))} {totalSavings >= flatTotalSavings ? 'more' : 'less'} than flat-rate over 25 years
+                  </span>
+                </>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-100 text-slate-500 px-3 py-1 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
+                  Flat rates — today's import and export prices held constant
+                </span>
+              )}
             </div>
 
             {/* Financial Summary Cards */}
