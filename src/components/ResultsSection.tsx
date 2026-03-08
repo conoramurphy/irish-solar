@@ -221,7 +221,7 @@ export function ResultsSection({
               )}
             </button>
           )}
-          {config?.businessType === 'house' && (
+          {(
             <button
               onClick={() => setActiveTab('financial')}
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -691,8 +691,8 @@ export function ResultsSection({
           </div>
         )}
 
-        {/* --- FINANCIAL TAB (House Mode) --- */}
-        {activeTab === 'financial' && config?.businessType === 'house' && standardResult && financialProjection && (() => {
+        {/* --- FINANCIAL TAB --- */}
+        {activeTab === 'financial' && standardResult && financialProjection && (() => {
           const proj = financialProjection;
           const projCashFlows = proj.cashFlows;
           const lastCf = projCashFlows[projCashFlows.length - 1];
