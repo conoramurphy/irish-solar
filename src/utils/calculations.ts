@@ -74,8 +74,17 @@ export function runCalculation(
     ? stripVat(systemCost, VAT_RATE_REDUCED) 
     : systemCost;
 
+  const annualConsumptionKwh =
+    hourlyConsumptionOverride != null && hourlyConsumptionOverride.length > 0
+      ? hourlyConsumptionOverride.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0)
+      : consumptionProfile?.months?.length === 12
+        ? consumptionProfile.months.reduce((s, m) => s + (m?.totalKwh ?? 0), 0)
+        : undefined;
+
   const { totalGrant } = calculateGrantAmount(effectiveSystemCost, grants, {
-    systemSizeKwp: config.systemSizeKwp
+    systemSizeKwp: config.systemSizeKwp,
+    batterySizeKwh: config.batterySizeKwh,
+    annualConsumptionKwh
   });
   const netCost = Math.max(0, effectiveSystemCost - totalGrant);
 

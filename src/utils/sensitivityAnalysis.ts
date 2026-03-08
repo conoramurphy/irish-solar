@@ -40,7 +40,15 @@ function computeScenarioMetrics(
 
   const mode = ctx.config.businessType === 'house' ? 'domestic' : 'commercial';
   const systemCost = estimateSystemCost(systemSizeKwp, batterySizeKwh, mode);
-  const { totalGrant } = calculateGrantAmount(systemCost, grants, { systemSizeKwp });
+  const annualConsumptionKwh =
+    hourlyConsumption.length > 0
+      ? hourlyConsumption.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0)
+      : undefined;
+  const { totalGrant } = calculateGrantAmount(systemCost, grants, {
+    systemSizeKwp,
+    batterySizeKwh,
+    annualConsumptionKwh
+  });
   const netCost = Math.max(0, systemCost - totalGrant);
 
   // Equity is fixed; loan scales with project cost.

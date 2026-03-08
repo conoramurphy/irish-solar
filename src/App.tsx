@@ -1065,6 +1065,13 @@ function WizardApp() {
                       setFinancing={setFinancing}
                       onGenerateReport={() => handleCalculate()}
                       reportGenerating={reportGenerating}
+                      annualConsumptionKwh={
+                        curvedMonthlyKwh.length === 12
+                          ? curvedMonthlyKwh.reduce((a, b) => a + b, 0)
+                          : hourlyConsumptionOverride != null && hourlyConsumptionOverride.length > 0
+                            ? hourlyConsumptionOverride.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0)
+                            : undefined
+                      }
                     />
                   )}
                 </div>

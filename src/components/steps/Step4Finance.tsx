@@ -19,6 +19,8 @@ interface Step4FinanceProps {
   setFinancing: (f: Financing) => void;
   onGenerateReport: () => void;
   reportGenerating?: boolean;
+  /** Annual electricity consumption (kWh). Used for TAMS SCIS eligible kWp cap. */
+  annualConsumptionKwh?: number;
 }
 
 export function Step4Finance({
@@ -30,7 +32,8 @@ export function Step4Finance({
   financing,
   setFinancing,
   onGenerateReport,
-  reportGenerating = false
+  reportGenerating = false,
+  annualConsumptionKwh
 }: Step4FinanceProps) {
   const inputClass = "w-full rounded-md border-slate-200 shadow-sm focus:border-tines-purple focus:ring-tines-purple sm:text-sm py-2";
 
@@ -87,8 +90,12 @@ export function Step4Finance({
   );
 
   const grantContext = useMemo(
-    () => ({ systemSizeKwp: config.systemSizeKwp }),
-    [config.systemSizeKwp]
+    () => ({
+      systemSizeKwp: config.systemSizeKwp,
+      batterySizeKwh: config.batterySizeKwh,
+      annualConsumptionKwh
+    }),
+    [config.systemSizeKwp, config.batterySizeKwh, annualConsumptionKwh]
   );
 
   const { totalGrant: totalGrantValue, error: grantCalcError } = useMemo(() => {
@@ -387,7 +394,24 @@ export function Step4Finance({
                 const calculationHint =
                   g.calculation?.method === 'seai-non-domestic-microgen-solar-pv'
                     ? `Tiered by system size (kWp), capped at €${g.maxAmount.toLocaleString()}`
-                    : `${g.percentage}% of project cost, up to €${g.maxAmount.toLocaleString()} maximum`;
+                    : g.calculation?.method === 'tams-scis-solar-pv'
+                      ? 'Eligible kWp from consumption; 60% of eligible cost, max €54,000'
+                      : `${g.percentage}% of project cost, up to €${g.maxAmount.toLocaleString()} maximum`;
+
+                const tamsEligibleHint =
+                  g.id === 'tams-scis-solar-pv' &&
+                  config.businessType === 'farm' &&
+                  annualConsumptionKwh != null &&
+                  annualConsumptionKwh > 0 &&
+                  Number.isFinite(config.systemSizeKwp) &&
+                  config.systemSizeKwp != null
+                    ? (() => {
+                        const capKwp = Math.min(annualConsumptionKwh / 1000, 62);
+                        const eligibleKwp = Math.min(capKwp, config.systemSizeKwp ?? 0);
+                        const eligibleBatteryKwh = Math.min(config.batterySizeKwh ?? 0, eligibleKwp * 0.5);
+                        return `Eligible: up to ${eligibleKwp.toFixed(1)} kWp, ${eligibleBatteryKwh.toFixed(1)} kWh battery from your consumption`;
+                      })()
+                    : null;
 
                 return (
                   <label
@@ -434,6 +458,10 @@ export function Step4Finance({
                       </div>
 
                       <p className="text-sm text-slate-500 mt-1">{calculationHint}</p>
+
+                      {tamsEligibleHint && (
+                        <p className="text-xs text-slate-600 mt-1">{tamsEligibleHint}</p>
+                      )}
 
                       {g.description && <p className="text-xs text-slate-400 mt-1">{g.description}</p>}
 

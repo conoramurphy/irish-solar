@@ -48,7 +48,7 @@ export interface Grant {
 
   /** Optional override for how to compute this grant. */
   calculation?: {
-    method: 'percentage-of-cost' | 'seai-non-domestic-microgen-solar-pv' | 'seai-domestic-solar-pv';
+    method: 'percentage-of-cost' | 'seai-non-domestic-microgen-solar-pv' | 'seai-domestic-solar-pv' | 'tams-scis-solar-pv';
   };
 }
 

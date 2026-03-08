@@ -70,6 +70,93 @@ describe('grants model', () => {
     });
   });
 
+  describe('TAMS 3 SCIS', () => {
+    const tamsGrant: Grant = {
+      id: 'tams-scis-solar-pv',
+      name: 'TAMS 3 Solar Capital Investment Scheme (SCIS)',
+      type: 'TAMS',
+      percentage: 60,
+      maxAmount: 54_000,
+      eligibleFor: ['farm'],
+      calculation: { method: 'tams-scis-solar-pv' }
+    };
+
+    it('caps eligible kWp by annual consumption (kWh/1000) and 62 kWp', () => {
+      // 30,000 kWh → 30 kWp cap; system 40 kWp → eligible 30 kWp
+      const amount = calculateSingleGrantAmount(80_000, tamsGrant, {
+        systemSizeKwp: 40,
+        batterySizeKwh: 0,
+        annualConsumptionKwh: 30_000
+      });
+      expect(amount).toBeGreaterThan(0);
+      // refEligible = 1441*30+1849 = 45079; eligibleCost min(45079, prorated, 90k); grant 60%
+      const refEligible = 1441 * 30 + 1849;
+      expect(amount).toBe(Math.round(0.6 * Math.min(refEligible, 90_000)));
+    });
+
+    it('caps eligible kWp at 62 when consumption is very high', () => {
+      const amount = calculateSingleGrantAmount(100_000, tamsGrant, {
+        systemSizeKwp: 70,
+        batterySizeKwh: 0,
+        annualConsumptionKwh: 70_000
+      });
+      // refEligible for 62 kWp > 90k, so eligibleCost capped at 90k; but prorated actual = 100k * (refEligible/refTotal) < 90k
+      const refEligible62 = 1441 * 62 + 1849;
+      const refTotal70 = 1441 * 70 + 1849;
+      const prorated = 100_000 * (refEligible62 / refTotal70);
+      const eligibleCost = Math.min(refEligible62, prorated, 90_000);
+      expect(amount).toBe(Math.round(0.6 * eligibleCost));
+    });
+
+    it('caps eligible battery at 50% of eligible kWp', () => {
+      // 20 kWp eligible, 15 kWh battery → eligible battery min(15, 10) = 10 kWh
+      const amount = calculateSingleGrantAmount(60_000, tamsGrant, {
+        systemSizeKwp: 20,
+        batterySizeKwh: 15,
+        annualConsumptionKwh: 25_000
+      });
+      const refPanels = 1441 * 20 + 1849;
+      const refBattery = 703 * 10 + 753;
+      const refEligible = refPanels + refBattery;
+      expect(amount).toBe(Math.round(0.6 * Math.min(refEligible, 90_000)));
+    });
+
+    it('returns 0 when annualConsumptionKwh is missing', () => {
+      const amount = calculateSingleGrantAmount(50_000, tamsGrant, {
+        systemSizeKwp: 30,
+        batterySizeKwh: 10
+      });
+      expect(amount).toBe(0);
+    });
+
+    it('returns 0 when annualConsumptionKwh is 0', () => {
+      const amount = calculateSingleGrantAmount(50_000, tamsGrant, {
+        systemSizeKwp: 30,
+        batterySizeKwh: 10,
+        annualConsumptionKwh: 0
+      });
+      expect(amount).toBe(0);
+    });
+
+    it('returns 0 when system cost is below min investment (€2,000)', () => {
+      const amount = calculateSingleGrantAmount(1_500, tamsGrant, {
+        systemSizeKwp: 10,
+        batterySizeKwh: 0,
+        annualConsumptionKwh: 12_000
+      });
+      expect(amount).toBe(0);
+    });
+
+    it('caps grant at €54,000', () => {
+      const amount = calculateSingleGrantAmount(200_000, tamsGrant, {
+        systemSizeKwp: 62,
+        batterySizeKwh: 31,
+        annualConsumptionKwh: 70_000
+      });
+      expect(amount).toBe(54_000);
+    });
+  });
+
   describe('grant eligibility edge cases', () => {
     it('returns empty array when no grants match business type', () => {
       const eligible = getEligibleGrants('other', grants);

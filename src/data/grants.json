@@ -30,9 +30,9 @@
     "percentage": 60,
     "maxAmount": 54000,
     "eligibleFor": ["farm"],
-    "description": "Solar PV grant for farms under SCIS. Modelled as 60% of eligible cost with an investment ceiling of €90,000 (i.e. max grant €54,000).",
+    "description": "Eligible kWp = annual kWh÷1000, max 62 kWp; battery up to 50% of eligible kWp; 60% of eligible cost, max €54,000.",
     "sourceUrls": ["https://www.gov.ie/en/service/f8cb3-solar-capital-investment-scheme-scis/"],
     "lastVerified": "2026-02-08",
-    "calculation": { "method": "percentage-of-cost" }
+    "calculation": { "method": "tams-scis-solar-pv" }
   }
 ]
