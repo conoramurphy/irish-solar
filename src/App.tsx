@@ -785,6 +785,41 @@ function WizardApp() {
     logInfo('ui', 'Saved report', { name });
   };
 
+  const handleShareReport = async (): Promise<void> => {
+    if (!standardResult) throw new Error('No result to share');
+
+    const payload = {
+      name: config.name ?? 'Solar ROI Report',
+      schemaVersion: 1,
+      config,
+      financing,
+      selectedGrantIds,
+      trading,
+      tariffId,
+      exampleMonths,
+      tariffConfig,
+      curvedMonthlyKwh,
+      estimatedMonthlyBills,
+      selectedYear,
+      hourlyConsumptionOverride,
+      selectedDomesticTariffId: selectedDomesticTariff?.id,
+      result: standardResult,
+    };
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: payload.name, report: payload }),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { id } = await res.json() as { id: string };
+
+    const url = `${window.location.origin}/r/${id}`;
+    await navigator.clipboard.writeText(url);
+    logInfo('ui', 'Shared report', { id, url });
+  };
+
   const handleBackFromResults = () => {
     setStandardResult(null);
     setMarketResult(null);
@@ -941,6 +976,7 @@ function WizardApp() {
                   onBack={handleBackFromResults}
                   onSaveReport={handleSaveReport}
                   existingReportNames={reports.map((r) => r.name)}
+                  onShare={handleShareReport}
                 />
               </div>
             ) : currentStep === 0 ? (
