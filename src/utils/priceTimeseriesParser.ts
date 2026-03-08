@@ -1,8 +1,6 @@
 import {
-  expectedHoursInYear,
   expectedSlotsInYear,
   buildCanonicalHourStampsForYear,
-  buildCanonicalStampsForYear,
   toHourKey,
 } from './solarTimeseriesParser';
 import type { HourKey, HourStamp, SlotsPerDay } from './solarTimeseriesParser';
@@ -102,7 +100,8 @@ export function parsePriceTimeseriesCSV(csvContent: string): ParsedPriceData {
       year: yyyy,
       monthIndex: mm - 1,
       day: dd,
-      hour: currentHour
+      hour: currentHour,
+      minute: 0,
     };
 
     const hourKey = toHourKey(stamp);

@@ -19,7 +19,7 @@ import { type ParsedPriceData } from './priceTimeseriesParser';
 import { buildSolarSpillageAnalysis } from './spillageAnalysis';
 import { runSensitivityAnalysis } from './sensitivityAnalysis';
 import { prepareSimulationContext } from './simulationContext';
-import { stripVat, VAT_RATE_REDUCED, VAT_RATE_STANDARD } from './vat';
+import { stripVat, VAT_RATE_REDUCED } from './vat';
 
 /**
  * Run a full ROI calculation for a single scenario.

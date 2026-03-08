@@ -17,7 +17,6 @@ export function StepIndicator({ steps, currentStep, completedSteps, compact = fa
         {steps.map((step, idx) => {
           const isActive = step.id === currentStep;
           const isCompleted = completedSteps.has(step.id);
-          const isAccessible = !step.disabled;
           const isLast = idx === steps.length - 1;
 
           // Connecting line styles

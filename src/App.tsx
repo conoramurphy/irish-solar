@@ -22,7 +22,8 @@ import type {
   HistoricalTariffData,
   SystemConfiguration,
   Tariff,
-  TradingConfig
+  TradingConfig,
+  UploadSummary,
 } from './types';
 import type { ParsedSolarData } from './utils/solarTimeseriesParser';
 import type { ParsedPriceData } from './utils/priceTimeseriesParser';

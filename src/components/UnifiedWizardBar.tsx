@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { StepIndicator } from './StepIndicator';
 
 interface UnifiedWizardBarProps {
