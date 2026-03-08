@@ -59,7 +59,7 @@ export function Landing({ onSelectSolarBattery, onSelectTariff }: LandingProps) 
               With current SEAI grants, rising energy prices, and declining export tariffs set to continue over the next decade, there has never been a more profitable moment to switch to solar and batteries.
             </p>
             <p className="text-lg md:text-xl font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>
-              Yet the country is littered with mis-sized systems — too small, too many batteries, or simply a system that was never matched to how a building actually uses energy. We model your exact half-hour-by-half-hour consumption profile so your system is sized precisely for you.
+              Delaying even 1 month can easily cost you thousands. Yet the country is littered with mis-sized systems — too small, too many batteries, or simply a system that was never matched to how a building actually uses energy. We model your exact half-hour-by-half-hour consumption profile so your system is sized precisely for you.
             </p>
           </div>
         </div>
