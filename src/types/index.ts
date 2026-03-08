@@ -250,6 +250,10 @@ export interface SensitivityVariant {
   systemCost: number;
   netCost: number;
   annualSavings: number;
+  /** Year 1 export revenue component of annualSavings, used for future-rate re-projection. */
+  year1ExportRevenue: number;
+  /** Year 1 annualGeneration (kWh), used for degradation scaling. */
+  annualGenerationKwh: number;
   /** 25-year IRR, or NaN if not solvable. */
   irr: number;
   year1NetCashFlow: number;

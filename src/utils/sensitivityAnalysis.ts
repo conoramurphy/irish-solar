@@ -73,6 +73,7 @@ function computeScenarioMetrics(
   );
 
   const firstYearSavings = year1Result.totalSavings;
+  const firstYearExportRevenue = year1Result.totalExportRevenue;
   const exportPaidFraction = year1Result.totalGridExport / (annualGenerationKwh || 1);
   const exportUnpaidFraction = year1Result.totalGridExportCurtailed / (annualGenerationKwh || 1);
   const spillageFraction = exportPaidFraction;
@@ -97,8 +98,6 @@ function computeScenarioMetrics(
   const year10NetCashFlow = cumulativeCashFlow; // cumulative through year 10 (from -equity)
 
   // Project IRR: return on total net capital invested (netCost), using gross savings.
-  // This is financing-agnostic and always solvable when netCost > 0 and savings > 0,
-  // unlike equity IRR which returns NaN whenever equity is €0.
   const irr = calculateIRR(netCost, grossCashFlows);
 
   return {
@@ -107,6 +106,8 @@ function computeScenarioMetrics(
     systemCost,
     netCost,
     annualSavings: firstYearSavings,
+    year1ExportRevenue: firstYearExportRevenue,
+    annualGenerationKwh,
     irr,
     year1NetCashFlow,
     year10NetCashFlow,

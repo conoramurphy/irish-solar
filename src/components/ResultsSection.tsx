@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
-import type { CalculationResult, SystemConfiguration, Tariff } from '../types';
+import type { CalculationResult, SensitivityVariant, SystemConfiguration, Tariff } from '../types';
 import { calculateAnnualBillSummary } from '../utils/billSummary';
 import { estimateSystemCost } from '../utils/costEstimation';
-import { projectCashFlows, type ProjectionResult } from '../utils/exportRateProjection';
+import { projectCashFlows, type ProjectionResult, IMPORT_ESCALATION_RATE, getExportRateMultiplier } from '../utils/exportRateProjection';
+import { calculateIRR } from '../models/financial';
+import { applyDegradation } from '../models/solar';
 import { formatCurrency, formatNumber } from '../utils/format';
 import { BillBreakdownByTariffChart } from './BillBreakdownByTariffChart';
 import { AuditModal } from './AuditModal';
@@ -26,6 +28,35 @@ interface ResultsSectionProps {
   onBack?: () => void;
   onSaveReport?: (name: string) => void;
   existingReportNames?: string[];
+}
+
+const ANALYSIS_YEARS = 25;
+
+function reprojectVariant(
+  v: SensitivityVariant,
+  applyFutureRateChanges: boolean,
+  baseCalendarYear: number
+): SensitivityVariant {
+  const year1NonExport = v.annualSavings - v.year1ExportRevenue;
+  const grossCashFlows: number[] = [];
+  const startNet = -v.netCost;
+  let year10Net = startNet;
+
+  for (let year = 1; year <= ANALYSIS_YEARS; year++) {
+    const deg = applyDegradation(1, year - 1);
+    const calYear = baseCalendarYear + year - 1;
+    const importEsc = applyFutureRateChanges ? Math.pow(1 + IMPORT_ESCALATION_RATE, year - 1) : 1;
+    const exportMul = applyFutureRateChanges ? getExportRateMultiplier(calYear) : 1;
+    const yearSavings = year1NonExport * deg * importEsc + v.year1ExportRevenue * deg * exportMul;
+    grossCashFlows.push(yearSavings);
+    if (year <= 10) year10Net += yearSavings;
+  }
+
+  return {
+    ...v,
+    irr: calculateIRR(v.netCost, grossCashFlows),
+    year10NetCashFlow: year10Net,
+  };
 }
 
 function formatSignedCurrency(value: number) {
@@ -150,6 +181,27 @@ export function ResultsSection({
     return {
       active: projectCashFlows({ ...shared, applyFutureRateChanges }),
       flat: projectCashFlows({ ...shared, applyFutureRateChanges: false }),
+    };
+  }, [standardResult, applyFutureRateChanges]);
+
+  // Re-project sensitivity heat map cells using the same future-rate logic.
+  // Each cell already stores Year 1 actuals; we only re-compute IRR and 10-year cumulative.
+  const projectedSensitivity = useMemo(() => {
+    const sens = standardResult?.sensitivityAnalysis;
+    if (!sens) return null;
+    const baseCalendarYear = standardResult?.audit?.year
+      ?? standardResult?.inputsUsed?.simulation?.year
+      ?? new Date().getFullYear();
+
+    return {
+      ...sens,
+      rows: sens.rows.map((row) => ({
+        ...row,
+        noBattery:     reprojectVariant(row.noBattery,     applyFutureRateChanges, baseCalendarYear),
+        halfBattery:   reprojectVariant(row.halfBattery,   applyFutureRateChanges, baseCalendarYear),
+        fullBattery:   reprojectVariant(row.fullBattery,   applyFutureRateChanges, baseCalendarYear),
+        doubleBattery: reprojectVariant(row.doubleBattery, applyFutureRateChanges, baseCalendarYear),
+      })),
     };
   }, [standardResult, applyFutureRateChanges]);
 
@@ -502,8 +554,8 @@ export function ResultsSection({
             )}
 
             {/* Solar Sizing Sensitivity — Heat-Map Grid */}
-            {activeResult && activeResult.sensitivityAnalysis && (() => {
-              const sens = activeResult.sensitivityAnalysis;
+            {activeResult && projectedSensitivity && (() => {
+              const sens = projectedSensitivity;
               const currentBattery = config?.batterySizeKwh ?? 0;
 
               const COLUMNS: Array<{
@@ -676,8 +728,11 @@ export function ResultsSection({
                     </div>
                   </div>
 
-                  <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
-                    {sens.note}
+                  <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex items-center gap-3">
+                    <span>{sens.note}</span>
+                    {applyFutureRateChanges && (
+                      <span className="ml-auto shrink-0 text-amber-600 font-medium">↑ import +3%/yr · ↓ export declining from 2031</span>
+                    )}
                   </div>
                 </div>
               );
