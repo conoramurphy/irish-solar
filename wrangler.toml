@@ -5,5 +5,4 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "wattreports"
-database_id = "00000000-0000-0000-0000-000000000000"
-# ^ Local dev placeholder. Replace with the real ID from: wrangler d1 create solar-reports
+database_id = "1e1498da-f8f4-4570-a8dc-7935b37c3cf8"
