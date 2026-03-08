@@ -20,7 +20,7 @@ interface Step2SolarProps {
   solarData: ParsedSolarData | null;
   loading: boolean;
   onNext: (data: { solarData: ParsedSolarData; corrections: SolarNormalizationCorrections | null }) => void;
-  onBack: () => void;
+  onBack?: () => void;
   initialCorrections?: SolarNormalizationCorrections | null;
 }
 

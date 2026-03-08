@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Route, Routes } from 'react-router-dom';
+import { SharedReportView } from './components/SharedReportView';
+import { migrateReport } from './utils/migrateReport';
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
 import rawTariffsData from './data/tariffs.json';
@@ -19,7 +22,8 @@ import type {
   HistoricalTariffData,
   SystemConfiguration,
   Tariff,
-  TradingConfig
+  TradingConfig,
+  UploadSummary,
 } from './types';
 import type { ParsedSolarData } from './utils/solarTimeseriesParser';
 import type { ParsedPriceData } from './utils/priceTimeseriesParser';
@@ -51,7 +55,7 @@ const historicalTariffData = rawHistoricalTariffData as unknown as HistoricalTar
 
 type AppMode = 'solar-battery' | 'tariff' | null;
 
-function App() {
+function WizardApp() {
   const [appMode, setAppMode] = useState<AppMode>(null);
 
   // Saved Reports (solar & battery mode only)
@@ -687,25 +691,26 @@ function App() {
   };
 
   const handleLoadReport = (saved: SavedReport) => {
+    const report = migrateReport(saved as unknown as Record<string, unknown>);
     setCalculationError(null);
     setIsEditingReport(true); // Loading a report puts us in editing mode if we go back
     // 1. Restore all state
-    setConfig(saved.config);
-    setFinancing(saved.financing);
-    setSelectedGrantIds(saved.selectedGrantIds);
-    setTrading(saved.trading);
+    setConfig(report.config);
+    setFinancing(report.financing);
+    setSelectedGrantIds(report.selectedGrantIds);
+    setTrading(report.trading);
     // tariffId is stateful but derived from const in this MVP (only 1 tariff supported mostly), 
     // but if we had multiple tariffs we'd set it here.
-    // setTariffId(saved.tariffId);
+    // setTariffId(report.tariffId);
 
-    setExampleMonths(saved.exampleMonths);
-    setTariffConfig(saved.tariffConfig);
-    setCurvedMonthlyKwh(saved.curvedMonthlyKwh);
+    setExampleMonths(report.exampleMonths);
+    setTariffConfig(report.tariffConfig);
+    setCurvedMonthlyKwh(report.curvedMonthlyKwh);
     
     // Restore house mode data if available
-    setHourlyConsumptionOverride(saved.hourlyConsumptionOverride);
-    if (saved.selectedDomesticTariffId) {
-      const found = domesticTariffs.find(t => t.id === saved.selectedDomesticTariffId);
+    setHourlyConsumptionOverride(report.hourlyConsumptionOverride);
+    if (report.selectedDomesticTariffId) {
+      const found = domesticTariffs.find(t => t.id === report.selectedDomesticTariffId);
       setSelectedDomesticTariff(found);
     } else {
       setSelectedDomesticTariff(undefined);
@@ -713,8 +718,8 @@ function App() {
     
     // estimatedMonthlyBills is derived, no need to set
     
-    if (saved.selectedYear) {
-      setSelectedYear(saved.selectedYear);
+    if (report.selectedYear) {
+      setSelectedYear(report.selectedYear);
     }
 
     // 2. Close modal
@@ -728,8 +733,8 @@ function App() {
     // But we need to wait for state updates? 
     // State updates are async. We can't call handleCalculate immediately with old state.
     // Option A: Just set result from saved snapshot (if available)
-    if (saved.result) {
-      setStandardResult(saved.result);
+    if (report.result) {
+      setStandardResult(report.result);
       setMarketResult(null);
       setTariffComparisonResults(null); // Saved reports pre-date comparison feature
     } else {
@@ -745,7 +750,7 @@ function App() {
     // 6. Go to last step (Finance) or results?
     // If we have a result, show it.
     // If not, go to Finance step.
-    if (saved.result) {
+    if (report.result) {
         // Results are shown when result != null
         // And we scroll to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -753,7 +758,7 @@ function App() {
         setCurrentStep(4);
     }
 
-    logInfo('ui', 'Loaded saved report', { reportId: saved.id, name: saved.name });
+    logInfo('ui', 'Loaded saved report', { reportId: report.id, name: report.name });
   };
 
   const handleSaveReport = (name: string) => {
@@ -761,6 +766,7 @@ function App() {
 
     saveReport({
         name,
+        schemaVersion: 1,
         config,
         financing,
         selectedGrantIds,
@@ -777,6 +783,41 @@ function App() {
     });
     
     logInfo('ui', 'Saved report', { name });
+  };
+
+  const handleShareReport = async (): Promise<void> => {
+    if (!standardResult) throw new Error('No result to share');
+
+    const payload = {
+      name: config.name ?? 'Solar ROI Report',
+      schemaVersion: 1,
+      config,
+      financing,
+      selectedGrantIds,
+      trading,
+      tariffId,
+      exampleMonths,
+      tariffConfig,
+      curvedMonthlyKwh,
+      estimatedMonthlyBills,
+      selectedYear,
+      hourlyConsumptionOverride,
+      selectedDomesticTariffId: selectedDomesticTariff?.id,
+      result: standardResult,
+    };
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: payload.name, report: payload }),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { id } = await res.json() as { id: string };
+
+    const url = `${window.location.origin}/r/${id}`;
+    await navigator.clipboard.writeText(url);
+    logInfo('ui', 'Shared report', { id, url });
   };
 
   const handleBackFromResults = () => {
@@ -935,6 +976,7 @@ function App() {
                   onBack={handleBackFromResults}
                   onSaveReport={handleSaveReport}
                   existingReportNames={reports.map((r) => r.name)}
+                  onShare={handleShareReport}
                 />
               </div>
             ) : currentStep === 0 ? (
@@ -1039,6 +1081,16 @@ function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/r/:id/edit" element={<SharedReportView editMode />} />
+      <Route path="/r/:id" element={<SharedReportView />} />
+      <Route path="/*" element={<WizardApp />} />
+    </Routes>
   );
 }
 

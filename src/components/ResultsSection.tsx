@@ -28,6 +28,8 @@ interface ResultsSectionProps {
   onBack?: () => void;
   onSaveReport?: (name: string) => void;
   existingReportNames?: string[];
+  isReadOnly?: boolean;
+  onShare?: () => Promise<void>;
 }
 
 const ANALYSIS_YEARS = 25;
@@ -83,13 +85,16 @@ export function ResultsSection({
   onSelectSimulation,
   onBack,
   onSaveReport,
-  existingReportNames = []
+  existingReportNames = [],
+  isReadOnly = false,
+  onShare,
 }: ResultsSectionProps) {
   const [activeTab, setActiveTab] = useState<'standard' | 'tariff-comparison' | 'financial'>('standard');
   const [auditOpen, setAuditOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [applyFutureRateChanges, setApplyFutureRateChanges] = useState(true);
   const [ratesInfoOpen, setRatesInfoOpen] = useState(false);
+  const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied' | 'error'>('idle');
 
   const reportDate = new Date().toLocaleDateString();
 
@@ -1110,8 +1115,8 @@ export function ResultsSection({
             )}
           </div>
 
-          <div className="flex gap-4">
-            {onBack && (
+          <div className="flex gap-4 flex-wrap">
+            {!isReadOnly && onBack && (
               <button
                 onClick={onBack}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
@@ -1123,7 +1128,7 @@ export function ResultsSection({
               </button>
             )}
             
-            {onSaveReport && (
+            {!isReadOnly && onSaveReport && (
               <button
                 onClick={() => setSaveModalOpen(true)}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
@@ -1135,12 +1140,53 @@ export function ResultsSection({
               </button>
             )}
 
-            <button className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 opacity-50 cursor-not-allowed" disabled title="PDF export coming soon">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              Export Report
-            </button>
+            {onShare && (
+              <button
+                onClick={async () => {
+                  setShareState('sharing');
+                  try {
+                    await onShare();
+                    setShareState('copied');
+                    setTimeout(() => setShareState('idle'), 3000);
+                  } catch {
+                    setShareState('error');
+                    setTimeout(() => setShareState('idle'), 3000);
+                  }
+                }}
+                disabled={shareState === 'sharing'}
+                className="inline-flex items-center gap-2 rounded-lg border border-green-600 bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {shareState === 'sharing' && (
+                  <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                )}
+                {shareState === 'copied' && (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                )}
+                {shareState === 'idle' || shareState === 'error' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185z" />
+                  </svg>
+                ) : null}
+                {shareState === 'idle' && 'Share Report'}
+                {shareState === 'sharing' && 'Saving…'}
+                {shareState === 'copied' && 'Link copied!'}
+                {shareState === 'error' && 'Share failed'}
+              </button>
+            )}
+
+            {!isReadOnly && (
+              <button className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 opacity-50 cursor-not-allowed" disabled title="PDF export coming soon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Export Report
+              </button>
+            )}
           </div>
         </div>
 

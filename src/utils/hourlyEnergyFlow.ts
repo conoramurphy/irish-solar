@@ -1,7 +1,7 @@
 import type { HourlyEnergyFlow, HourlySimulationResult, Tariff, TradingConfig } from '../types';
 import type { HourStamp } from './solarTimeseriesParser';
 import { getEffectiveTariffBucketForHour, getTariffRateForHour } from './tariffRate';
-import { DAYS_PER_MONTH_NON_LEAP, getDaysPerMonthFromHours } from '../constants/calendar';
+import { DAYS_PER_MONTH_NON_LEAP } from '../constants/calendar';
 
 /**
  * Battery configuration

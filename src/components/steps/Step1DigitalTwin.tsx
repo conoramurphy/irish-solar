@@ -213,7 +213,7 @@ export function Step1DigitalTwin({
     }
 
     // Branch C: Commercial / Farm
-    if (businessType !== 'house') {
+    {
       if (tariffType === 'preset') {
         if (!parsedProfile || !selectedBusinessTariff) return;
 

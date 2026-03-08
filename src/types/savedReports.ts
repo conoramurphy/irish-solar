@@ -10,6 +10,7 @@ export interface SavedReport {
   id: string;
   name: string;
   createdAt: string; // ISO date string
+  schemaVersion: number;
 
   // Inputs required to reproduce the calculation
   config: SystemConfiguration;

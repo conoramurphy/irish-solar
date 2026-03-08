@@ -1,0 +1,8 @@
+name = "solar-roi-calculator"
+compatibility_date = "2025-04-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "wattreports"
+database_id = "1e1498da-f8f4-4570-a8dc-7935b37c3cf8"
