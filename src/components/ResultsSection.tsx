@@ -39,8 +39,8 @@ function reprojectVariant(
 ): SensitivityVariant {
   const year1NonExport = v.annualSavings - v.year1ExportRevenue;
   const grossCashFlows: number[] = [];
-  const startNet = -v.netCost;
-  let year10Net = startNet;
+  // yr10 cumulative uses same equity-relative basis as the engine
+  let year10Net = -v.equityAmount;
 
   for (let year = 1; year <= ANALYSIS_YEARS; year++) {
     const deg = applyDegradation(1, year - 1);
@@ -48,8 +48,9 @@ function reprojectVariant(
     const importEsc = applyFutureRateChanges ? Math.pow(1 + IMPORT_ESCALATION_RATE, year - 1) : 1;
     const exportMul = applyFutureRateChanges ? getExportRateMultiplier(calYear) : 1;
     const yearSavings = year1NonExport * deg * importEsc + v.year1ExportRevenue * deg * exportMul;
+    const yearLoanPayment = year <= v.loanTermYears ? v.annualLoanPayment : 0;
     grossCashFlows.push(yearSavings);
-    if (year <= 10) year10Net += yearSavings;
+    if (year <= 10) year10Net += yearSavings - yearLoanPayment;
   }
 
   return {
@@ -183,6 +184,63 @@ export function ResultsSection({
       flat: projectCashFlows({ ...shared, applyFutureRateChanges: false }),
     };
   }, [standardResult, applyFutureRateChanges]);
+
+  // Re-project tariff comparison rows: IRR, NPV, payback update when toggle changes.
+  // Annual Savings and Export Credits are Year 1 actuals — they stay fixed.
+  const projectedTariffRows = useMemo(() => {
+    if (!tariffComparisonResults) return null;
+    const baseCalendarYear = standardResult?.audit?.year
+      ?? standardResult?.inputsUsed?.simulation?.year
+      ?? new Date().getFullYear();
+    return tariffComparisonResults.map((row) => {
+      const r = row.result;
+      const loanPaymentYear1 = r.cashFlows[0]?.loanPayment ?? 0;
+      const loanTermYears = loanPaymentYear1 > 0
+        ? r.cashFlows.filter((cf) => cf.loanPayment > 0).length : 0;
+      const proj = projectCashFlows({
+        year1OperationalSavings: r.annualSavings,
+        year1ExportRevenue: r.annualExportRevenue,
+        year1TaxSavings: r.year1TaxSavings ?? 0,
+        baseGeneration: r.annualGeneration,
+        annualLoanPayment: loanPaymentYear1,
+        loanTermYears,
+        equityAmount: r.equityAmount ?? r.netCost,
+        effectiveNetCost: r.effectiveNetCost ?? r.netCost,
+        analysisYears: 25,
+        applyFutureRateChanges,
+        baseCalendarYear,
+      });
+      return {
+        ...row,
+        result: { ...r, irr: proj.irr, npv: proj.npv, simplePayback: proj.simplePayback },
+      };
+    });
+  }, [tariffComparisonResults, standardResult, applyFutureRateChanges]);
+
+  const projectedMarketResult = useMemo(() => {
+    if (!marketResult) return marketResult;
+    const baseCalendarYear = standardResult?.audit?.year
+      ?? standardResult?.inputsUsed?.simulation?.year
+      ?? new Date().getFullYear();
+    const r = marketResult;
+    const loanPaymentYear1 = r.cashFlows[0]?.loanPayment ?? 0;
+    const loanTermYears = loanPaymentYear1 > 0
+      ? r.cashFlows.filter((cf) => cf.loanPayment > 0).length : 0;
+    const proj = projectCashFlows({
+      year1OperationalSavings: r.annualSavings,
+      year1ExportRevenue: r.annualExportRevenue,
+      year1TaxSavings: r.year1TaxSavings ?? 0,
+      baseGeneration: r.annualGeneration,
+      annualLoanPayment: loanPaymentYear1,
+      loanTermYears,
+      equityAmount: r.equityAmount ?? r.netCost,
+      effectiveNetCost: r.effectiveNetCost ?? r.netCost,
+      analysisYears: 25,
+      applyFutureRateChanges,
+      baseCalendarYear,
+    });
+    return { ...r, irr: proj.irr, npv: proj.npv, simplePayback: proj.simplePayback };
+  }, [marketResult, standardResult, applyFutureRateChanges]);
 
   // Re-project sensitivity heat map cells using the same future-rate logic.
   // Each cell already stores Year 1 actuals; we only re-compute IRR and 10-year cumulative.
@@ -800,9 +858,9 @@ export function ResultsSection({
         {activeTab === 'tariff-comparison' && tariffComparisonResults && tariffComparisonResults.length > 0 && (
           <div className="animate-in fade-in duration-300">
             <TariffComparisonTab
-              rows={tariffComparisonResults}
+              rows={projectedTariffRows ?? tariffComparisonResults}
               activeTariffId={tariff?.id}
-              marketResult={marketResult}
+              marketResult={projectedMarketResult ?? marketResult}
               excludeVat={config?.excludeVat}
             />
             {/* Market Analysis chart (if market data available) */}

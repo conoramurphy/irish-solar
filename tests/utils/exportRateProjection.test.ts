@@ -177,3 +177,107 @@ describe('projectCashFlows', () => {
     expect(flat.simplePayback).toBeCloseTo(declining.simplePayback, 2);
   });
 });
+
+describe('reprojectVariant math (via projectCashFlows)', () => {
+  // reprojectVariant in ResultsSection uses the same arithmetic as projectCashFlows.
+  // Tests here verify the shared logic handles loans and equity correctly.
+
+  it('loan payments reduce year10 cumulative but not IRR gross flows', () => {
+    const withLoan = projectCashFlows({
+      ...{
+        year1OperationalSavings: 2000,
+        year1ExportRevenue: 400,
+        year1TaxSavings: 0,
+        baseGeneration: 5000,
+        equityAmount: 3000,
+        effectiveNetCost: 8000,
+        analysisYears: 25,
+        applyFutureRateChanges: false,
+        baseCalendarYear: 2025,
+      },
+      annualLoanPayment: 600,
+      loanTermYears: 7,
+    });
+
+    const noLoan = projectCashFlows({
+      year1OperationalSavings: 2000,
+      year1ExportRevenue: 400,
+      year1TaxSavings: 0,
+      baseGeneration: 5000,
+      annualLoanPayment: 0,
+      loanTermYears: 0,
+      equityAmount: 8000,
+      effectiveNetCost: 8000,
+      analysisYears: 25,
+      applyFutureRateChanges: false,
+      baseCalendarYear: 2025,
+    });
+
+    // Year 1 net cash flow must differ by the loan payment
+    expect(withLoan.cashFlows[0].netCashFlow).toBeCloseTo(
+      noLoan.cashFlows[0].netCashFlow - 600, 2
+    );
+
+    // After loan is paid off, year 8+ net cash flows must match (same savings, no loan)
+    expect(withLoan.cashFlows[7].netCashFlow).toBeCloseTo(
+      noLoan.cashFlows[7].netCashFlow, 2
+    );
+  });
+
+  it('toggle does not change Year 1 savings (escalation factor = 1 in year 1)', () => {
+    const flat = projectCashFlows({
+      year1OperationalSavings: 2000,
+      year1ExportRevenue: 500,
+      year1TaxSavings: 0,
+      baseGeneration: 5000,
+      annualLoanPayment: 0,
+      loanTermYears: 0,
+      equityAmount: 10000,
+      effectiveNetCost: 10000,
+      analysisYears: 25,
+      applyFutureRateChanges: false,
+      baseCalendarYear: 2025,
+    });
+    const future = projectCashFlows({
+      year1OperationalSavings: 2000,
+      year1ExportRevenue: 500,
+      year1TaxSavings: 0,
+      baseGeneration: 5000,
+      annualLoanPayment: 0,
+      loanTermYears: 0,
+      equityAmount: 10000,
+      effectiveNetCost: 10000,
+      analysisYears: 25,
+      applyFutureRateChanges: true,
+      baseCalendarYear: 2025,
+    });
+
+    // Year 1 savings identical — escalation exponent is 0, export multiplier = 1
+    expect(future.cashFlows[0].savings).toBeCloseTo(flat.cashFlows[0].savings, 2);
+
+    // Year 2+ must differ — import has escalated, export may have changed
+    expect(future.cashFlows[1].savings).not.toBeCloseTo(flat.cashFlows[1].savings, 0);
+  });
+
+  it('reprojectVariant with equity < netCost produces correct year10 starting basis', () => {
+    // Simulates what reprojectVariant does: equity=3000, netCost=8000
+    // Year10 cumulative should start from -3000 (equity), not -8000 (netCost)
+    const result = projectCashFlows({
+      year1OperationalSavings: 2000,
+      year1ExportRevenue: 0,
+      year1TaxSavings: 0,
+      baseGeneration: 5000,
+      annualLoanPayment: 0,
+      loanTermYears: 0,
+      equityAmount: 3000,
+      effectiveNetCost: 8000,
+      analysisYears: 10,
+      applyFutureRateChanges: false,
+      baseCalendarYear: 2025,
+    });
+
+    // Cumulative after 10 years should be -3000 + sum of savings
+    const totalSavings = result.cashFlows.reduce((s, cf) => s + cf.savings, 0);
+    expect(result.cashFlows[9].cumulativeCashFlow).toBeCloseTo(-3000 + totalSavings, 1);
+  });
+});

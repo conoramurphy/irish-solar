@@ -254,6 +254,12 @@ export interface SensitivityVariant {
   year1ExportRevenue: number;
   /** Year 1 annualGeneration (kWh), used for degradation scaling. */
   annualGenerationKwh: number;
+  /** Equity (cash) invested at time 0. Used as starting basis for cumulative cash flow. */
+  equityAmount: number;
+  /** Annual loan payment (0 if no loan). Used to compute net cash flow per year. */
+  annualLoanPayment: number;
+  /** Loan term in years (0 if no loan). */
+  loanTermYears: number;
   /** 25-year IRR, or NaN if not solvable. */
   irr: number;
   year1NetCashFlow: number;
