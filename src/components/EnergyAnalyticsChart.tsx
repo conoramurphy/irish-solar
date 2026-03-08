@@ -180,11 +180,30 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
   const selectedDay = dailyData[selectedDayIndex] || dailyData[0];
   const currentWeek = weeklyData[selectedWeek] || [];
 
-  // Calculate max values for scaling
-  const maxDailyConsumption = Math.max(...dailyData.map(d => Math.max(d.totalConsumption, d.totalGeneration)));
-  const maxHourlyValue = Math.max(
-    ...(selectedDay?.hours.map(h => Math.max(h.consumption, h.generation)) || [1])
-  );
+  // Dynamic Y-axis max: only consider visible series, then add 5% headroom
+  const maxDailyConsumption = useMemo(() => {
+    const rawMax = Math.max(
+      ...dailyData.map(d => {
+        const candidates: number[] = [0.01];
+        if (showGeneration) candidates.push(d.totalGeneration);
+        if (showDaylightUsage && showNightUsage) candidates.push(d.totalConsumption);
+        else if (showDaylightUsage) candidates.push(d.daylightConsumption);
+        else if (showNightUsage) candidates.push(d.darkConsumption);
+        return Math.max(...candidates);
+      })
+    );
+    return rawMax * 1.05;
+  }, [dailyData, showGeneration, showDaylightUsage, showNightUsage]);
+
+  const maxHourlyValue = useMemo(() => {
+    const candidates: number[] = [0.01];
+    selectedDay?.hours.forEach(h => {
+      if (showGeneration) candidates.push(h.generation);
+      if (showDaylightUsage && h.generation > 0.01) candidates.push(h.consumption);
+      if (showNightUsage && h.generation <= 0.01) candidates.push(h.consumption);
+    });
+    return Math.max(...candidates) * 1.05;
+  }, [selectedDay, showGeneration, showDaylightUsage, showNightUsage]);
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-6 md:p-8">
