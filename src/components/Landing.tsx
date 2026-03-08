@@ -48,16 +48,16 @@ export function Landing({ onSelectSolarBattery, onSelectTariff }: LandingProps) 
         </header>
 
         {/* ── Headline ── */}
-        <div className="text-center mt-16 mb-16 md:mt-24 md:mb-20">
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-serif font-bold text-white leading-[1.1] tracking-tight">
+        <div className="text-center mt-14 mb-10 md:mt-20 md:mb-12">
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-white leading-[1.15] tracking-tight">
             Make the perfect<br />
             energy choice.
           </h1>
-          <div className="mt-6 max-w-2xl mx-auto space-y-4">
-            <p className="text-base md:text-lg font-medium" style={{ color: 'rgba(255,255,255,0.88)' }}>
+          <div className="mt-6 max-w-xl mx-auto space-y-3">
+            <p className="text-base leading-relaxed font-normal" style={{ color: 'rgba(255,255,255,0.80)' }}>
               With current SEAI grants, rising energy prices, and declining export tariffs set to continue over the next decade, there has never been a more profitable moment to switch to solar and batteries.
             </p>
-            <p className="text-sm md:text-base font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.62)' }}>
+            <p className="text-base leading-relaxed font-normal" style={{ color: 'rgba(255,255,255,0.80)' }}>
               Yet the country is littered with mis-sized systems — too small, too many batteries, or simply a system that was never matched to how a building actually uses energy. We model your exact half-hour-by-half-hour consumption profile so your system is sized precisely for you.
             </p>
           </div>
