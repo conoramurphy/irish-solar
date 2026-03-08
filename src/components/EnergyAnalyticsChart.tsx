@@ -181,7 +181,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
   const currentWeek = weeklyData[selectedWeek] || [];
 
   // Calculate max values for scaling
-  const maxDailyConsumption = Math.max(...dailyData.map(d => d.totalConsumption));
+  const maxDailyConsumption = Math.max(...dailyData.map(d => Math.max(d.totalConsumption, d.totalGeneration)));
   const maxHourlyValue = Math.max(
     ...(selectedDay?.hours.map(h => Math.max(h.consumption, h.generation)) || [1])
   );
