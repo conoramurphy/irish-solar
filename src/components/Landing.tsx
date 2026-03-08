@@ -48,23 +48,24 @@ export function Landing({ onSelectSolarBattery, onSelectTariff }: LandingProps) 
         </header>
 
         {/* ── Headline ── */}
-        <div className="text-center mt-12 mb-10 md:mt-16 md:mb-12">
-          <h1 className="text-5xl sm:text-6xl md:text-[5.5rem] font-serif font-bold text-white leading-[1.05] tracking-tight">
+        <div className="mt-12 mb-12 md:mt-20 md:mb-16">
+          <h1 className="text-5xl sm:text-6xl md:text-[5rem] font-serif font-bold text-white leading-[1.05] tracking-tight">
             Make the perfect<br />
-            energy choice.
+            energy choice for<br />
+            your Irish business.
           </h1>
-          <div className="mt-8 max-w-2xl mx-auto flex flex-col gap-5">
-            <p className="text-lg md:text-xl font-medium leading-relaxed" style={{ color: 'rgba(255,255,255,0.95)' }}>
+          <div className="mt-8 max-w-2xl space-y-5">
+            <p className="text-lg md:text-xl font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>
               With current SEAI grants, rising energy prices, and declining export tariffs set to continue over the next decade, there has never been a more profitable moment to switch to solar and batteries.
             </p>
-            <p className="text-base md:text-lg font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.75)' }}>
+            <p className="text-lg md:text-xl font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>
               Yet the country is littered with mis-sized systems — too small, too many batteries, or simply a system that was never matched to how a building actually uses energy. We model your exact half-hour-by-half-hour consumption profile so your system is sized precisely for you.
             </p>
           </div>
         </div>
 
         {/* ── Mode buttons ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-16 max-w-3xl mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-16 max-w-3xl w-full">
 
           {/* Solar & Battery ROI */}
           <button
