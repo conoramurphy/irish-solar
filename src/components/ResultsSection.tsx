@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { CalculationResult, SystemConfiguration, Tariff } from '../types';
 import { calculateAnnualBillSummary } from '../utils/billSummary';
 import { estimateSystemCost } from '../utils/costEstimation';
+import { projectCashFlows, type ProjectionResult } from '../utils/exportRateProjection';
 import { formatCurrency, formatNumber } from '../utils/format';
 import { BillBreakdownByTariffChart } from './BillBreakdownByTariffChart';
 import { AuditModal } from './AuditModal';
@@ -55,6 +56,7 @@ export function ResultsSection({
   const [activeTab, setActiveTab] = useState<'standard' | 'tariff-comparison' | 'financial'>('standard');
   const [auditOpen, setAuditOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [applyExportRateDecline, setApplyExportRateDecline] = useState(true);
 
   const reportDate = new Date().toLocaleDateString();
 
@@ -115,10 +117,36 @@ export function ResultsSection({
     if (!tariff) return false;
     const hourly = activeResult?.audit?.hourly;
     if (!hourly || hourly.length === 0) return false;
-    // If this is a market-rate simulation, tariff buckets are much less meaningful.
     const hasMarketPrices = hourly.some((h) => h.marketPrice !== undefined);
     return !hasMarketPrices;
   }, [activeResult?.audit?.hourly, tariff]);
+
+  const financialProjection: ProjectionResult | null = useMemo(() => {
+    if (!standardResult) return null;
+
+    const baseCalendarYear = standardResult.audit?.year
+      ?? standardResult.inputsUsed?.simulation?.year
+      ?? new Date().getFullYear();
+
+    const loanPaymentYear1 = standardResult.cashFlows[0]?.loanPayment ?? 0;
+    const loanTermYears = loanPaymentYear1 > 0
+      ? standardResult.cashFlows.filter((cf) => cf.loanPayment > 0).length
+      : 0;
+
+    return projectCashFlows({
+      year1OperationalSavings: standardResult.annualSavings,
+      year1ExportRevenue: standardResult.annualExportRevenue,
+      year1TaxSavings: standardResult.year1TaxSavings ?? 0,
+      baseGeneration: standardResult.annualGeneration,
+      annualLoanPayment: loanPaymentYear1,
+      loanTermYears,
+      equityAmount: standardResult.equityAmount ?? standardResult.netCost,
+      effectiveNetCost: standardResult.effectiveNetCost ?? standardResult.netCost,
+      analysisYears: 25,
+      applyExportRateDecline,
+      baseCalendarYear,
+    });
+  }, [standardResult, applyExportRateDecline]);
 
   if (!standardResult) {
     return (
@@ -193,7 +221,7 @@ export function ResultsSection({
               )}
             </button>
           )}
-          {config?.businessType === 'house' && (
+          {(
             <button
               onClick={() => setActiveTab('financial')}
               className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -663,9 +691,39 @@ export function ResultsSection({
           </div>
         )}
 
-        {/* --- FINANCIAL TAB (House Mode) --- */}
-        {activeTab === 'financial' && config?.businessType === 'house' && standardResult && (
+        {/* --- FINANCIAL TAB --- */}
+        {activeTab === 'financial' && standardResult && financialProjection && (() => {
+          const proj = financialProjection;
+          const projCashFlows = proj.cashFlows;
+          const lastCf = projCashFlows[projCashFlows.length - 1];
+
+          return (
           <div className="animate-in fade-in duration-300">
+            {/* Export Rate Decline Toggle */}
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-5 mb-8">
+              <div className="flex items-start gap-4">
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={applyExportRateDecline}
+                    onChange={(e) => setApplyExportRateDecline(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-300 rounded-full peer peer-checked:bg-amber-500 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full" />
+                </label>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-amber-900">
+                    Apply projected export rate decline
+                  </div>
+                  <p className="text-xs text-amber-800/80 mt-1 leading-relaxed">
+                    {applyExportRateDecline
+                      ? 'Export rates step down from 2031, stabilising at ~43% of current rate from 2033. This models the effect of rising solar penetration on grid export tariffs — a pattern already seen in California, Australia, and Germany where high solar adoption has caused midday wholesale prices to collapse.'
+                      : 'Export rate stays flat at today\'s rate for the full 25-year projection. This is optimistic — in markets where solar penetration exceeds ~15%, export tariffs typically decline as everyone exports at the same time.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Financial Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {/* Investment Card */}
@@ -694,19 +752,19 @@ export function ResultsSection({
                 <h3 className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-4">Returns</h3>
                 <div className="space-y-4">
                   <div>
-                    <div className="text-xs text-emerald-600">Annual Savings</div>
-                    <div className="text-2xl font-bold text-emerald-700">{formatCurrency(standardResult.annualSavings)}</div>
+                    <div className="text-xs text-emerald-600">Annual Savings (Year 1)</div>
+                    <div className="text-2xl font-bold text-emerald-700">{formatCurrency(proj.annualSavings)}</div>
                   </div>
                   <div>
                     <div className="text-xs text-emerald-600">25-Year Total</div>
                     <div className="text-lg font-semibold text-emerald-700">
-                      {formatCurrency(standardResult.cashFlows.reduce((sum, cf) => sum + cf.savings, 0))}
+                      {formatCurrency(projCashFlows.reduce((sum, cf) => sum + cf.savings, 0))}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-emerald-600">Payback Period</div>
                     <div className="text-lg font-semibold text-emerald-700">
-                      {Number.isFinite(standardResult.simplePayback) ? `${standardResult.simplePayback.toFixed(1)} years` : 'N/A'}
+                      {Number.isFinite(proj.simplePayback) ? `${proj.simplePayback.toFixed(1)} years` : 'N/A'}
                     </div>
                   </div>
                 </div>
@@ -719,13 +777,13 @@ export function ResultsSection({
                   <div>
                     <div className="text-xs" style={{ color: '#1E8A5E' }}>Internal Rate of Return</div>
                     <div className="text-2xl font-bold" style={{ color: '#0D4027' }}>
-                      {Number.isFinite(standardResult.irr) ? `${(standardResult.irr * 100).toFixed(1)}%` : 'N/A'}
+                      {Number.isFinite(proj.irr) ? `${(proj.irr * 100).toFixed(1)}%` : 'N/A'}
                     </div>
                     <div className="text-[10px] mt-1" style={{ color: '#4ADE80', filter: 'brightness(0.7)' }}>25-year IRR</div>
                   </div>
                   <div>
                     <div className="text-xs" style={{ color: '#1E8A5E' }}>Net Present Value</div>
-                    <div className="text-lg font-semibold" style={{ color: '#0D4027' }}>{formatCurrency(standardResult.npv)}</div>
+                    <div className="text-lg font-semibold" style={{ color: '#0D4027' }}>{formatCurrency(proj.npv)}</div>
                     <div className="text-[10px] mt-1 text-emerald-700">@ 5% discount rate</div>
                   </div>
                 </div>
@@ -736,7 +794,10 @@ export function ResultsSection({
             <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
                 <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">25-Year Cash Flow</h3>
-                <p className="text-xs text-slate-400 mt-1">Annual savings and cumulative return</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Annual savings and cumulative return
+                  {applyExportRateDecline && ' (with export rate decline)'}
+                </p>
               </div>
               <div className="p-6">
                 <div className="overflow-x-auto">
@@ -751,7 +812,7 @@ export function ResultsSection({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {standardResult.cashFlows.slice(0, 10).map((cf) => (
+                      {projCashFlows.slice(0, 10).map((cf) => (
                         <tr key={cf.year} className="hover:bg-slate-50/50">
                           <td className="px-4 py-2 font-medium text-slate-700">Year {cf.year}</td>
                           <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatNumber(cf.generation)}</td>
@@ -768,28 +829,30 @@ export function ResultsSection({
                           </td>
                         </tr>
                       ))}
-                      {standardResult.cashFlows.length > 10 && (
+                      {projCashFlows.length > 10 && (
                         <tr className="bg-slate-50">
                           <td colSpan={5} className="px-4 py-2 text-center text-xs text-slate-400">
                             ... showing first 10 years of 25 ...
                           </td>
                         </tr>
                       )}
+                      {lastCf && (
                       <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
                         <td className="px-4 py-3 text-slate-800">Final (Year 25)</td>
                         <td className="px-4 py-3 text-right text-slate-700 tabular-nums">
-                          {formatNumber(standardResult.cashFlows[standardResult.cashFlows.length - 1]?.generation || 0)}
+                          {formatNumber(lastCf.generation)}
                         </td>
                         <td className="px-4 py-3 text-right text-emerald-700 tabular-nums">
-                          {formatCurrency(standardResult.cashFlows[standardResult.cashFlows.length - 1]?.savings || 0)}
+                          {formatCurrency(lastCf.savings)}
                         </td>
                         <td className="px-4 py-3 text-right text-emerald-700 tabular-nums">
-                          {formatSignedCurrency(standardResult.cashFlows[standardResult.cashFlows.length - 1]?.netCashFlow || 0)}
+                          {formatSignedCurrency(lastCf.netCashFlow)}
                         </td>
                         <td className="px-4 py-3 text-right text-emerald-800 tabular-nums">
-                          {formatSignedCurrency(standardResult.cashFlows[standardResult.cashFlows.length - 1]?.cumulativeCashFlow || 0)}
+                          {formatSignedCurrency(lastCf.cumulativeCashFlow)}
                         </td>
                       </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -812,10 +875,19 @@ export function ResultsSection({
                   <span className="text-slate-500">Solar Degradation:</span>
                   <span className="ml-2 font-semibold text-slate-700">0.5% per year</span>
                 </div>
+                {applyExportRateDecline && (
+                <div className="col-span-full pt-2 border-t border-slate-200 mt-2">
+                  <span className="text-slate-500">Export Rate Projection:</span>
+                  <span className="ml-2 font-semibold text-amber-700">
+                    Declining from 2031 (100% → 79% → 57% → 43% of Year 1 rate from 2033)
+                  </span>
+                </div>
+                )}
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         <InputsUsedPanel inputsUsed={activeResult?.inputsUsed} diagnostics={activeResult?.diagnostics} />
 

@@ -362,6 +362,10 @@ export interface CalculationResult {
   annualExportRevenue: number;
   /** Tax savings from ACA in Year 1 (EUR) */
   year1TaxSavings?: number;
+  /** Equity (cash) invested at time 0, used as NPV/IRR initial outflow. */
+  equityAmount?: number;
+  /** Effective net cost after grants and tax relief, used for payback calculation. */
+  effectiveNetCost?: number;
 
   simplePayback: number;
   npv: number;

@@ -9,10 +9,9 @@ import type {
   Tariff,
   TradingConfig
 } from '../types';
-import { applyDegradation } from '../models/solar';
 import { calculateGrantAmount } from '../models/grants';
 import { calculateTradingRevenue } from '../models/trading';
-import { calculateIRR, calculateLoanPayment, calculateNPV, calculateSimplePayback } from '../models/financial';
+import { calculateLoanPayment } from '../models/financial';
 import { aggregateHourlyResultsToMonthly, simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
 import { calculateTimeseriesWeights, distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
 import { type ParsedPriceData } from './priceTimeseriesParser';
@@ -20,6 +19,7 @@ import { buildSolarSpillageAnalysis } from './spillageAnalysis';
 import { runSensitivityAnalysis } from './sensitivityAnalysis';
 import { prepareSimulationContext } from './simulationContext';
 import { stripVat, VAT_RATE_REDUCED, VAT_RATE_STANDARD } from './vat';
+import { projectCashFlows } from './exportRateProjection';
 
 /**
  * Run a full ROI calculation for a single scenario.
@@ -245,53 +245,31 @@ export function runCalculation(
   const taxRate = financing.isTaxReliefEligible ? (financing.taxRate ?? 0) : 0;
   const year1TaxSavings = netCost * taxRate;
 
-  // 2. Project Cash Flows for Analysis Years (Fast Projection)
-  const cashFlows: CalculationResult['cashFlows'] = [];
-  let cumulativeCashFlow = -equityAmount;
-
-  for (let year = 1; year <= analysisYears; year++) {
-    // Apply degradation to generation-based value
-    // We assume savings scale linearly with generation (approx correct for solar, less so for battery/arb but acceptable for projection)
-    const degradationFactor = applyDegradation(1, year - 1);
-    
-    const yearGeneration = baseGeneration * degradationFactor;
-    const yearOperationalSavings = (year1ElectricitySavings + year1TradingRevenue) * degradationFactor;
-    
-    // Add tax savings to Year 1 cash flow
-    const yearTotalSavings = yearOperationalSavings + (year === 1 ? year1TaxSavings : 0);
-
-    const loanPayment = year <= financing.termYears ? annualLoanPayment : 0;
-
-    const netCashFlow = yearTotalSavings - loanPayment;
-    cumulativeCashFlow += netCashFlow;
-
-    cashFlows.push({
-      year,
-      generation: yearGeneration,
-      savings: yearOperationalSavings, // Keep this as operational savings for display clarity
-      loanPayment,
-      netCashFlow,
-      cumulativeCashFlow
-    });
-  }
-
-  const annualCashFlows = cashFlows.map((cf) => cf.netCashFlow);
-  const annualSavings = cashFlows[0]?.savings ?? 0;
-
   // Add heuristic revenue to battery part if applicable
   const year1HeuristicTradingRevenue = (!hourlyPrices && trading.enabled) 
     ? calculateTradingRevenue(trading, config.batterySizeKwh, 1) 
     : 0;
   const finalBatterySavings = annualBatteryToLoadSavings + year1HeuristicTradingRevenue;
 
-  // Use effective net cost (Net Cost - Tax Savings) for payback to reflect true "money at risk"
   const effectiveNetCost = Math.max(0, netCost - year1TaxSavings);
-  const simplePayback = calculateSimplePayback(effectiveNetCost, annualSavings);
-  
-  // For NPV/IRR, the initial investment is the equity (cash out).
-  // The tax savings is correctly modeled as a Year 1 inflow in annualCashFlows[0].
-  const npv = calculateNPV(equityAmount, annualCashFlows, 0.05);
-  const irr = calculateIRR(equityAmount, annualCashFlows);
+  const baseCalendarYear = solarTimeseriesData?.year ?? new Date().getFullYear();
+
+  // 2. Project Cash Flows (with export rate decline applied by default)
+  const projection = projectCashFlows({
+    year1OperationalSavings: year1ElectricitySavings + year1TradingRevenue,
+    year1ExportRevenue: annualExportRevenue,
+    year1TaxSavings,
+    baseGeneration,
+    annualLoanPayment,
+    loanTermYears: financing.termYears,
+    equityAmount,
+    effectiveNetCost,
+    analysisYears,
+    applyExportRateDecline: true,
+    baseCalendarYear,
+  });
+
+  const { cashFlows, simplePayback, npv, irr, annualSavings } = projection;
 
   const sampleCount = 100;
 
@@ -328,6 +306,8 @@ export function runCalculation(
     annualBatteryToLoadSavings: finalBatterySavings,
     annualExportRevenue,
     year1TaxSavings,
+    equityAmount,
+    effectiveNetCost,
     simplePayback,
     npv,
     irr,
