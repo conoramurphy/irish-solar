@@ -1074,12 +1074,14 @@ function WizardApp() {
         )}
       </main>
 
-      <footer className="bg-white border-t border-slate-200 py-12 mt-20">
-        <div className="mx-auto max-w-5xl px-6 text-center text-sm text-slate-400">
-          <p className="mb-2 font-semibold tracking-widest uppercase">Watt Profit</p>
-          <p>MVP calculator — assumptions are simplified (especially self-consumption and trading).</p>
-        </div>
-      </footer>
+      {appMode !== null && (
+        <footer className="bg-white border-t border-slate-200 py-12 mt-20">
+          <div className="mx-auto max-w-5xl px-6 text-center text-sm text-slate-400">
+            <p className="mb-2 font-semibold tracking-widest uppercase">Watt Profit</p>
+            <p>MVP calculator — assumptions are simplified (especially self-consumption and trading).</p>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }
