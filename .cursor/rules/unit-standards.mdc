@@ -1,6 +1,6 @@
 ---
 description: Unit conventions for all energy, power, and price values
-globs: solar-roi-calculator/src/**/*.ts
+globs: src/**/*.ts
 alwaysApply: false
 ---
 

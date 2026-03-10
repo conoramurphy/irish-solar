@@ -28,17 +28,77 @@ A task is complete when **all** of the following pass:
 - Never: delete files to resolve errors, force push, skip tests, or use `// @ts-ignore`
 
 ## Architecture (key contracts — never bypass)
-- Single normalisation entry point: `prepareSimulationContext()` in `simulationContext.ts`
-- Tariff rates: always via `getTariffRateForHour()` in `tariffRate.ts` — no inline rate logic
-- Formatting: `src/utils/format.ts` (`formatCurrency`, `formatKwh`, etc.) — no local helpers in components
-- Month/day constants: `src/constants/calendar.ts` — no inline month arrays
-- Domestic tariffs: import via `domesticTariffParser.ts`, never directly from `domesticTariffs.json`
-- Missing required inputs must throw a visible error — no silent fallback
 
-## Full rules (Cursor / detailed contracts)
-- Architecture contracts: `.cursor/rules/architecture.mdc`
-- Workflow & commits: `.cursor/rules/workflow.mdc`
-- Unit standards (`src/**/*.ts`): `.cursor/rules/unit-standards.mdc`
+### Two app modes
+`ModeSelect` routes to either the **solar-battery wizard** (`src/App.tsx`, steps 0–4) or the **tariff modeller** (`src/components/TariffModeller.tsx`). Do not couple their computation engines.
+
+**Permitted shared UI** (display-only, no engine coupling):
+- `SampleHouseSelector` (`src/components/SampleHouseSelector.tsx`) — sample house buttons used by both Step1 (house mode) and TariffModeller.
+- `src/data/sampleHouses.ts` — metadata for Irish domestic sample profiles; CSV files live in `public/data/usages/sample_house_*.csv`.
+
+### Single sources of truth — never bypass these
+- **Consumption normalisation**: `prepareSimulationContext()` in `simulationContext.ts`. All new consumption sources go through here; no mode-specific branches downstream.
+- **Tariff rate resolution**: `getTariffRateForHour()` in `tariffRate.ts`. Do not inline rate logic anywhere else.
+- **Month/day constants**: `src/constants/calendar.ts`. Do not define inline month arrays in engine files.
+- **Domestic tariff data**: import from `domesticTariffParser.ts`, never directly from `domesticTariffs.json`.
+- **Formatting**: `src/utils/format.ts` (`formatCurrency`, `formatKwh`, etc.). No local formatting functions in components.
+
+### Hourly simulation invariants
+- Hour-of-day and month attribution must use canonical `stamp`/`hourKey`, never `index % 24` or fixed block math.
+- Monthly figures must be strict sums of hourly rows grouped by `timeStamps[i].monthIndex` — never recomputed independently.
+- Display components only read from `result.audit`; they never recalculate costs or bills.
+- Normalisation (missing fills, deduplication) must surface as audit warnings, not silent changes.
+
+### No silent failure
+- Missing required inputs (e.g. no solar timeseries) must throw a visible error — no silent fallback to lower-fidelity.
+- Prefer a user-visible error state over `console.warn`.
+- If a fallback is unreachable because the UI enforces valid state, delete it rather than leaving dead code.
+
+### Active stubs (not wired — do not assume otherwise)
+- **Farm mode**: disabled in Step 0. Engine has a daily curve but Steps 1–4, grants, and tariffs are not wired. See `TODO [farm-mode]`.
+- **Seasonal hotel**: disabled in Step 0, no engine support.
+
+### Data locations
+- Solar CSVs: `public/data/solar/{Location}_{Year}.csv` — fetched at runtime via `solarDataLoader.ts`
+- Domestic tariffs: `src/data/domesticTariffs.json` (access via `domesticTariffParser.ts`)
+- Grants / commercial tariffs: `src/data/grants.json`, `src/data/tariffs.json`
+- Solar data format details: `SOLAR_DATA_FORMAT.md`
+
+## Unit standards (for `src/**/*.ts`)
+
+### Internal representations
+- Energy: **kWh**
+- Power ratings: **kW** (e.g. `maxChargeRateKw`, `systemSizeKwp`)
+- Prices / rates: **€/kWh**
+- Standing charges: **€/day** — divide by 24 for hourly use
+- Efficiency / SoC: **decimal 0–1**
+
+### Conversion points
+- Market prices arrive as **€/MWh** → divide by 1000 in `simulationContext.ts` before use
+- Display of market prices converts back to €/MWh (×1000) in `MarketAnalysis.tsx` for readability only
+
+### Naming
+Include the unit in parameter and variable names:
+- ✅ `annualProductionKwh`, `batterySizeKwh`, `ratePerKwh`, `standingChargePerDay`
+- ❌ `annualProduction`, `batterySize`, `rate`
+
+Document units in JSDoc for all energy/power/price parameters.
+
+### Never mix without conversion
+```typescript
+// ❌ Wrong
+const cost = consumption * marketPriceInMwh; // kWh × €/MWh
+
+// ✅ Correct
+const pricePerKwh = marketPriceInMwh / 1000;
+const cost = consumption * pricePerKwh;
+```
+
+## Keeping rules current
+Update `AGENTS.md` (and `.cursor/rules/architecture.mdc`) when you: add a shared utility/constant/data pattern, change an architectural contract, add/remove a stub, or change how data files are accessed.
+
+## Cursor-specific rules
+Cursor also reads `.cursor/rules/*.mdc` which mirror the architecture, workflow, and unit-standards sections above.
 
 ## Work tree setup
 
