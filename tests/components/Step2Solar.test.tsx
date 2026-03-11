@@ -14,6 +14,7 @@ vi.mock('../../src/utils/logger', () => ({
 
 vi.mock('../../src/utils/solarDataLoader', () => ({
   loadSolarData: vi.fn(),
+  SOLAR_AVAILABLE_YEARS: [2020, 2021, 2022, 2023, 2024, 2025],
 }));
 
 describe('Step2Solar', () => {

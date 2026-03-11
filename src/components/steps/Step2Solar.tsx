@@ -4,14 +4,13 @@ import { Field } from '../Field';
 import type { SystemConfiguration } from '../../types';
 import {
   expectedSlotsInYear,
-  listSolarTimeseriesYears,
   normalizeSolarTimeseriesYear,
   distributeAnnualProductionTimeseries,
   aggregateToMonthly,
   type ParsedSolarData,
   type SolarNormalizationCorrections
 } from '../../utils/solarTimeseriesParser';
-import { loadSolarData } from '../../utils/solarDataLoader';
+import { loadSolarData, SOLAR_AVAILABLE_YEARS } from '../../utils/solarDataLoader';
 
 interface Step2SolarProps {
   config: SystemConfiguration;
@@ -45,18 +44,12 @@ export function Step2Solar({
   // Initialize years when solar data arrives
   useMemo(() => {
     if (initialSolarData) {
-      const years = listSolarTimeseriesYears(initialSolarData);
+      const years = [...SOLAR_AVAILABLE_YEARS];
       setAvailableYears(years);
-      const PREFERRED_YEAR = 2024;
-      if (years.length === 1) {
-        setSolarData(initialSolarData);
-        setSelectedYear(years[0]);
-      } else if (years.length > 1) {
-        // Prefer 2024, then most recent
-        const best = years.includes(PREFERRED_YEAR) ? PREFERRED_YEAR : years[years.length - 1];
-        setSolarData(initialSolarData);
-        setSelectedYear(initialSolarData.year ?? best);
-      }
+      const PREFERRED_YEAR = 2025;
+      setSolarData(initialSolarData);
+      const yearInData = initialSolarData.year ?? PREFERRED_YEAR;
+      setSelectedYear(years.includes(yearInData) ? yearInData : (years.includes(PREFERRED_YEAR) ? PREFERRED_YEAR : years[years.length - 1]));
     }
   }, [initialSolarData]);
 

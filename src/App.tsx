@@ -43,9 +43,9 @@ import { Step3Battery } from './components/steps/Step3Battery';
 import { Step4Finance } from './components/steps/Step4Finance';
 import { ResultsSection } from './components/ResultsSection';
 import type { ExampleMonth, TariffConfiguration } from './types/billing';
-import { loadSolarData } from './utils/solarDataLoader';
+import { loadSolarData, SOLAR_AVAILABLE_YEARS } from './utils/solarDataLoader';
 import { endSpan as endSolarSpan, logError as logSolarError, logInfo as logSolarInfo, logWarn, startSpan as startSolarSpan } from './utils/logger';
-import { listSolarTimeseriesYears, normalizeSolarTimeseriesYear, type SolarNormalizationCorrections } from './utils/solarTimeseriesParser';
+import { normalizeSolarTimeseriesYear, type SolarNormalizationCorrections } from './utils/solarTimeseriesParser';
 import type { BuildingTypeSelection } from './types';
 
 const grantsData = rawGrantsData as unknown as Grant[];
@@ -506,17 +506,17 @@ function WizardApp() {
     setSolarDataLoading(true);
     logSolarInfo('solar', 'Loading solar timeseries from location', { location: config.location });
 
-    const year = 2020;
+    const year = 2025;
     loadSolarData(config.location, year)
       .then((parsed) => {
         logSolarInfo('solar', 'Loaded solar timeseries', { totalRows: parsed.timesteps.length, year: parsed.year });
         setRawSolarData(parsed);
         
-        const years = listSolarTimeseriesYears(parsed);
-        setAvailableYears(years);
+        setAvailableYears([...SOLAR_AVAILABLE_YEARS]);
         
-        // Prefer 2024 if available, then most recent, then first
-        const PREFERRED_YEAR = 2024;
+        // Prefer 2025 if available, then most recent, then first
+        const PREFERRED_YEAR = 2025;
+        const years = SOLAR_AVAILABLE_YEARS;
         const defaultYear = years.length > 0
           ? (years.includes(PREFERRED_YEAR) ? PREFERRED_YEAR : years[years.length - 1])
           : year;
@@ -533,6 +533,21 @@ function WizardApp() {
       })
       .finally(() => setSolarDataLoading(false));
   }, [config.location]);
+
+  // When user switches year in UI, load that year's solar CSV if not already loaded
+  useEffect(() => {
+    if (!selectedYear || !config.location || !rawSolarData) return;
+    if (rawSolarData.year === selectedYear) return;
+    setSolarDataLoading(true);
+    loadSolarData(config.location, selectedYear)
+      .then((parsed) => {
+        setRawSolarData(parsed);
+      })
+      .catch((err) => {
+        logSolarError('solar', 'Failed to load solar data for selected year', { error: String(err), year: selectedYear });
+      })
+      .finally(() => setSolarDataLoading(false));
+  }, [selectedYear, config.location, rawSolarData?.year]);
 
   // Normalize solar data when raw data or selected year changes
   useEffect(() => {

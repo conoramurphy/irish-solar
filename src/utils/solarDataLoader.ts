@@ -13,6 +13,9 @@ import { parseSolarTimeseriesCSV, type ParsedSolarData } from './solarTimeseries
  */
 const cache: Record<string, ParsedSolarData> = {};
 
+/** Years for which solar CSV data exists under public/data/solar/ (e.g. Dublin_2025.csv). */
+export const SOLAR_AVAILABLE_YEARS = [2020, 2021, 2022, 2023, 2024, 2025] as const;
+
 /**
  * Load solar data for a given location and year
  * 
