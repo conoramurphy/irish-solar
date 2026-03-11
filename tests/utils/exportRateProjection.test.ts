@@ -147,7 +147,7 @@ describe('projectCashFlows', () => {
 
   it('cumulative cash flow is correct', () => {
     const result = projectCashFlows(baseInputs);
-    let cumulative = -baseInputs.equityAmount;
+    let cumulative = -baseInputs.effectiveNetCost;
     for (const cf of result.cashFlows) {
       cumulative += cf.netCashFlow;
       expect(cf.cumulativeCashFlow).toBeCloseTo(cumulative, 2);
@@ -179,14 +179,14 @@ describe('projectCashFlows', () => {
   });
 
   describe('equity zero (100% financed)', () => {
-    it('returns NaN payback when equity is 0', () => {
+    it('returns finite payback when equity is 0 (uses total system cost)', () => {
       const result = projectCashFlows({
         ...baseInputs,
         equityAmount: 0,
         effectiveNetCost: 10000,
       });
-      expect(Number.isFinite(result.simplePayback)).toBe(false);
-      expect(result.simplePayback).toBeNaN();
+      expect(Number.isFinite(result.simplePayback)).toBe(true);
+      expect(result.simplePayback).toBeGreaterThan(0);
     });
 
     it('returns finite IRR when equity is 0 (uses effectiveNetCost)', () => {
@@ -199,20 +199,20 @@ describe('projectCashFlows', () => {
       expect(result.irr).toBeGreaterThan(0);
     });
 
-    it('NPV with equity 0 is sum of discounted net flows (no initial outflow)', () => {
+    it('NPV with equity 0 uses effectiveNetCost as initial outflow', () => {
       const result = projectCashFlows({
         ...baseInputs,
         equityAmount: 0,
         effectiveNetCost: 10000,
       });
-      // NPV = -0 + sum(cf / (1.05)^t) so positive when flows are positive
       expect(Number.isFinite(result.npv)).toBe(true);
+      // NPV = -10000 + sum(cf / (1.05)^t); still positive over 25 years
       expect(result.npv).toBeGreaterThan(0);
     });
   });
 
-  describe('payback uses first-year net cash flow', () => {
-    it('payback equals equity / firstYearNetCashFlow when equity > 0', () => {
+  describe('payback uses cumulative cash flow crossover', () => {
+    it('payback is found by interpolation on cumulative cash flow', () => {
       const inputs: ProjectionInputs = {
         ...baseInputs,
         equityAmount: 5000,
@@ -225,10 +225,10 @@ describe('projectCashFlows', () => {
         applyFutureRateChanges: false,
       };
       const result = projectCashFlows(inputs);
-      const firstYearNet = result.cashFlows[0].netCashFlow;
-      expect(firstYearNet).toBeGreaterThan(0);
-      const expectedPayback = 5000 / firstYearNet;
-      expect(result.simplePayback).toBeCloseTo(expectedPayback, 2);
+      // effectiveNetCost=5000, year1 savings≈2500 (with degradation), so ~2 years
+      expect(Number.isFinite(result.simplePayback)).toBe(true);
+      expect(result.simplePayback).toBeGreaterThan(1);
+      expect(result.simplePayback).toBeLessThan(3);
     });
   });
 });
@@ -315,8 +315,8 @@ describe('reprojectVariant math (via projectCashFlows)', () => {
   });
 
   it('reprojectVariant with equity < netCost produces correct year10 starting basis', () => {
-    // Simulates what reprojectVariant does: equity=3000, netCost=8000
-    // Year10 cumulative should start from -3000 (equity), not -8000 (netCost)
+    // Simulates what reprojectVariant does: equity=3000, effectiveNetCost=8000
+    // Cumulative starts from -effectiveNetCost (-8000)
     const result = projectCashFlows({
       year1OperationalSavings: 2000,
       year1ExportRevenue: 0,
@@ -331,9 +331,9 @@ describe('reprojectVariant math (via projectCashFlows)', () => {
       baseCalendarYear: 2025,
     });
 
-    // Cumulative after 10 years should be -3000 + sum of savings
+    // Cumulative after 10 years should be -effectiveNetCost (-8000) + sum of savings
     const totalSavings = result.cashFlows.reduce((s, cf) => s + cf.savings, 0);
-    expect(result.cashFlows[9].cumulativeCashFlow).toBeCloseTo(-3000 + totalSavings, 1);
+    expect(result.cashFlows[9].cumulativeCashFlow).toBeCloseTo(-8000 + totalSavings, 1);
   });
 
   it('reprojectVariant-style IRR matches projectCashFlows for same inputs', () => {
@@ -354,8 +354,7 @@ describe('reprojectVariant math (via projectCashFlows)', () => {
     };
     const proj = projectCashFlows(inputs);
     const netCashFlows = proj.cashFlows.map((cf) => cf.netCashFlow);
-    const initialForIRR = inputs.equityAmount > 0 ? inputs.equityAmount : inputs.effectiveNetCost;
-    const irrManual = calculateIRR(initialForIRR, netCashFlows);
+    const irrManual = calculateIRR(inputs.effectiveNetCost, netCashFlows);
     expect(Number.isFinite(irrManual)).toBe(true);
     expect(proj.irr).toBeCloseTo(irrManual, 5);
   });

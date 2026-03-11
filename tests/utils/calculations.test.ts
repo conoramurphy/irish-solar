@@ -330,7 +330,7 @@ describe('runCalculation', () => {
   });
 
   describe('payback and IRR when equity is zero vs positive', () => {
-    it('when equity is 0, payback is NaN and IRR is finite', () => {
+    it('when equity is 0, payback is based on effectiveNetCost and IRR is finite', () => {
       const result = runCalculation(
         {
           annualProductionKwh: 22500,
@@ -351,12 +351,14 @@ describe('runCalculation', () => {
         makeSolar()
       );
 
-    expect(Number.isFinite(result.simplePayback)).toBe(false);
-    expect(result.simplePayback).toBeNaN();
+    // Payback uses effectiveNetCost (not NaN). It may be Infinity if
+    // cumulative cash flow never crosses zero within the analysis period.
+    expect(result.simplePayback).not.toBeNaN();
+    expect(result.simplePayback).toBeGreaterThan(0);
     expect(Number.isFinite(result.irr)).toBe(true);
-  });
+    });
 
-    it('when equity > 0, payback is finite and positive', () => {
+    it('when equity > 0, payback is not NaN and IRR is finite', () => {
       const result = runCalculation(
         {
           annualProductionKwh: 22500,
@@ -377,7 +379,9 @@ describe('runCalculation', () => {
         makeSolar()
       );
 
-      expect(Number.isFinite(result.simplePayback)).toBe(true);
+      // Payback now uses effectiveNetCost (total system cost after grants/tax).
+      // May be Infinity if cumulative cash flow doesn't cross zero within analysis period.
+      expect(result.simplePayback).not.toBeNaN();
       expect(result.simplePayback).toBeGreaterThan(0);
       expect(Number.isFinite(result.irr)).toBe(true);
     });

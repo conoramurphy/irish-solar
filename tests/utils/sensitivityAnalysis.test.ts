@@ -112,7 +112,10 @@ describe('sensitivity analysis (via runCalculation)', () => {
       makeSolar()
     );
 
-    expect(result.simplePayback).toBeNaN();
+    // Payback uses effectiveNetCost (not NaN). May be Infinity if
+    // cumulative cash flow never crosses zero within the analysis period.
+    expect(result.simplePayback).not.toBeNaN();
+    expect(result.simplePayback).toBeGreaterThan(0);
     expect(Number.isFinite(result.irr)).toBe(true);
 
     if (!result.sensitivityAnalysis) return;
@@ -155,7 +158,7 @@ describe('sensitivity analysis (via runCalculation)', () => {
       annualLoanPayment: variant.annualLoanPayment,
       loanTermYears: variant.loanTermYears,
       equityAmount: variant.equityAmount,
-      effectiveNetCost: result.effectiveNetCost ?? result.netCost,
+      effectiveNetCost: variant.netCost,
       analysisYears: 25,
       applyFutureRateChanges: false,
       baseCalendarYear,

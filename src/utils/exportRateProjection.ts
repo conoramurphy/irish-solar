@@ -1,5 +1,5 @@
 import { applyDegradation } from '../models/solar';
-import { calculateIRR, calculateNPV, calculateSimplePayback } from '../models/financial';
+import { calculateIRR, calculateNPV } from '../models/financial';
 
 /**
  * Projected export rate decline schedule.
@@ -31,7 +31,7 @@ export interface CashFlowRow {
 
 export interface ProjectionResult {
   cashFlows: CashFlowRow[];
-  /** Years to recover equity (out of pocket) at first-year net cash flow. */
+  /** Years until cumulative cash flow recovers the full system cost (after grants & tax relief). */
   simplePayback: number;
   npv: number;
   irr: number;
@@ -77,7 +77,6 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
     baseGeneration,
     annualLoanPayment,
     loanTermYears,
-    equityAmount,
     effectiveNetCost,
     analysisYears = 25,
     applyFutureRateChanges,
@@ -86,7 +85,7 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
 
   const year1NonExportSavings = year1OperationalSavings - year1ExportRevenue;
   const cashFlows: CashFlowRow[] = [];
-  let cumulativeCashFlow = -equityAmount;
+  let cumulativeCashFlow = -effectiveNetCost;
 
   for (let year = 1; year <= analysisYears; year++) {
     const degradationFactor = applyDegradation(1, year - 1);
@@ -125,16 +124,26 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
 
   const annualCashFlows = cashFlows.map((cf) => cf.netCashFlow);
   const annualSavings = cashFlows[0]?.savings ?? 0;
-  const firstYearNetCashFlow = cashFlows[0]?.netCashFlow ?? 0;
-  // Out-of-pocket metrics: investment = equity only; payback = years to recover equity at first-year net cash flow.
-  // When 100% financed (equity 0), payback is N/A (no equity to recover).
-  const simplePayback = equityAmount > 0
-    ? calculateSimplePayback(equityAmount, firstYearNetCashFlow)
-    : NaN;
-  const npv = calculateNPV(equityAmount, annualCashFlows, 0.05);
-  // When equity is 0 (100% financed), use effectiveNetCost so IRR is still defined
-  const initialForIRR = equityAmount > 0 ? equityAmount : effectiveNetCost;
-  const irr = calculateIRR(initialForIRR, annualCashFlows);
+
+  // Payback = year when cumulative cash flow crosses zero (system has paid for itself).
+  // Uses linear interpolation within the crossover year for fractional precision.
+  let simplePayback = Infinity;
+  for (let i = 0; i < cashFlows.length; i++) {
+    if (cashFlows[i].cumulativeCashFlow >= 0) {
+      if (i === 0) {
+        simplePayback = cashFlows[i].year;
+      } else {
+        const prevCum = cashFlows[i - 1].cumulativeCashFlow;
+        const curCum = cashFlows[i].cumulativeCashFlow;
+        const fraction = -prevCum / (curCum - prevCum);
+        simplePayback = cashFlows[i - 1].year + fraction;
+      }
+      break;
+    }
+  }
+
+  const npv = calculateNPV(effectiveNetCost, annualCashFlows, 0.05);
+  const irr = calculateIRR(effectiveNetCost, annualCashFlows);
 
   return { cashFlows, simplePayback, npv, irr, annualSavings };
 }
