@@ -543,7 +543,7 @@ export function Step4Finance({
                 placeholder="e.g., 15000"
               />
               <p className="mt-2 text-xs text-slate-400 italic">
-                {payInCash ? 'Full net cost paid upfront — no loan' : 'Amount you'll pay upfront'}
+                  {payInCash ? 'Full net cost paid upfront — no loan' : "Amount you'll pay upfront"}
               </p>
             </Field>
 

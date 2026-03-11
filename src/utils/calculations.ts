@@ -253,7 +253,7 @@ export function runCalculation(
 
   const finalBatterySavings = annualBatteryToLoadSavings;
 
-  const effectiveNetCost = Math.max(0, netCost - year1TaxSavings);
+  const effectiveNetCost = netCost;
   const baseCalendarYear = solarTimeseriesData?.year ?? new Date().getFullYear();
 
   // 2. Project Cash Flows (with export rate decline applied by default)
