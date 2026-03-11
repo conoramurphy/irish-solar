@@ -6,7 +6,6 @@ import { projectCashFlows, type ProjectionResult, IMPORT_ESCALATION_RATE, getExp
 import { calculateIRR } from '../models/financial';
 import { applyDegradation } from '../models/solar';
 import { formatCurrency, formatNumber } from '../utils/format';
-import { BillBreakdownByTariffChart } from './BillBreakdownByTariffChart';
 import { AuditModal } from './AuditModal';
 import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
 import { MarketAnalysis } from './MarketAnalysis';
@@ -150,14 +149,6 @@ export function ResultsSection({
     if (!monthly || monthly.length === 0) return null;
     return calculateAnnualBillSummary(monthly);
   }, [activeResult?.audit?.monthly]);
-
-  const showTariffBreakdown = useMemo(() => {
-    if (!tariff) return false;
-    const hourly = activeResult?.audit?.hourly;
-    if (!hourly || hourly.length === 0) return false;
-    const hasMarketPrices = hourly.some((h) => h.marketPrice !== undefined);
-    return !hasMarketPrices;
-  }, [activeResult?.audit?.hourly, tariff]);
 
   const financialProjection: { active: ProjectionResult; flat: ProjectionResult } | null = useMemo(() => {
     if (!standardResult) return null;
@@ -525,13 +516,6 @@ export function ResultsSection({
                      <div className="text-xs text-emerald-600/70 mt-2">After solar PV (net of export credits)</div>
                    </div>
                 </div>
-              </div>
-            )}
-
-            {/* Tariff rate bill breakdown */}
-            {showTariffBreakdown && activeResult.audit?.hourly && (
-              <div className="mb-8">
-                <BillBreakdownByTariffChart hourlyData={activeResult.audit.hourly} tariff={tariff!} />
               </div>
             )}
 
