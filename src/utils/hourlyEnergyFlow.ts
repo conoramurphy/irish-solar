@@ -94,38 +94,14 @@ function calculateDomesticTariffSignals(
   const cheapThreshold = uniqueRates[0]; // Cheapest rate for charging
   const expensiveThreshold = uniqueRates[uniqueRates.length - 1]; // Most expensive (peak)
   
-  // Find the first hour of peak rate each day to start discharge
-  // Process day by day (24-hour chunks)
-  const peakStartHours: number[] = [];
-  
-  const slotsPerDay = totalHours > 10000 ? 48 : 24;
-  for (let dayStart = 0; dayStart < totalHours; dayStart += slotsPerDay) {
-    const dayEnd = Math.min(dayStart + slotsPerDay, totalHours);
-    const dayRates = hourlyRates.slice(dayStart, dayEnd);
-    
-    const peakStartInDay = dayRates.findIndex(r => r === expensiveThreshold);
-    if (peakStartInDay !== -1) {
-      peakStartHours.push(dayStart + peakStartInDay);
-    }
-  }
-  
   for (let hour = 0; hour < totalHours; hour++) {
     const rate = hourlyRates[hour];
-    const slotInDay = hour % slotsPerDay;
-    const dayStart = hour - slotInDay;
     
-    const peakStart = peakStartHours.find(ps => ps >= dayStart && ps < dayStart + slotsPerDay);
-    
-    // CHARGE: Only during absolute cheapest rate (EV rate, free electricity)
     if (rate === cheapThreshold) {
       signals[hour] = 'CHARGE';
-    }
-    // DISCHARGE: From peak hour onwards until end of day (or until we hit charging hours)
-    // This ensures battery holds charge until peak, then discharges continuously
-    else if (peakStart !== undefined && hour >= peakStart && rate > cheapThreshold) {
+    } else if (rate === expensiveThreshold) {
       signals[hour] = 'DISCHARGE';
     }
-    // Otherwise: AUTO (solar self-consumption only, battery won't actively discharge)
   }
   
   return signals;
@@ -156,6 +132,13 @@ function calculateTradingSignals(
     
     // Sort by price
     detailed.sort((a, b) => a.price - b.price);
+    
+    // Skip this day if spread doesn't cover efficiency losses
+    const cheapestPrice = detailed[0].price;
+    const expensivePrice = detailed[detailed.length - 1].price;
+    const efficiencyLoss = 0.1; // ~10% round-trip loss (conservative estimate for 90% efficiency)
+    const minProfitableSpread = cheapestPrice * efficiencyLoss;
+    if (expensivePrice - cheapestPrice <= minProfitableSpread) continue;
     
     // N cheapest hours = CHARGE
     // We take the first N
@@ -225,18 +208,19 @@ export function simulateHourlyEnergyFlow(
   // Derive resolution from input length: 48 slots/day for half-hourly, 24 for hourly
   const slotsPerDay = hourlyGeneration.length > 10000 ? 48 : 24;
 
+  const hoursPerSlot = 24 / slotsPerDay;
   const battery = batteryConfig ? {
     capacity: Math.max(0, batteryConfig.capacityKwh),
     efficiency: Math.max(0, Math.min(1, batteryConfig.efficiency ?? 0.9)),
     soc: Math.max(0, Math.min(1, batteryConfig.initialSoC ?? 0)) * Math.max(0, batteryConfig.capacityKwh),
-    maxChargeRate: Math.max(0, batteryConfig.maxChargeRateKw ?? batteryConfig.capacityKwh), 
-    maxDischargeRate: Math.max(0, batteryConfig.maxDischargeRateKw ?? batteryConfig.capacityKwh)
+    maxChargeRate: Math.max(0, batteryConfig.maxChargeRateKw ?? batteryConfig.capacityKwh) * hoursPerSlot, 
+    maxDischargeRate: Math.max(0, batteryConfig.maxDischargeRateKw ?? batteryConfig.capacityKwh) * hoursPerSlot
   } : null;
 
   // Use the export cap from batteryConfig or default to infinity (no limit)
   // Even if no battery is present, we might want to respect this, but currently it's passed in BatteryConfig.
   // Ideally, it should be a top-level parameter, but let's extract it safely.
-  const gridExportCapKw = batteryConfig?.gridExportCapKw ?? Infinity;
+  const gridExportCapPerSlot = (batteryConfig?.gridExportCapKw ?? Infinity) * hoursPerSlot;
 
   let totalGridImport = 0;
   let totalGridExport = 0;
@@ -301,10 +285,10 @@ export function simulateHourlyEnergyFlow(
     // Previous code: netEnergy = consumption - generation
     // Positive = Deficit (Need Import)
     // Negative = Surplus (Can Export)
-    let netEnergy = consumption - generation;
+    const netEnergy = consumption - generation;
     
     // Track localized displacement for breakdown
-    let solarToLoadKwh = Math.min(generation, consumption);
+    const solarToLoadKwh = Math.min(generation, consumption);
     let batteryToLoadKwh = 0;
 
     if (battery) {
@@ -350,8 +334,9 @@ export function simulateHourlyEnergyFlow(
           const maxInputByCapacity = (battery.capacity - battery.soc) / battery.efficiency;
           const effectiveInputFromSolar = Math.min(surplus, maxInput, maxInputByCapacity);
           
-          batteryCharge += effectiveInputFromSolar * battery.efficiency; // Stored amount
-          battery.soc += batteryCharge;
+          const solarStored = effectiveInputFromSolar * battery.efficiency;
+          battery.soc += solarStored;
+          batteryCharge += effectiveInputFromSolar;
           
           // Solar surplus used
           const solarUsed = effectiveInputFromSolar;
@@ -359,7 +344,7 @@ export function simulateHourlyEnergyFlow(
           // Remaining solar -> Export (subject to cap)
           const potentialExport = surplus - solarUsed;
           // If we hit the cap, the excess is curtailed (lost)
-          gridExport = Math.min(potentialExport, gridExportCapKw);
+          gridExport = Math.min(potentialExport, gridExportCapPerSlot);
           const curtailed = Math.max(0, potentialExport - gridExport);
           totalGridExportCurtailed += curtailed;
           
@@ -375,8 +360,8 @@ export function simulateHourlyEnergyFlow(
                const maxGridInput = Math.min(chargeRateRemaining, spaceRemaining / battery.efficiency);
                const gridInput = maxGridInput;
                
-               batteryCharge += gridInput * battery.efficiency;
                battery.soc += gridInput * battery.efficiency;
+               batteryCharge += gridInput;
                gridImport += gridInput; // Import for battery
             }
           }
@@ -393,8 +378,8 @@ export function simulateHourlyEnergyFlow(
           const spaceRemaining = battery.capacity - battery.soc;
           const maxGridInput = Math.min(battery.maxChargeRate, spaceRemaining / battery.efficiency);
           
-          batteryCharge += maxGridInput * battery.efficiency;
           battery.soc += maxGridInput * battery.efficiency;
+          batteryCharge += maxGridInput;
           gridImport += maxGridInput; // Import for battery
         }
         
@@ -414,7 +399,7 @@ export function simulateHourlyEnergyFlow(
            // We will add battery export to this later, so let's track total export for this hour
            let currentHourExport = 0;
            
-           const allowedSolarExport = Math.min(potentialSolarExport, gridExportCapKw);
+           const allowedSolarExport = Math.min(potentialSolarExport, gridExportCapPerSlot);
            const solarCurtailed = Math.max(0, potentialSolarExport - allowedSolarExport);
            totalGridExportCurtailed += solarCurtailed;
            currentHourExport += allowedSolarExport;
@@ -426,10 +411,10 @@ export function simulateHourlyEnergyFlow(
            const maxOutput = battery.maxDischargeRate;
            
            // Check remaining export headroom
-           const remainingExportCap = Math.max(0, gridExportCapKw - currentHourExport);
+           const remainingExportCap = Math.max(0, gridExportCapPerSlot - currentHourExport);
            
            // Discharge is limited by: Available Energy, Max Discharge Rate, AND Remaining Export Cap
-           const potentialDischarge = Math.min(availableEnergy, maxOutput);
+           const potentialDischarge = Math.min(availableEnergy * battery.efficiency, maxOutput);
            const dischargeAmount = Math.min(potentialDischarge, remainingExportCap); // Output energy
            const batteryCurtailed = Math.max(0, potentialDischarge - dischargeAmount);
            totalGridExportCurtailed += batteryCurtailed;
@@ -515,7 +500,7 @@ export function simulateHourlyEnergyFlow(
            // NOW we can export `outputRemaining` (subject to cap).
            
            if (outputRemaining > 0) {
-              const allowedExport = Math.min(outputRemaining, gridExportCapKw);
+              const allowedExport = Math.min(outputRemaining, gridExportCapPerSlot);
               const batteryCurtailed = Math.max(0, outputRemaining - allowedExport);
               totalGridExportCurtailed += batteryCurtailed;
               
@@ -544,12 +529,12 @@ export function simulateHourlyEnergyFlow(
           
           const energyToStore = effectiveInput * battery.efficiency;
           
-          batteryCharge = energyToStore;
+          batteryCharge = effectiveInput;
           battery.soc += energyToStore;
           
           // Export remainder (subject to cap)
           const potentialExport = surplus - effectiveInput;
-          const allowedExport = Math.min(potentialExport, gridExportCapKw);
+          const allowedExport = Math.min(potentialExport, gridExportCapPerSlot);
           const curtailed = Math.max(0, potentialExport - allowedExport);
           totalGridExportCurtailed += curtailed;
           gridExport = Math.max(0, allowedExport);
@@ -584,12 +569,12 @@ export function simulateHourlyEnergyFlow(
         // Apply export cap even without battery
         // We need to pass gridExportCapKw to this function even if batteryConfig is undefined?
         // Currently it's inside batteryConfig. 
-        // We defined `gridExportCapKw` at top of function scope from batteryConfig?.gridExportCapKw.
+        // We defined `gridExportCapPerSlot` at top of function scope from batteryConfig?.gridExportCapKw.
         // If batteryConfig is undefined, it defaults to Infinity.
         // If the user has NO battery but wants to cap export (e.g. 100kW limit), 
         // they must pass a dummy batteryConfig or we need a top-level param.
-        // For now, `gridExportCapKw` handles it if passed.
-        gridExport = Math.min(potentialExport, gridExportCapKw);
+        // For now, `gridExportCapPerSlot` handles it if passed.
+        gridExport = Math.min(potentialExport, gridExportCapPerSlot);
         const curtailed = Math.max(0, potentialExport - gridExport);
         totalGridExportCurtailed += curtailed;
       } else if (netEnergy > 0) {

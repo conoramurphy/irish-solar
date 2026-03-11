@@ -10,7 +10,6 @@ import type {
   TradingConfig
 } from '../types';
 import { calculateGrantAmount } from '../models/grants';
-import { calculateTradingRevenue } from '../models/trading';
 import { calculateLoanPayment } from '../models/financial';
 import { aggregateHourlyResultsToMonthly, simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
 import { calculateTimeseriesWeights, distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
@@ -156,7 +155,7 @@ export function runCalculation(
   
   // Year 1 variables for projection
   let year1ElectricitySavings = 0;
-  let year1TradingRevenue = 0;
+  const year1TradingRevenue = 0;
   
   if (useHourlySimulation) {
     // Use hour-by-hour simulation with solar timeseries data
@@ -186,7 +185,8 @@ export function runCalculation(
     const batteryConfig: BatteryConfig | undefined = config.batterySizeKwh > 0 ? {
       capacityKwh: config.batterySizeKwh,
       efficiency: 0.9,
-      initialSoC: 0
+      initialSoC: 0,
+      gridExportCapKw: config.gridExportCapKw
     } : undefined;
     
     const baseYearElectricity = simulateHourlyEnergyFlow(
@@ -243,9 +243,6 @@ export function runCalculation(
     // Store for projection
     year1ElectricitySavings = baseYearElectricity.totalSavings;
     
-    if (!hourlyPrices && trading.enabled) {
-        year1TradingRevenue = calculateTradingRevenue(trading, config.batterySizeKwh, 1);
-    }
   }
 
   // Calculate tax savings (ACA)
@@ -254,11 +251,7 @@ export function runCalculation(
   const taxRate = financing.isTaxReliefEligible ? (financing.taxRate ?? 0) : 0;
   const year1TaxSavings = netCost * taxRate;
 
-  // Add heuristic revenue to battery part if applicable
-  const year1HeuristicTradingRevenue = (!hourlyPrices && trading.enabled) 
-    ? calculateTradingRevenue(trading, config.batterySizeKwh, 1) 
-    : 0;
-  const finalBatterySavings = annualBatteryToLoadSavings + year1HeuristicTradingRevenue;
+  const finalBatterySavings = annualBatteryToLoadSavings;
 
   const effectiveNetCost = Math.max(0, netCost - year1TaxSavings);
   const baseCalendarYear = solarTimeseriesData?.year ?? new Date().getFullYear();
