@@ -67,16 +67,6 @@ export function Step4Finance({
     }
   }, [useEstimatedCost, vatRate, estimatedBaseCost, config.installationCost, setConfig]);
 
-  // Sync equity to the full net cost whenever "pay in cash" is on.
-  // Intentionally omit `financing` from deps to avoid an update loop —
-  // we only need to react to payInCash toggling or the cost changing.
-  useEffect(() => {
-    if (payInCash) {
-      setFinancing({ ...financing, equity: displayNetCost });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [payInCash, displayNetCost]);
-
   const applyHouseDefaults = () => {
     setHouseDefaultsApplied(true);
     setConfig((prev) => ({
@@ -125,6 +115,16 @@ export function Step4Finance({
   const displayInstallationCost = config.excludeVat ? stripVat(config.installationCost, vatRate) : config.installationCost;
   const displayNetCost = config.excludeVat ? stripVat(netCost, vatRate) : netCost;
   const loanAmount = Math.max(0, displayNetCost - financing.equity);
+
+  // Sync equity to the full net cost whenever "pay in cash" is on.
+  // Placed after displayNetCost to avoid temporal dead zone in deps array.
+  // Intentionally omit `financing` from deps to avoid an update loop.
+  useEffect(() => {
+    if (payInCash) {
+      setFinancing({ ...financing, equity: displayNetCost });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payInCash, displayNetCost]);
 
   const handleGenerateReport = () => {
     setGrantValidationError(null);
