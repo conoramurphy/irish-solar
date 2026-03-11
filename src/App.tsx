@@ -520,7 +520,7 @@ function WizardApp() {
         const defaultYear = years.length > 0
           ? (years.includes(PREFERRED_YEAR) ? PREFERRED_YEAR : years[years.length - 1])
           : year;
-        if (!selectedYear || !years.includes(selectedYear)) {
+        if (!selectedYear || !(years as readonly number[]).includes(selectedYear)) {
           setSelectedYear(defaultYear);
         }
       })
@@ -724,6 +724,7 @@ function WizardApp() {
     
     // Restore house mode data if available
     setHourlyConsumptionOverride(report.hourlyConsumptionOverride);
+    setUploadSummary(report.uploadSummary);
     if (report.selectedDomesticTariffId) {
       const found = domesticTariffs.find(t => t.id === report.selectedDomesticTariffId);
       setSelectedDomesticTariff(found);
@@ -793,6 +794,7 @@ function WizardApp() {
         estimatedMonthlyBills,
         selectedYear,
         hourlyConsumptionOverride,
+        uploadSummary,
         selectedDomesticTariffId: selectedDomesticTariff?.id,
         result: standardResult // Snapshot (save standard result for now)
     });
@@ -817,6 +819,7 @@ function WizardApp() {
       estimatedMonthlyBills,
       selectedYear,
       hourlyConsumptionOverride,
+      uploadSummary,
       selectedDomesticTariffId: selectedDomesticTariff?.id,
       result: standardResult,
     };

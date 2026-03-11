@@ -49,7 +49,7 @@ export function Step2Solar({
       const PREFERRED_YEAR = 2025;
       setSolarData(initialSolarData);
       const yearInData = initialSolarData.year ?? PREFERRED_YEAR;
-      setSelectedYear(years.includes(yearInData) ? yearInData : (years.includes(PREFERRED_YEAR) ? PREFERRED_YEAR : years[years.length - 1]));
+      setSelectedYear((years as number[]).includes(yearInData) ? yearInData : (years.includes(PREFERRED_YEAR) ? PREFERRED_YEAR : years[years.length - 1]));
     }
   }, [initialSolarData]);
 
