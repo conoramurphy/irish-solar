@@ -250,37 +250,6 @@ export function MarketAnalysis({ hourlyData, year }: MarketAnalysisProps) {
               </div>
             </div>
             
-            {/* Also show Monthly Breakdown here for quick reference? Or keep separate? */}
-            {/* Let's show the Monthly Table here as well since it's dense data good for overview */}
-             <div>
-               <h4 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-6">Monthly Breakdown</h4>
-               <div className="overflow-hidden rounded-lg border border-slate-200">
-                 <table className="w-full text-sm text-left">
-                   <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                     <tr>
-                       <th className="px-4 py-2">Month</th>
-                       <th className="px-4 py-2 text-right">Mean Spread</th>
-                       <th className="px-4 py-2 text-right">Range (P95-P5)</th>
-                       <th className="px-4 py-2 text-right">% &lt; €0</th>
-                     </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-100">
-                     {analysis.months.map((m) => (
-                       <tr key={m.monthIndex} className="hover:bg-slate-50/50">
-                         <td className="px-4 py-2 font-medium text-slate-700">
-                           {new Date(2000, m.monthIndex, 1).toLocaleString('en-IE', { month: 'short' })}
-                         </td>
-                         <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatMwh(m.meanSpread)}</td>
-                         <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatMwh(m.p95p5Range)}</td>
-                         <td className={`px-4 py-2 text-right tabular-nums ${m.pctBelowZero > 0 ? 'text-rose-600 font-medium' : 'text-slate-400'}`}>
-                           {m.pctBelowZero > 0 ? `${(m.pctBelowZero * 100).toFixed(1)}%` : '—'}
-                         </td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-               </div>
-            </div>
           </div>
         )}
 

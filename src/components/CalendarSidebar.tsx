@@ -12,12 +12,15 @@ export function CalendarSidebar({
   months,
   annualTotalBillEur,
   annualTotalConsumptionKwh,
-  annualTotalSolarKwh
+  annualTotalSolarKwh,
+  showSolarRow = true
 }: {
   months: CalendarMonthData[];
   annualTotalBillEur?: number;
   annualTotalConsumptionKwh?: number;
   annualTotalSolarKwh?: number;
+  /** When false, only Usage and Bill rows are shown (e.g. for digital-twin-only view). */
+  showSolarRow?: boolean;
 }) {
   // --- Solar warmth colour logic (unchanged) ---
   const solarValues = months
@@ -70,13 +73,17 @@ export function CalendarSidebar({
       annual: annualTotalBillEur,
       annualLabel: annualTotalBillEur !== undefined ? formatCurrency(annualTotalBillEur) : undefined,
     },
-    {
-      label: 'Solar',
-      key: 'solarGenerationKwh',
-      format: (v) => `${formatNumber(v)} kWh`,
-      annual: annualTotalSolarKwh,
-      annualLabel: annualTotalSolarKwh !== undefined ? `${formatNumber(annualTotalSolarKwh)} kWh` : undefined,
-    },
+    ...(showSolarRow
+      ? [
+          {
+            label: 'Solar',
+            key: 'solarGenerationKwh' as const,
+            format: (v: number) => `${formatNumber(v)} kWh`,
+            annual: annualTotalSolarKwh,
+            annualLabel: annualTotalSolarKwh !== undefined ? `${formatNumber(annualTotalSolarKwh)} kWh` : undefined,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -95,13 +102,16 @@ export function CalendarSidebar({
                 const intensity = solarIntensity(m);
                 const color = warmthColor(intensity);
                 const hasSolar = typeof m.solarGenerationKwh === 'number' && Number.isFinite(m.solarGenerationKwh);
+                const showWarmthBar = showSolarRow && (hasSolar || solarValues.length > 0);
                 return (
                   <th
                     key={m.monthIndex}
                     className="py-0 px-1 text-center bg-slate-50 border-b border-slate-100 font-medium text-slate-600"
                     style={{ minWidth: 52 }}
                   >
-                    <div className="h-0.5 w-full mb-0" style={{ background: color, opacity: hasSolar ? 0.8 : 0.3 }} />
+                    {showWarmthBar && (
+                      <div className="h-0.5 w-full mb-0" style={{ background: color, opacity: hasSolar ? 0.8 : 0.3 }} />
+                    )}
                     <div className="py-2">{MONTH_LABELS[m.monthIndex]}</div>
                   </th>
                 );

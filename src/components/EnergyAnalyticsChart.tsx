@@ -180,6 +180,29 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
   const selectedDay = dailyData[selectedDayIndex] || dailyData[0];
   const currentWeek = weeklyData[selectedWeek] || [];
 
+  // For day view: always show 24 one-hour bars. If data is half-hourly (48 slots/day), aggregate pairs into hourly.
+  const dayViewHourlyBars = useMemo(() => {
+    if (!selectedDay?.hours?.length) return [];
+    const slots = selectedDay.hours;
+    if (slots.length === 24) return slots;
+    if (slots.length === 48) {
+      return Array.from({ length: 24 }, (_, hourIndex) => {
+        const i = hourIndex * 2;
+        const a = slots[i];
+        const b = slots[i + 1];
+        if (!a) return null;
+        return {
+          ...a,
+          generation: a.generation + (b?.generation ?? 0),
+          consumption: a.consumption + (b?.consumption ?? 0),
+          gridExport: (a.gridExport ?? 0) + (b?.gridExport ?? 0),
+          hourOfDay: hourIndex,
+        } as HourlyEnergyFlow;
+      }).filter(Boolean) as HourlyEnergyFlow[];
+    }
+    return slots;
+  }, [selectedDay?.hours]);
+
   // Dynamic Y-axis max: only consider visible series, then add 5% headroom
   const maxDailyConsumption = useMemo(() => {
     const rawMax = Math.max(
@@ -197,13 +220,13 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
 
   const maxHourlyValue = useMemo(() => {
     const candidates: number[] = [0.01];
-    selectedDay?.hours.forEach(h => {
+    dayViewHourlyBars.forEach(h => {
       if (showGeneration) candidates.push(h.generation);
       if (showDaylightUsage && h.generation > 0.01) candidates.push(h.consumption);
       if (showNightUsage && h.generation <= 0.01) candidates.push(h.consumption);
     });
     return Math.max(...candidates) * 1.05;
-  }, [selectedDay, showGeneration, showDaylightUsage, showNightUsage]);
+  }, [dayViewHourlyBars, showGeneration, showDaylightUsage, showNightUsage]);
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-100 p-6 md:p-8">
@@ -657,10 +680,10 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 />
               ))}
 
-              {/* Hourly bars */}
-              {selectedDay.hours.map((hour, index) => {
-                const x = index * 40;
-                const barWidth = 35;
+              {/* 24 one-hour bars */}
+              {dayViewHourlyBars.map((hour, index) => {
+                const x = index * (960 / 24);
+                const barWidth = (960 / 24) * 0.85;
                 const genHeight = (hour.generation / maxHourlyValue) * 200;
                 const consHeight = (hour.consumption / maxHourlyValue) * 200;
                 const hourOfDay = hour.hourOfDay ?? index;
@@ -693,7 +716,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                         rx="2"
                       />
                     )}
-                    {/* Hour label (every 3 hours) */}
+                    {/* Hour label (every 2–3 hours to avoid crowding) */}
                     {index % 3 === 0 && (
                       <text
                         x={x + barWidth / 2}
@@ -725,7 +748,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
               </div>
             </div>
             <div className="bg-slate-50 rounded-lg p-3">
-              <div className="text-xs text-slate-600 mb-1">Export (Spill)</div>
+              <div className="text-xs text-slate-600 mb-1">Export</div>
               <div className="text-lg font-bold text-tines-purple">
                 {selectedDay.totalExport.toFixed(0)} kWh
               </div>

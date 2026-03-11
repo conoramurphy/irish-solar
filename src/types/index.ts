@@ -374,11 +374,14 @@ export interface CalculationResult {
   year1TaxSavings?: number;
   /** Equity (cash) invested at time 0, used as NPV/IRR initial outflow. */
   equityAmount?: number;
-  /** Effective net cost after grants and tax relief, used for payback calculation. */
+  /** Effective net cost after grants and tax relief (for display). */
   effectiveNetCost?: number;
 
+  /** Years to recover equity (out of pocket) at first-year net cash flow. */
   simplePayback: number;
+  /** NPV at 5% discount, initial outflow = equity only, cash flows = net of loan. */
   npv: number;
+  /** 25-year IRR on equity (out of pocket), cash flows net of loan. */
   irr: number;
   cashFlows: Array<{
     year: number;

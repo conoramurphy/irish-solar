@@ -31,6 +31,7 @@ export interface CashFlowRow {
 
 export interface ProjectionResult {
   cashFlows: CashFlowRow[];
+  /** Years to recover equity (out of pocket) at first-year net cash flow. */
   simplePayback: number;
   npv: number;
   irr: number;
@@ -124,9 +125,13 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
 
   const annualCashFlows = cashFlows.map((cf) => cf.netCashFlow);
   const annualSavings = cashFlows[0]?.savings ?? 0;
-  const simplePayback = calculateSimplePayback(effectiveNetCost, annualSavings);
+  const firstYearNetCashFlow = cashFlows[0]?.netCashFlow ?? 0;
+  // Out-of-pocket metrics: investment = equity only; payback = years to recover equity at first-year net cash flow
+  const simplePayback = calculateSimplePayback(equityAmount, firstYearNetCashFlow);
   const npv = calculateNPV(equityAmount, annualCashFlows, 0.05);
-  const irr = calculateIRR(equityAmount, annualCashFlows);
+  // When equity is 0 (100% financed), use effectiveNetCost so IRR is still defined
+  const initialForIRR = equityAmount > 0 ? equityAmount : effectiveNetCost;
+  const irr = calculateIRR(initialForIRR, annualCashFlows);
 
   return { cashFlows, simplePayback, npv, irr, annualSavings };
 }

@@ -40,8 +40,7 @@ function reprojectVariant(
   baseCalendarYear: number
 ): SensitivityVariant {
   const year1NonExport = v.annualSavings - v.year1ExportRevenue;
-  const grossCashFlows: number[] = [];
-  // yr10 cumulative uses same equity-relative basis as the engine
+  const netCashFlows: number[] = [];
   let year10Net = -v.equityAmount;
 
   for (let year = 1; year <= ANALYSIS_YEARS; year++) {
@@ -51,13 +50,14 @@ function reprojectVariant(
     const exportMul = applyFutureRateChanges ? getExportRateMultiplier(calYear) : 1;
     const yearSavings = year1NonExport * deg * importEsc + v.year1ExportRevenue * deg * exportMul;
     const yearLoanPayment = year <= v.loanTermYears ? v.annualLoanPayment : 0;
-    grossCashFlows.push(yearSavings);
-    if (year <= 10) year10Net += yearSavings - yearLoanPayment;
+    const netCf = yearSavings - yearLoanPayment;
+    netCashFlows.push(netCf);
+    if (year <= 10) year10Net += netCf;
   }
 
   return {
     ...v,
-    irr: calculateIRR(v.netCost, grossCashFlows),
+    irr: calculateIRR(v.equityAmount > 0 ? v.equityAmount : v.netCost, netCashFlows),
     year10NetCashFlow: year10Net,
   };
 }
@@ -542,7 +542,7 @@ export function ResultsSection({
                   <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">
                     Monthly Bill Comparison {config?.excludeVat && '(Ex. VAT)'}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1">After = import charges minus export credits (net)</p>
+                  <p className="text-xs text-slate-400 mt-1">After = import charges minus export credits (net). Export % = share of generation sent to grid (after on-site use and battery).</p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -552,7 +552,7 @@ export function ResultsSection({
                         <th className="px-6 py-3 text-right">Before</th>
                         <th className="px-6 py-3 text-right">After (Net)</th>
                         <th className="px-6 py-3 text-right">Savings</th>
-                        <th className="px-6 py-3 text-right">Spill Rate</th>
+                        <th className="px-6 py-3 text-right">Export %</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -565,8 +565,8 @@ export function ResultsSection({
                         const netBill = importCost - exportRevenue;
                         // Savings = Baseline - Net bill (total financial benefit)
                         const savings = baseline - netBill;
-                        const spillRate = m.generation > 0 ? m.gridExport / m.generation : 0;
-                        const isHighSpill = spillRate > 0.3;
+                        const exportRate = m.generation > 0 ? m.gridExport / m.generation : 0;
+                        const isHighExport = exportRate > 0.3;
                         
                         return (
                           <tr key={m.monthIndex} className="hover:bg-slate-50/50 transition-colors">
@@ -582,10 +582,10 @@ export function ResultsSection({
                               {formatCurrency(savings)}
                             </td>
                             <td className={`px-6 py-3 text-right tabular-nums font-medium ${
-                              isHighSpill ? 'text-amber-600' : 'text-slate-600'
+                              isHighExport ? 'text-amber-600' : 'text-slate-600'
                             }`}>
-                              {formatPercentFraction(spillRate)}
-                              {isHighSpill && <span className="ml-1 text-xs">⚠️</span>}
+                              {formatPercentFraction(exportRate)}
+                              {isHighExport && <span className="ml-1 text-xs">⚠️</span>}
                             </td>
                           </tr>
                         );
@@ -762,12 +762,12 @@ export function ResultsSection({
                                   <span className="text-[10px] text-slate-400">yr10</span>
                                 </div>
 
-                                {/* Spillage */}
+                                {/* Export % — share of generation exported to grid */}
                                 <div className="flex items-baseline gap-1 mt-0.5">
                                   <span className={`text-[10px] tabular-nums font-medium ${v.spillageFraction > 0.3 ? 'text-amber-600' : 'text-slate-400'}`}>
                                     {(v.spillageFraction * 100).toFixed(0)}%
                                   </span>
-                                  <span className="text-[10px] text-slate-400">spill</span>
+                                  <span className="text-[10px] text-slate-400">export</span>
                                 </div>
 
                                 {/* Battery size */}
@@ -820,13 +820,13 @@ export function ResultsSection({
                         <th className="px-6 py-3">PV Size (Annual kWh)</th>
                         <th className="px-6 py-3 text-right">Scale Factor</th>
                         <th className="px-6 py-3 text-right">Exported</th>
-                        <th className="px-6 py-3 text-right">Spillage %</th>
+                        <th className="px-6 py-3 text-right">Export %</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {activeResult.solarSpillageAnalysis.curve.map((p) => {
                         const isCurrent = Math.abs(p.scaleFactor - 1.0) < 0.01;
-                        const isHighSpill = p.spillageFraction > 0.3;
+                        const isHighExport = p.spillageFraction > 0.3;
                         
                         return (
                           <tr 
@@ -844,9 +844,9 @@ export function ResultsSection({
                             </td>
                             <td className="px-6 py-3 text-right tabular-nums text-slate-600">{p.scaleFactor.toFixed(2)}×</td>
                             <td className="px-6 py-3 text-right tabular-nums text-slate-600">{formatNumber(p.exportKwh)} kWh</td>
-                            <td className={`px-6 py-3 text-right tabular-nums font-medium ${isHighSpill ? 'text-amber-600' : 'text-slate-700'}`}>
+                            <td className={`px-6 py-3 text-right tabular-nums font-medium ${isHighExport ? 'text-amber-600' : 'text-slate-700'}`}>
                               {formatPercentFraction(p.spillageFraction)}
-                              {isHighSpill && <span className="ml-2 text-xs font-normal text-amber-600">⚠️</span>}
+                              {isHighExport && <span className="ml-2 text-xs font-normal text-amber-600">⚠️</span>}
                             </td>
                           </tr>
                         );
@@ -1000,6 +1000,7 @@ export function ResultsSection({
                     ? 'Import +3%/yr · Export declining from 2031 · Solar degradation 0.5%/yr'
                     : 'Flat rates · Solar degradation 0.5%/yr'}
                 </p>
+                <p className="text-xs text-slate-400 mt-0.5">Net cash flow = Savings − Loan repayment.</p>
               </div>
               <div className="p-6">
                 <div className="overflow-x-auto">
@@ -1009,6 +1010,7 @@ export function ResultsSection({
                         <th className="px-4 py-2 text-left">Year</th>
                         <th className="px-4 py-2 text-right">Generation (kWh)</th>
                         <th className="px-4 py-2 text-right">Savings</th>
+                        <th className="px-4 py-2 text-right">Loan repayment</th>
                         <th className="px-4 py-2 text-right">Net Cash Flow</th>
                         <th className="px-4 py-2 text-right">Cumulative</th>
                       </tr>
@@ -1019,6 +1021,7 @@ export function ResultsSection({
                           <td className="px-4 py-2 font-medium text-slate-700">Year {cf.year}</td>
                           <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatNumber(cf.generation)}</td>
                           <td className="px-4 py-2 text-right text-emerald-600 tabular-nums font-medium">{formatCurrency(cf.savings)}</td>
+                          <td className="px-4 py-2 text-right text-slate-600 tabular-nums">{formatCurrency(cf.loanPayment)}</td>
                           <td className={`px-4 py-2 text-right tabular-nums font-medium ${
                             cf.netCashFlow >= 0 ? 'text-emerald-600' : 'text-rose-600'
                           }`}>
@@ -1033,7 +1036,7 @@ export function ResultsSection({
                       ))}
                       {projCashFlows.length > 10 && (
                         <tr className="bg-slate-50">
-                          <td colSpan={5} className="px-4 py-2 text-center text-xs text-slate-400">
+                          <td colSpan={6} className="px-4 py-2 text-center text-xs text-slate-400">
                             ... showing first 10 years of 25 ...
                           </td>
                         </tr>
@@ -1046,6 +1049,9 @@ export function ResultsSection({
                         </td>
                         <td className="px-4 py-3 text-right text-emerald-700 tabular-nums">
                           {formatCurrency(lastCf.savings)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-slate-700 tabular-nums">
+                          {formatCurrency(lastCf.loanPayment)}
                         </td>
                         <td className="px-4 py-3 text-right text-emerald-700 tabular-nums">
                           {formatSignedCurrency(lastCf.netCashFlow)}

@@ -88,15 +88,13 @@ function computeScenarioMetrics(
 
   // Roll up ANALYSIS_YEARS of cash flows using Year 1 savings + degradation
   // (same pattern as runCalculation — no re-simulation needed for years 2+)
-  const grossCashFlows: number[] = []; // savings only, before loan — used for project IRR
-  const netCashFlows: number[] = [];   // savings minus loan — used for Yr1/Yr10 display
+  const netCashFlows: number[] = [];   // savings minus loan — used for IRR and Yr1/Yr10 display
   let cumulativeCashFlow = -equityAmount;
 
   for (let year = 1; year <= ANALYSIS_YEARS; year++) {
     const degradationFactor = applyDegradation(1, year - 1);
     const yearSavings = firstYearSavings * degradationFactor;
     const yearLoanPayment = year <= financing.termYears ? annualLoanPayment : 0;
-    grossCashFlows.push(yearSavings);
     const netCashFlow = yearSavings - yearLoanPayment;
     netCashFlows.push(netCashFlow);
     if (year <= 10) cumulativeCashFlow += netCashFlow;
@@ -105,8 +103,9 @@ function computeScenarioMetrics(
   const year1NetCashFlow = netCashFlows[0];
   const year10NetCashFlow = cumulativeCashFlow; // cumulative through year 10 (from -equity)
 
-  // Project IRR: return on total net capital invested (netCost), using gross savings.
-  const irr = calculateIRR(netCost, grossCashFlows);
+  // Out-of-pocket IRR when equity > 0; when 100% financed use net cost so IRR is still defined
+  const initialForIRR = equityAmount > 0 ? equityAmount : netCost;
+  const irr = calculateIRR(initialForIRR, netCashFlows);
 
   return {
     batteryFactor,

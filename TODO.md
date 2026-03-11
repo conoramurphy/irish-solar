@@ -23,6 +23,7 @@ Single running list of future work items. Add new items at the top under the app
 - Weather / solar resource coverage (all counties; at least 10 years; data provenance + update strategy)
 
 ## Product/UI
+- **Battery impact visual**: Add a visual that explains batteries' % of impact over 20 years (solar depreciation, falling tariff/export rates, etc.).
 - Add “Edit inputs” / “Back to wizard” button on the full-page report view
 - Add PDF export implementation (current UI is a placeholder)
 - Calendar sidebar polish: quarter separators, legend for solar intensity (cool→warm), and optional compact mode
