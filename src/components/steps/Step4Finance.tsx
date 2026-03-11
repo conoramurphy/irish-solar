@@ -41,6 +41,7 @@ export function Step4Finance({
   const [vatRate, setVatRate] = useState(config.installationVatRate ?? VAT_RATE_REDUCED);
   const [houseDefaultsApplied, setHouseDefaultsApplied] = useState(false);
   const [grantsAutoSelectedNotice, setGrantsAutoSelectedNotice] = useState(false);
+  const [payInCash, setPayInCash] = useState(true);
 
   const costBreakdown = useMemo(() => {
     const mode = config.businessType === 'house' ? 'domestic' : 'commercial';
@@ -65,6 +66,16 @@ export function Step4Finance({
       }
     }
   }, [useEstimatedCost, vatRate, estimatedBaseCost, config.installationCost, setConfig]);
+
+  // Sync equity to the full net cost whenever "pay in cash" is on.
+  // Intentionally omit `financing` from deps to avoid an update loop —
+  // we only need to react to payInCash toggling or the cost changing.
+  useEffect(() => {
+    if (payInCash) {
+      setFinancing({ ...financing, equity: displayNetCost });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payInCash, displayNetCost]);
 
   const applyHouseDefaults = () => {
     setHouseDefaultsApplied(true);
@@ -507,22 +518,36 @@ export function Step4Finance({
 
         {/* Financing Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8">
-          <h3 className="text-xl font-serif font-semibold text-slate-900 mb-6">Financing Structure</h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-serif font-semibold text-slate-900">Financing Structure</h3>
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={payInCash}
+                onChange={(e) => setPayInCash(e.target.checked)}
+                className="rounded border-slate-300 text-emerald-700 focus:ring-emerald-700"
+              />
+              Pay in cash
+            </label>
+          </div>
           
           <div className="space-y-6">
             <Field label="Equity / Cash Down Payment (€)">
               <input
-                className={inputClass}
+                className={`${inputClass} ${payInCash ? 'bg-slate-50 text-slate-500' : ''}`}
                 type="number"
                 step={100}
-                value={financing.equity}
-                onChange={(e) => setFinancing({ ...financing, equity: Number(e.target.value) })}
+                value={payInCash ? displayNetCost : financing.equity}
+                readOnly={payInCash}
+                onChange={(e) => !payInCash && setFinancing({ ...financing, equity: Number(e.target.value) })}
                 placeholder="e.g., 15000"
               />
-              <p className="mt-2 text-xs text-slate-400 italic">Amount you'll pay upfront</p>
+              <p className="mt-2 text-xs text-slate-400 italic">
+                {payInCash ? 'Full net cost paid upfront — no loan' : 'Amount you'll pay upfront'}
+              </p>
             </Field>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity ${payInCash ? 'opacity-40 pointer-events-none' : ''}`}>
               <Field label="Loan Interest Rate (annual %)">
                 <input
                   className={inputClass}
@@ -531,6 +556,7 @@ export function Step4Finance({
                   value={financing.interestRate * 100}
                   onChange={(e) => setFinancing({ ...financing, interestRate: Number(e.target.value) / 100 })}
                   placeholder="e.g., 5"
+                  disabled={payInCash}
                 />
               </Field>
 
@@ -542,6 +568,7 @@ export function Step4Finance({
                   value={financing.termYears}
                   onChange={(e) => setFinancing({ ...financing, termYears: Number(e.target.value) })}
                   placeholder="e.g., 10"
+                  disabled={payInCash}
                 />
               </Field>
             </div>
