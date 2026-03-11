@@ -57,7 +57,7 @@ function reprojectVariant(
 
   return {
     ...v,
-    irr: calculateIRR(v.equityAmount > 0 ? v.equityAmount : v.netCost, netCashFlows),
+    irr: calculateIRR(v.netCost, netCashFlows),
     year10NetCashFlow: year10Net,
   };
 }
