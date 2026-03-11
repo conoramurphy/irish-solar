@@ -145,6 +145,39 @@ describe('useSavedReports', () => {
     expect(stored).toEqual([]);
   });
 
+  it('should preserve uploadSummary when saving and reloading a report', async () => {
+    const { result } = renderHook(() => useSavedReports());
+
+    const reportWithUpload = {
+      ...mockReport,
+      hourlyConsumptionOverride: Array.from({ length: 8760 }, (_, i) => i * 0.1),
+      uploadSummary: {
+        filename: 'my-esb-meter.csv',
+        year: 2024,
+        totalKwh: 12500,
+        slotsPerDay: 24 as const
+      }
+    };
+
+    act(() => {
+      // @ts-expect-error -- partial mock for test (intentionally omits id/createdAt)
+      result.current.saveReport(reportWithUpload);
+    });
+
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(1);
+    });
+
+    const stored = await listSavedReports();
+    expect(stored[0].uploadSummary).toEqual({
+      filename: 'my-esb-meter.csv',
+      year: 2024,
+      totalKwh: 12500,
+      slotsPerDay: 24
+    });
+    expect(stored[0].hourlyConsumptionOverride).toHaveLength(8760);
+  });
+
   it('should migrate legacy reports from localStorage on mount', async () => {
     const existingReports = [{ ...mockReport, id: '123', createdAt: '2023-01-01' }];
     localStorage.setItem('solar-roi-saved-reports', JSON.stringify(existingReports));

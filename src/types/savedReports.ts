@@ -2,7 +2,8 @@ import type {
   CalculationResult,
   Financing,
   SystemConfiguration,
-  TradingConfig
+  TradingConfig,
+  UploadSummary
 } from './index';
 import type { ExampleMonth, TariffConfiguration } from './billing';
 
@@ -25,6 +26,7 @@ export interface SavedReport {
   curvedMonthlyKwh: number[];
   estimatedMonthlyBills: number[];
   hourlyConsumptionOverride?: number[];
+  uploadSummary?: UploadSummary;
   selectedDomesticTariffId?: string;
 
   // Solar simulation context

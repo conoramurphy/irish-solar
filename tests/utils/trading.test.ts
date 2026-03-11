@@ -251,7 +251,7 @@ describe('Hourly Trading Logic', () => {
     // Charge step (Hour 3)
     // We imported 5kW (max charge rate input).
     expect(hourly[3].gridImport).toBe(5);
-    expect(hourly[3].batteryCharge).toBeCloseTo(4.5); // 5 * 0.9
+    expect(hourly[3].batteryCharge).toBeCloseTo(5); // input energy (stored = 5 * 0.9 = 4.5)
     // SoC should be 4.5 + initial (0? wait, hour 2 charged too).
     // Hour 2 charged 5kW -> 4.5kWh stored.
     // Hour 3 charges 5kW -> 4.5kWh stored.

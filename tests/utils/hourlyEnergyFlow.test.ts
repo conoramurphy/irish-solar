@@ -230,9 +230,10 @@ describe('hourlyEnergyFlow', () => {
         .slice(0, 100)
         .reduce((sum, h) => sum + h.batteryCharge, 0);
       
-      // Should store up to battery capacity (100 kWh)
-      expect(chargedEnergy).toBeCloseTo(100, 0);
-      expect(chargedEnergy).toBeLessThanOrEqual(100);
+      // batteryCharge reports input energy; to store 100 kWh at 90% efficiency
+      // requires ~111.1 kWh input
+      expect(chargedEnergy).toBeCloseTo(111.11, 0);
+      expect(chargedEnergy).toBeLessThanOrEqual(112);
     });
 
     it('should not charge battery from grid', () => {
@@ -393,12 +394,17 @@ describe('hourlyEnergyFlow', () => {
         true
       );
 
-      // With 0 efficiency, battery cannot charge
+      // With 0 efficiency, nothing is stored (SOC stays 0) but batteryCharge
+      // reports input energy (the energy offered to the battery).
       const chargedEnergy = result.hourlyData!
         .slice(0, 100)
         .reduce((sum, h) => sum + h.batteryCharge, 0);
       
-      expect(chargedEnergy).toBe(0);
+      // Input energy is reported even though nothing is stored
+      expect(chargedEnergy).toBeGreaterThan(0);
+      // SOC should remain 0 (nothing stored with 0 efficiency)
+      const finalSoC = result.hourlyData![99]!.batterySoC;
+      expect(finalSoC).toBe(0);
     });
 
     it('should handle zero efficiency gracefully (edge case)', () => {
@@ -422,12 +428,12 @@ describe('hourlyEnergyFlow', () => {
         true
       );
 
-      // With 0 efficiency, battery cannot charge (division by zero issues)
+      // batteryCharge reports input energy; with 0 efficiency nothing is stored
       const chargedEnergy = result.hourlyData!
         .slice(0, 100)
         .reduce((sum, h) => sum + (Number.isFinite(h.batteryCharge) ? h.batteryCharge : 0), 0);
       
-      expect(chargedEnergy).toBe(0);
+      expect(chargedEnergy).toBeGreaterThan(0);
     });
 
     it('should clamp negative battery capacity to zero', () => {

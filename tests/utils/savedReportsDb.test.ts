@@ -33,7 +33,9 @@ function makeReport(partial: Partial<SavedReport> = {}): SavedReport {
     tariffConfig: partial.tariffConfig ?? null,
     curvedMonthlyKwh: partial.curvedMonthlyKwh ?? Array.from({ length: 12 }, () => 0),
     estimatedMonthlyBills: partial.estimatedMonthlyBills ?? Array.from({ length: 12 }, () => 0),
-    selectedYear: partial.selectedYear
+    selectedYear: partial.selectedYear,
+    hourlyConsumptionOverride: partial.hourlyConsumptionOverride,
+    uploadSummary: partial.uploadSummary
   };
 }
 
@@ -84,6 +86,32 @@ describe('savedReportsDb', () => {
 
     const all = await listSavedReports();
     expect(all.find((r) => r.id === 'to-delete')).toBeUndefined();
+  });
+
+  it('round-trips uploadSummary and hourlyConsumptionOverride through IndexedDB', async () => {
+    const hourly = Array.from({ length: 8760 }, (_, i) => i * 0.5);
+    const r = makeReport({
+      name: 'Upload Round-trip',
+      hourlyConsumptionOverride: hourly,
+      uploadSummary: {
+        filename: 'hotel-meter-2024.csv',
+        year: 2024,
+        totalKwh: 87600,
+        slotsPerDay: 24
+      }
+    });
+
+    await upsertSavedReport(r);
+
+    const fetched = await getSavedReportByName('Upload Round-trip');
+    expect(fetched?.uploadSummary).toEqual({
+      filename: 'hotel-meter-2024.csv',
+      year: 2024,
+      totalKwh: 87600,
+      slotsPerDay: 24
+    });
+    expect(fetched?.hourlyConsumptionOverride).toHaveLength(8760);
+    expect(fetched?.hourlyConsumptionOverride?.[1]).toBeCloseTo(0.5);
   });
 
   it('db is openable (sanity)', async () => {
