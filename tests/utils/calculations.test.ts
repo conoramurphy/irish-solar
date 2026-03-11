@@ -328,4 +328,58 @@ describe('runCalculation', () => {
       expect(result.audit?.monthly[0].baselineCost).toBeCloseTo(1.00 * 31, 1);
     });
   });
+
+  describe('payback and IRR when equity is zero vs positive', () => {
+    it('when equity is 0, payback is NaN and IRR is finite', () => {
+      const result = runCalculation(
+        {
+          annualProductionKwh: 22500,
+          batterySizeKwh: 0,
+          installationCost: 50_000,
+          location: 'Dublin',
+          businessType: 'hotel',
+          systemSizeKwp: 30
+        },
+        [],
+        { equity: 0, interestRate: 0.05, termYears: 15 },
+        tariffsData[0] as any,
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        25,
+        undefined,
+        makeSolar()
+      );
+
+    expect(Number.isFinite(result.simplePayback)).toBe(false);
+    expect(result.simplePayback).toBeNaN();
+    expect(Number.isFinite(result.irr)).toBe(true);
+  });
+
+    it('when equity > 0, payback is finite and positive', () => {
+      const result = runCalculation(
+        {
+          annualProductionKwh: 22500,
+          batterySizeKwh: 0,
+          installationCost: 50_000,
+          location: 'Dublin',
+          businessType: 'hotel',
+          systemSizeKwp: 30
+        },
+        [],
+        { equity: 20_000, interestRate: 0.05, termYears: 10 },
+        tariffsData[0] as any,
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        25,
+        undefined,
+        makeSolar()
+      );
+
+      expect(Number.isFinite(result.simplePayback)).toBe(true);
+      expect(result.simplePayback).toBeGreaterThan(0);
+      expect(Number.isFinite(result.irr)).toBe(true);
+    });
+  });
 });

@@ -126,8 +126,11 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
   const annualCashFlows = cashFlows.map((cf) => cf.netCashFlow);
   const annualSavings = cashFlows[0]?.savings ?? 0;
   const firstYearNetCashFlow = cashFlows[0]?.netCashFlow ?? 0;
-  // Out-of-pocket metrics: investment = equity only; payback = years to recover equity at first-year net cash flow
-  const simplePayback = calculateSimplePayback(equityAmount, firstYearNetCashFlow);
+  // Out-of-pocket metrics: investment = equity only; payback = years to recover equity at first-year net cash flow.
+  // When 100% financed (equity 0), payback is N/A (no equity to recover).
+  const simplePayback = equityAmount > 0
+    ? calculateSimplePayback(equityAmount, firstYearNetCashFlow)
+    : NaN;
   const npv = calculateNPV(equityAmount, annualCashFlows, 0.05);
   // When equity is 0 (100% financed), use effectiveNetCost so IRR is still defined
   const initialForIRR = equityAmount > 0 ? equityAmount : effectiveNetCost;

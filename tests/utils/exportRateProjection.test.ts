@@ -4,6 +4,7 @@ import {
   projectCashFlows,
   type ProjectionInputs,
 } from '../../src/utils/exportRateProjection';
+import { calculateIRR } from '../../src/models/financial';
 
 describe('getExportRateMultiplier', () => {
   it('returns 1.0 for years up to and including 2030', () => {
@@ -176,6 +177,60 @@ describe('projectCashFlows', () => {
     // Payback ~1 year, well before 2031. Both should be the same.
     expect(flat.simplePayback).toBeCloseTo(declining.simplePayback, 2);
   });
+
+  describe('equity zero (100% financed)', () => {
+    it('returns NaN payback when equity is 0', () => {
+      const result = projectCashFlows({
+        ...baseInputs,
+        equityAmount: 0,
+        effectiveNetCost: 10000,
+      });
+      expect(Number.isFinite(result.simplePayback)).toBe(false);
+      expect(result.simplePayback).toBeNaN();
+    });
+
+    it('returns finite IRR when equity is 0 (uses effectiveNetCost)', () => {
+      const result = projectCashFlows({
+        ...baseInputs,
+        equityAmount: 0,
+        effectiveNetCost: 10000,
+      });
+      expect(Number.isFinite(result.irr)).toBe(true);
+      expect(result.irr).toBeGreaterThan(0);
+    });
+
+    it('NPV with equity 0 is sum of discounted net flows (no initial outflow)', () => {
+      const result = projectCashFlows({
+        ...baseInputs,
+        equityAmount: 0,
+        effectiveNetCost: 10000,
+      });
+      // NPV = -0 + sum(cf / (1.05)^t) so positive when flows are positive
+      expect(Number.isFinite(result.npv)).toBe(true);
+      expect(result.npv).toBeGreaterThan(0);
+    });
+  });
+
+  describe('payback uses first-year net cash flow', () => {
+    it('payback equals equity / firstYearNetCashFlow when equity > 0', () => {
+      const inputs: ProjectionInputs = {
+        ...baseInputs,
+        equityAmount: 5000,
+        effectiveNetCost: 5000,
+        year1OperationalSavings: 2500,
+        year1ExportRevenue: 500,
+        year1TaxSavings: 0,
+        annualLoanPayment: 0,
+        loanTermYears: 0,
+        applyFutureRateChanges: false,
+      };
+      const result = projectCashFlows(inputs);
+      const firstYearNet = result.cashFlows[0].netCashFlow;
+      expect(firstYearNet).toBeGreaterThan(0);
+      const expectedPayback = 5000 / firstYearNet;
+      expect(result.simplePayback).toBeCloseTo(expectedPayback, 2);
+    });
+  });
 });
 
 describe('reprojectVariant math (via projectCashFlows)', () => {
@@ -279,5 +334,50 @@ describe('reprojectVariant math (via projectCashFlows)', () => {
     // Cumulative after 10 years should be -3000 + sum of savings
     const totalSavings = result.cashFlows.reduce((s, cf) => s + cf.savings, 0);
     expect(result.cashFlows[9].cumulativeCashFlow).toBeCloseTo(-3000 + totalSavings, 1);
+  });
+
+  it('reprojectVariant-style IRR matches projectCashFlows for same inputs', () => {
+    // When we build net cash flows the same way as reprojectVariant (degradation + optional escalation/decline),
+    // IRR(equity or netCost, netCashFlows) should match projectCashFlows(...).irr
+    const inputs: ProjectionInputs = {
+      year1OperationalSavings: 2000,
+      year1ExportRevenue: 400,
+      year1TaxSavings: 100,
+      baseGeneration: 5000,
+      annualLoanPayment: 500,
+      loanTermYears: 5,
+      equityAmount: 4000,
+      effectiveNetCost: 10000,
+      analysisYears: 25,
+      applyFutureRateChanges: false,
+      baseCalendarYear: 2025,
+    };
+    const proj = projectCashFlows(inputs);
+    const netCashFlows = proj.cashFlows.map((cf) => cf.netCashFlow);
+    const initialForIRR = inputs.equityAmount > 0 ? inputs.equityAmount : inputs.effectiveNetCost;
+    const irrManual = calculateIRR(initialForIRR, netCashFlows);
+    expect(Number.isFinite(irrManual)).toBe(true);
+    expect(proj.irr).toBeCloseTo(irrManual, 5);
+  });
+
+  it('when equity is 0, re-projected IRR uses effectiveNetCost and matches projection', () => {
+    const inputs: ProjectionInputs = {
+      year1OperationalSavings: 3000,
+      year1ExportRevenue: 500,
+      year1TaxSavings: 0,
+      baseGeneration: 5000,
+      annualLoanPayment: 0,
+      loanTermYears: 0,
+      equityAmount: 0,
+      effectiveNetCost: 12000,
+      analysisYears: 25,
+      applyFutureRateChanges: false,
+      baseCalendarYear: 2025,
+    };
+    const proj = projectCashFlows(inputs);
+    expect(Number.isFinite(proj.irr)).toBe(true);
+    const netCashFlows = proj.cashFlows.map((cf) => cf.netCashFlow);
+    const irrOnNetCost = calculateIRR(inputs.effectiveNetCost, netCashFlows);
+    expect(proj.irr).toBeCloseTo(irrOnNetCost, 5);
   });
 });

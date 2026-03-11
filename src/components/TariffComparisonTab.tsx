@@ -18,7 +18,7 @@ function fmt(n: number) {
 }
 
 function fmtPayback(years: number) {
-  if (!Number.isFinite(years) || years <= 0) return '∞';
+  if (!Number.isFinite(years) || years <= 0) return '—';
   return `${years.toFixed(1)} yrs`;
 }
 
