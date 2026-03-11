@@ -59,6 +59,11 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
   const [showDaylightUsage, setShowDaylightUsage] = useState(true);
   const [showNightUsage, setShowNightUsage] = useState(true);
 
+  const [hoveredYearDay, setHoveredYearDay] = useState<number | null>(null);
+  const [hoveredWeekDay, setHoveredWeekDay] = useState<number | null>(null);
+  const [hoveredDayHour, setHoveredDayHour] = useState<number | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
   const availableYears = useMemo(() => {
     const years = new Set<number>();
     for (const h of hourlyData) {
@@ -401,13 +406,27 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
               const daylightRevPath = toSmoothPath(daylightRev).replace(/^M/, 'L');
               const darkArea = `${totalLine} ${daylightRevPath} Z`;
 
+              const handleYearMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+                const svg = e.currentTarget;
+                const rect = svg.getBoundingClientRect();
+                const xPct = (e.clientX - rect.left) / rect.width;
+                const xChart = xPct * w;
+                const dayIndex = Math.min(dailyData.length - 1, Math.max(0, Math.floor(xChart / stepX)));
+                setHoveredYearDay(dayIndex);
+                setTooltipPos({ x: e.clientX, y: e.clientY });
+              };
+              const handleYearMouseLeave = () => setHoveredYearDay(null);
+
               return (
+                <>
                 <svg
                   width="100%"
                   height={h}
                   viewBox={`0 0 ${w} ${h}`}
                   preserveAspectRatio="none"
                   className="block"
+                  onMouseMove={handleYearMouseMove}
+                  onMouseLeave={handleYearMouseLeave}
                 >
                   {/* Grid lines */}
                   {[0, 0.25, 0.5, 0.75, 1].map((p) => (
@@ -472,6 +491,24 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                     <path d={genLine} fill="none" stroke="rgba(245, 158, 11, 0.95)" strokeWidth={2.6} strokeLinecap="round" />
                   )}
                 </svg>
+                {hoveredYearDay != null && dailyData[hoveredYearDay] && (
+                  <div
+                    className="pointer-events-none fixed z-50 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg"
+                    style={{ left: Math.min(tooltipPos.x + 12, window.innerWidth - 200), top: tooltipPos.y + 12 }}
+                  >
+                    <div className="font-semibold text-slate-800 mb-1">{dailyData[hoveredYearDay].date}</div>
+                    {showGeneration && (
+                      <div>Generation: {dailyData[hoveredYearDay].totalGeneration.toFixed(0)} kWh</div>
+                    )}
+                    {showDaylightUsage && (
+                      <div>Daylight: {dailyData[hoveredYearDay].daylightConsumption.toFixed(0)} kWh</div>
+                    )}
+                    {showNightUsage && (
+                      <div>Night: {dailyData[hoveredYearDay].darkConsumption.toFixed(0)} kWh</div>
+                    )}
+                  </div>
+                )}
+                </>
               );
             })()}
           </div>
@@ -553,7 +590,15 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 const darkHeight = (day.darkConsumption / maxDailyConsumption) * 200;
 
                 return (
-                  <g key={index}>
+                  <g
+                    key={index}
+                    onMouseEnter={(e) => {
+                      setHoveredWeekDay(index);
+                      setTooltipPos({ x: e.clientX, y: e.clientY });
+                    }}
+                    onMouseLeave={() => setHoveredWeekDay(null)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     {/* Daylight usage (bottom) */}
                     {showDaylightUsage && (
                       <rect
@@ -604,6 +649,23 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 );
               })}
             </svg>
+            {viewMode === 'weekly' && hoveredWeekDay != null && currentWeek[hoveredWeekDay] && (
+              <div
+                className="pointer-events-none fixed z-50 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg"
+                style={{ left: Math.min(tooltipPos.x + 12, window.innerWidth - 200), top: tooltipPos.y + 12 }}
+              >
+                <div className="font-semibold text-slate-800 mb-1">{currentWeek[hoveredWeekDay].date}</div>
+                {showGeneration && (
+                  <div>Generation: {currentWeek[hoveredWeekDay].totalGeneration.toFixed(0)} kWh</div>
+                )}
+                {showDaylightUsage && (
+                  <div>Daylight: {currentWeek[hoveredWeekDay].daylightConsumption.toFixed(0)} kWh</div>
+                )}
+                {showNightUsage && (
+                  <div>Night: {currentWeek[hoveredWeekDay].darkConsumption.toFixed(0)} kWh</div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -666,14 +728,34 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
           </div>
 
           <div className="relative h-64 bg-slate-50 rounded-lg p-4">
-            <svg width="100%" height="220" viewBox="0 0 960 220" preserveAspectRatio="xMidYMid meet">
+            <svg width="100%" height="220" viewBox="0 0 1004 220" preserveAspectRatio="xMidYMid meet">
+              {/* Y-axis labels (amount in kWh) */}
+              {[0, 0.25, 0.5, 0.75, 1].map((pct, i) => {
+                const value = pct * maxHourlyValue;
+                const y = 220 - pct * 200;
+                return (
+                  <text
+                    key={i}
+                    x="40"
+                    y={y}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    fill="#64748b"
+                    fontSize="10"
+                    fontFamily="sans-serif"
+                  >
+                    {value >= 10 ? value.toFixed(0) : value.toFixed(1)}
+                  </text>
+                );
+              })}
+              <text x="20" y="15" textAnchor="middle" fill="#64748b" fontSize="9" fontFamily="sans-serif">kWh</text>
               {/* Grid */}
               {[0, 25, 50, 75, 100].map(pct => (
                 <line
                   key={pct}
-                  x1="0"
+                  x1="44"
                   y1={220 - (pct / 100) * 200}
-                  x2="960"
+                  x2="1004"
                   y2={220 - (pct / 100) * 200}
                   stroke="#e2e8f0"
                   strokeWidth="1"
@@ -682,7 +764,7 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
 
               {/* 24 one-hour bars */}
               {dayViewHourlyBars.map((hour, index) => {
-                const x = index * (960 / 24);
+                const x = 44 + index * (960 / 24);
                 const barWidth = (960 / 24) * 0.85;
                 const genHeight = (hour.generation / maxHourlyValue) * 200;
                 const consHeight = (hour.consumption / maxHourlyValue) * 200;
@@ -691,7 +773,15 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 const isDaylight = hour.generation > 0.01;
 
                 return (
-                  <g key={index}>
+                  <g
+                    key={index}
+                    onMouseEnter={(e) => {
+                      setHoveredDayHour(index);
+                      setTooltipPos({ x: e.clientX, y: e.clientY });
+                    }}
+                    onMouseLeave={() => setHoveredDayHour(null)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     {/* Consumption bar — coloured by daylight/night, gated by toggle */}
                     {(isDaylight ? showDaylightUsage : showNightUsage) && (
                       <rect
@@ -732,6 +822,22 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 );
               })}
             </svg>
+            {viewMode === 'daily' && hoveredDayHour != null && dayViewHourlyBars[hoveredDayHour] && (
+              <div
+                className="pointer-events-none fixed z-50 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg"
+                style={{ left: Math.min(tooltipPos.x + 12, window.innerWidth - 200), top: tooltipPos.y + 12 }}
+              >
+                <div className="font-semibold text-slate-800 mb-1">
+                  {dayViewHourlyBars[hoveredDayHour].hourOfDay ?? hoveredDayHour}:00
+                </div>
+                {showGeneration && (
+                  <div>Generation: {dayViewHourlyBars[hoveredDayHour].generation.toFixed(1)} kWh</div>
+                )}
+                {(showDaylightUsage || showNightUsage) && (
+                  <div>Consumption: {dayViewHourlyBars[hoveredDayHour].consumption.toFixed(1)} kWh</div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-4 text-center">
