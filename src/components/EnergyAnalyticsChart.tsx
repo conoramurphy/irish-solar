@@ -6,7 +6,7 @@ interface EnergyAnalyticsChartProps {
   year: number;
 }
 
-type ViewMode = 'yearly' | 'weekly' | 'daily';
+type ViewMode = 'yearly' | 'daily';
 type InterestingDay = 'max-generation' | 'max-export' | 'min-generation';
 
 interface DayData {
@@ -52,15 +52,12 @@ function LegendToggle({
 export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('yearly');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
-  const [selectedWeek, setSelectedWeek] = useState<number>(0);
-
   // Series visibility toggles — all on by default
   const [showGeneration, setShowGeneration] = useState(true);
   const [showDaylightUsage, setShowDaylightUsage] = useState(true);
   const [showNightUsage, setShowNightUsage] = useState(true);
 
   const [hoveredYearDay, setHoveredYearDay] = useState<number | null>(null);
-  const [hoveredWeekDay, setHoveredWeekDay] = useState<number | null>(null);
   const [hoveredDayHour, setHoveredDayHour] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
@@ -167,14 +164,6 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
     };
   }, [dailyData]);
 
-  // Group days into weeks
-  const weeklyData = useMemo(() => {
-    const weeks: DayData[][] = [];
-    for (let i = 0; i < dailyData.length; i += 7) {
-      weeks.push(dailyData.slice(i, i + 7));
-    }
-    return weeks;
-  }, [dailyData]);
 
   const handleInterestingDay = (type: InterestingDay) => {
     const day = interestingDays[type];
@@ -183,8 +172,6 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
   };
 
   const selectedDay = dailyData[selectedDayIndex] || dailyData[0];
-  const currentWeek = weeklyData[selectedWeek] || [];
-
   // For day view: always show 24 one-hour bars. If data is half-hourly (48 slots/day), aggregate pairs into hourly.
   const dayViewHourlyBars = useMemo(() => {
     if (!selectedDay?.hours?.length) return [];
@@ -256,7 +243,6 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
                 const y = Number(e.target.value);
                 setSelectedYear(y);
                 setSelectedDayIndex(0);
-                setSelectedWeek(0);
               }}
               className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
             >
@@ -278,16 +264,6 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
             }`}
           >
             Year
-          </button>
-          <button
-            onClick={() => setViewMode('weekly')}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-l border-slate-200 ${
-              viewMode === 'weekly'
-                ? 'bg-tines-purple text-white'
-                : 'bg-white text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Week
           </button>
           <button
             onClick={() => setViewMode('daily')}
@@ -516,157 +492,6 @@ export function EnergyAnalyticsChart({ hourlyData, year }: EnergyAnalyticsChartP
           <p className="mt-2 text-xs text-slate-500 italic">
             Soft shaded areas show usage during daylight (solar generating) vs night. The thicker orange line is solar generation.
           </p>
-        </div>
-      )}
-
-      {/* Weekly View */}
-      {viewMode === 'weekly' && (
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="text-sm font-medium text-slate-700">
-              Week {selectedWeek + 1} of {weeklyData.length}
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1 text-xs">
-                <LegendToggle
-                  active={showGeneration}
-                  onToggle={() => setShowGeneration(v => !v)}
-                  color="#fbbf24"
-                  label="Generation"
-                />
-                <LegendToggle
-                  active={showDaylightUsage}
-                  onToggle={() => setShowDaylightUsage(v => !v)}
-                  color="#10b981"
-                  label="Daylight Usage"
-                />
-                <LegendToggle
-                  active={showNightUsage}
-                  onToggle={() => setShowNightUsage(v => !v)}
-                  color="#6366f1"
-                  label="Night Usage"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSelectedWeek(Math.max(0, selectedWeek - 1))}
-                  disabled={selectedWeek === 0}
-                  className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  ← Prev
-                </button>
-                <button
-                  onClick={() => setSelectedWeek(Math.min(weeklyData.length - 1, selectedWeek + 1))}
-                  disabled={selectedWeek === weeklyData.length - 1}
-                  className="px-3 py-1 text-sm font-medium bg-white border border-slate-200 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative h-64 bg-slate-50 rounded-lg p-4">
-            <svg width="100%" height="220" viewBox="0 0 700 220" preserveAspectRatio="xMidYMid meet">
-              {/* Grid */}
-              {[0, 25, 50, 75, 100].map(pct => (
-                <line
-                  key={pct}
-                  x1="0"
-                  y1={220 - (pct / 100) * 200}
-                  x2="700"
-                  y2={220 - (pct / 100) * 200}
-                  stroke="#e2e8f0"
-                  strokeWidth="1"
-                />
-              ))}
-
-              {/* Bars for each day */}
-              {currentWeek.map((day, index) => {
-                const x = 50 + index * 100;
-                const barWidth = 40;
-                const genHeight = (day.totalGeneration / maxDailyConsumption) * 200;
-                const daylightHeight = (day.daylightConsumption / maxDailyConsumption) * 200;
-                const darkHeight = (day.darkConsumption / maxDailyConsumption) * 200;
-
-                return (
-                  <g
-                    key={index}
-                    onMouseEnter={(e) => {
-                      setHoveredWeekDay(index);
-                      setTooltipPos({ x: e.clientX, y: e.clientY });
-                    }}
-                    onMouseLeave={() => setHoveredWeekDay(null)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {/* Daylight usage (bottom) */}
-                    {showDaylightUsage && (
-                      <rect
-                        x={x - barWidth / 2}
-                        y={220 - daylightHeight}
-                        width={barWidth}
-                        height={daylightHeight}
-                        fill="#10b981"
-                        opacity="0.8"
-                        rx="2"
-                      />
-                    )}
-                    {/* Night usage (top) */}
-                    {showNightUsage && (
-                      <rect
-                        x={x - barWidth / 2}
-                        y={220 - daylightHeight - darkHeight}
-                        width={barWidth}
-                        height={darkHeight}
-                        fill="#6366f1"
-                        opacity="0.8"
-                        rx="2"
-                      />
-                    )}
-                    {/* Generation marker */}
-                    {showGeneration && (
-                      <line
-                        x1={x - barWidth / 2 - 5}
-                        y1={220 - genHeight}
-                        x2={x + barWidth / 2 + 5}
-                        y2={220 - genHeight}
-                        stroke="#fbbf24"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                    )}
-                    {/* Day label */}
-                    <text
-                      x={x}
-                      y="235"
-                      textAnchor="middle"
-                      className="text-xs fill-slate-600"
-                      fontSize="11"
-                    >
-                      {day.date.split('-').slice(1).join('/')}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-            {viewMode === 'weekly' && hoveredWeekDay != null && currentWeek[hoveredWeekDay] && (
-              <div
-                className="pointer-events-none fixed z-50 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg"
-                style={{ left: Math.min(tooltipPos.x + 12, window.innerWidth - 200), top: tooltipPos.y + 12 }}
-              >
-                <div className="font-semibold text-slate-800 mb-1">{currentWeek[hoveredWeekDay].date}</div>
-                {showGeneration && (
-                  <div>Generation: {currentWeek[hoveredWeekDay].totalGeneration.toFixed(0)} kWh</div>
-                )}
-                {showDaylightUsage && (
-                  <div>Daylight: {currentWeek[hoveredWeekDay].daylightConsumption.toFixed(0)} kWh</div>
-                )}
-                {showNightUsage && (
-                  <div>Night: {currentWeek[hoveredWeekDay].darkConsumption.toFixed(0)} kWh</div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
