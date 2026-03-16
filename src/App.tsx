@@ -1112,7 +1112,6 @@ function WizardApp() {
 function App() {
   return (
     <Routes>
-      <Route path="/r/:id/edit" element={<SharedReportView editMode />} />
       <Route path="/r/:id" element={<SharedReportView />} />
       <Route path="/*" element={<WizardApp />} />
     </Routes>

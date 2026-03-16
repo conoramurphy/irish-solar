@@ -28,8 +28,11 @@ interface ResultsSectionProps {
   onBack?: () => void;
   onSaveReport?: (name: string) => void;
   existingReportNames?: string[];
-  isReadOnly?: boolean;
+  /** undefined = wizard (full access). 'view' = shared unlocked (interactive, no edit buttons).
+   *  'locked' = shared locked (tabs 2–3 blurred). 'edit' = admin on shared report. */
+  reportMode?: 'view' | 'locked' | 'edit';
   onShare?: () => Promise<void>;
+  onLockToggle?: (locked: boolean) => Promise<void>;
 }
 
 const ANALYSIS_YEARS = 25;
@@ -64,6 +67,47 @@ function reprojectVariant(
   };
 }
 
+function AdminBar({ onLockToggle }: { onLockToggle?: (locked: boolean) => Promise<void> }) {
+  const [locking, setLocking] = useState(false);
+
+  const handleLock = async () => {
+    if (!onLockToggle) return;
+    setLocking(true);
+    try {
+      await onLockToggle(true);
+    } finally {
+      setLocking(false);
+    }
+  };
+
+  return (
+    <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between gap-4 text-sm text-amber-800">
+      <span>Admin view — changes are not saved automatically.</span>
+      {onLockToggle && (
+        <button
+          onClick={handleLock}
+          disabled={locking}
+          className="inline-flex items-center gap-1.5 rounded-md border border-amber-400 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {locking ? 'Locking…' : '🔒 Lock Report'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function LockedTabPlaceholder() {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-300">
+      <div className="text-5xl mb-4">🔒</div>
+      <p className="text-lg font-semibold text-slate-700 mb-2">This analysis is locked</p>
+      <p className="text-sm text-slate-500 max-w-xs">
+        Contact the report owner to unlock full financial and tariff analysis.
+      </p>
+    </div>
+  );
+}
+
 function formatSignedCurrency(value: number) {
   const sign = value >= 0 ? '+' : '−';
   const abs = Math.abs(value);
@@ -88,9 +132,15 @@ export function ResultsSection({
   onBack,
   onSaveReport,
   existingReportNames = [],
-  isReadOnly = false,
+  reportMode,
   onShare,
+  onLockToggle,
 }: ResultsSectionProps) {
+  // Derived flags from reportMode
+  const isLockedMode = reportMode === 'locked';
+  const isEditMode = reportMode === 'edit';
+  // Edit/save/share buttons only shown in wizard (undefined) or admin-edit mode
+  const showEditButtons = reportMode === undefined || isEditMode;
   const [activeTab, setActiveTab] = useState<'standard' | 'tariff-comparison' | 'financial'>('standard');
   const [auditOpen, setAuditOpen] = useState(false);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -277,6 +327,10 @@ export function ResultsSection({
 
   return (
     <section className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+      {/* Admin bar — only shown in edit mode (admin on a shared report) */}
+      {isEditMode && (
+        <AdminBar onLockToggle={onLockToggle} />
+      )}
       <div className="px-8 py-7 md:px-10 md:py-8 border-b border-slate-100">
         <div className="flex items-start justify-between gap-6">
           <div>
@@ -396,9 +450,10 @@ export function ResultsSection({
               }`}
             >
               Tariff Comparison
-              {marketResult && (
+              {marketResult && !isLockedMode && (
                 <span className="ml-1.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full align-middle">+ Market</span>
               )}
+              {isLockedMode && <span className="ml-1.5" aria-label="locked">🔒</span>}
             </button>
           )}
           {(
@@ -411,6 +466,7 @@ export function ResultsSection({
               }`}
             >
               Financial Analysis
+              {isLockedMode && <span className="ml-1.5" aria-label="locked">🔒</span>}
             </button>
           )}
         </div>
@@ -984,25 +1040,28 @@ export function ResultsSection({
 
         {/* --- TARIFF COMPARISON TAB --- */}
         {activeTab === 'tariff-comparison' && tariffComparisonResults && tariffComparisonResults.length > 0 && (
-          <div className="animate-in fade-in duration-300">
-            <TariffComparisonTab
-              rows={projectedTariffRows ?? tariffComparisonResults}
-              activeTariffId={tariff?.id}
-              marketResult={projectedMarketResult ?? marketResult}
-              excludeVat={config?.excludeVat}
-            />
-            {/* Market Analysis chart (if market data available) */}
-            {marketResult?.audit?.hourly && marketResult.audit.hourly.length > 0 && (
-              <div className="mt-10">
-                <h3 className="text-base font-semibold text-slate-700 mb-4">Market Rate — Hourly Price Analysis</h3>
-                <MarketAnalysis hourlyData={marketResult.audit.hourly} year={analyticsYear} />
-              </div>
-            )}
-          </div>
+          isLockedMode ? <LockedTabPlaceholder /> : (
+            <div className="animate-in fade-in duration-300">
+              <TariffComparisonTab
+                rows={projectedTariffRows ?? tariffComparisonResults}
+                activeTariffId={tariff?.id}
+                marketResult={projectedMarketResult ?? marketResult}
+                excludeVat={config?.excludeVat}
+              />
+              {/* Market Analysis chart (if market data available) */}
+              {marketResult?.audit?.hourly && marketResult.audit.hourly.length > 0 && (
+                <div className="mt-10">
+                  <h3 className="text-base font-semibold text-slate-700 mb-4">Market Rate — Hourly Price Analysis</h3>
+                  <MarketAnalysis hourlyData={marketResult.audit.hourly} year={analyticsYear} />
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {/* --- FINANCIAL TAB --- */}
-        {activeTab === 'financial' && standardResult && financialProjection && (() => {
+        {activeTab === 'financial' && isLockedMode && <LockedTabPlaceholder />}
+        {activeTab === 'financial' && !isLockedMode && standardResult && financialProjection && (() => {
           const proj = financialProjection.active;
           const flatProj = financialProjection.flat;
           const projCashFlows = proj.cashFlows;
@@ -1252,7 +1311,7 @@ export function ResultsSection({
           </div>
 
           <div className="flex gap-4 flex-wrap">
-            {!isReadOnly && onBack && (
+            {showEditButtons && onBack && (
               <button
                 onClick={onBack}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
@@ -1264,7 +1323,7 @@ export function ResultsSection({
               </button>
             )}
             
-            {!isReadOnly && onSaveReport && (
+            {showEditButtons && onSaveReport && (
               <button
                 onClick={() => setSaveModalOpen(true)}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2"
@@ -1276,7 +1335,7 @@ export function ResultsSection({
               </button>
             )}
 
-            {onShare && (
+            {showEditButtons && onShare && (
               <button
                 onClick={async () => {
                   setShareState('sharing');
@@ -1315,7 +1374,7 @@ export function ResultsSection({
               </button>
             )}
 
-            {!isReadOnly && (
+            {showEditButtons && (
               <button className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 opacity-50 cursor-not-allowed" disabled title="PDF export coming soon">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
