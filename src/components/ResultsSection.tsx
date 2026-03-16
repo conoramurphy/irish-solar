@@ -129,13 +129,13 @@ function AdminBar({
 
 function LockedOverlay() {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center z-10 rounded-b-2xl">
+    <div className="absolute inset-0 flex flex-col items-start justify-start z-10 rounded-b-2xl">
       <div className="bg-white/80 backdrop-blur-[2px] absolute inset-0 rounded-b-2xl" />
-      <div className="relative z-10 flex flex-col items-center text-center px-4">
-        <div className="text-5xl mb-4">🔒</div>
-        <p className="text-lg font-semibold text-slate-700 mb-2">This analysis is locked</p>
-        <p className="text-sm text-slate-500 max-w-xs">
-          Contact the report owner to unlock full financial and tariff analysis.
+      <div className="relative z-10 flex flex-col items-center text-center px-4 pt-8 w-full">
+        <div className="text-4xl mb-3">🔒</div>
+        <p className="text-lg font-semibold text-slate-700 mb-1">This analysis is locked</p>
+        <p className="text-sm text-slate-500">
+          Contact <a href="mailto:conormurphy@outlook.com" className="text-emerald-700 underline underline-offset-2 hover:text-emerald-900">conormurphy@outlook.com</a> to unlock the full report.
         </p>
       </div>
     </div>
