@@ -19,7 +19,7 @@ function corsHeaders(request: Request, env: Env): Record<string, string> {
   const allowOrigin = allowed.includes(origin) ? origin : allowed[0] ?? '*';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
 }
@@ -42,18 +42,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     return new Response(JSON.stringify({ error: 'Report not found' }), { status: 404, headers });
   }
 
-  // Resolve payload: R2 first (new records), D1 payload column as fallback (old records)
-  let payloadJson: string | null = null;
+  // Resolve payload: if row has no D1 payload it's an R2-backed record, fetch from R2.
+  // Skip the R2 round-trip for old records that already have a payload in D1.
+  let payloadJson: string | null = row.payload;
 
-  if (env.REPORTS_BUCKET) {
+  if (!payloadJson && env.REPORTS_BUCKET) {
     const obj = await env.REPORTS_BUCKET.get(`reports/${id}.json`);
     if (obj) {
       payloadJson = await obj.text();
     }
-  }
-
-  if (!payloadJson) {
-    payloadJson = row.payload;
   }
 
   if (!payloadJson) {
@@ -107,4 +104,23 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params 
   }
 
   return new Response(JSON.stringify({ id, locked: body.locked }), { status: 200, headers });
+};
+
+// DELETE /api/reports/:id — permanently delete a report
+export const onRequestDelete: PagesFunction<Env> = async ({ request, env, params }) => {
+  const headers = { 'Content-Type': 'application/json', ...corsHeaders(request, env) };
+  const id = params.id as string;
+
+  const result = await env.DB.prepare('DELETE FROM reports WHERE id = ?').bind(id).run();
+
+  if (result.meta.changes === 0) {
+    return new Response(JSON.stringify({ error: 'Report not found' }), { status: 404, headers });
+  }
+
+  // Best-effort R2 cleanup — don't fail the request if R2 delete fails
+  if (env.REPORTS_BUCKET) {
+    await env.REPORTS_BUCKET.delete(`reports/${id}.json`).catch(() => undefined);
+  }
+
+  return new Response(null, { status: 204, headers });
 };
