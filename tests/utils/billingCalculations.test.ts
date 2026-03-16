@@ -131,6 +131,54 @@ describe('calculateMonthlyBill', () => {
     const config = { type: 'unknown' } as unknown as TariffConfiguration;
     expect(calculateMonthlyBill(1000, config)).toBe(0);
   });
+
+  it('adds standing charge using getDaysInMonth for February (28 days)', () => {
+    const config: TariffConfiguration = {
+      type: 'custom',
+      customSlots: [
+        { id: 'day', name: 'Day', startHour: 8, endHour: 23, ratePerKwh: 0.30 },
+      ],
+      standingChargePerDay: 0.50,
+    };
+    const usage = { day: 1.0 };
+
+    const bill = calculateMonthlyBill(100, config, usage, 1); // Feb = monthIndex 1
+    // energy: 100 * 1.0 * 0.30 = 30
+    // standing: 0.50 * 28 = 14
+    expect(bill).toBeCloseTo(44);
+  });
+
+  it('adds standing charge using getDaysInMonth for July (31 days)', () => {
+    const config: TariffConfiguration = {
+      type: 'custom',
+      customSlots: [
+        { id: 'day', name: 'Day', startHour: 8, endHour: 23, ratePerKwh: 0.20 },
+      ],
+      standingChargePerDay: 1.00,
+    };
+    const usage = { day: 1.0 };
+
+    const bill = calculateMonthlyBill(200, config, usage, 6); // Jul = monthIndex 6
+    // energy: 200 * 1.0 * 0.20 = 40
+    // standing: 1.00 * 31 = 31
+    expect(bill).toBeCloseTo(71);
+  });
+
+  it('defaults to 30 days when monthIndex is not provided', () => {
+    const config: TariffConfiguration = {
+      type: 'custom',
+      customSlots: [
+        { id: 'flat', name: 'Flat', startHour: 0, endHour: 24, ratePerKwh: 0.25 },
+      ],
+      standingChargePerDay: 0.60,
+    };
+    const usage = { flat: 1.0 };
+
+    const bill = calculateMonthlyBill(500, config, usage);
+    // energy: 500 * 1.0 * 0.25 = 125
+    // standing: 0.60 * 30 = 18
+    expect(bill).toBeCloseTo(143);
+  });
 });
 
 // --- deriveCustomTariffRates ---

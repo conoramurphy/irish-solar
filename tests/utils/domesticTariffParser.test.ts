@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { parseDomesticTariffsCsv } from '../../src/utils/domesticTariffParser';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { parseDomesticTariffsCsv, loadDomesticTariffs } from '../../src/utils/domesticTariffParser';
 
 describe('parseDomesticTariffsCsv', () => {
   it('parses a simple flat rate tariff', () => {
@@ -144,5 +144,116 @@ Valid,Plan B,25c,15c,N/A,N/A,N/A,€200`;
     expect(tariffs).toHaveLength(2);
     expect(tariffs[0].product).toBe('Plan A');
     expect(tariffs[1].product).toBe('Plan B');
+  });
+
+  it('throws when CSV has only a header (no data rows)', () => {
+    const csv = `Supplier,Plan Name / Type,24hr / Day (c/kWh),Night Rate (c/kWh),Peak (5-7pm) (c/kWh),EV / Boost Rate (c/kWh),EV Slot / Time,Standing Charge (€/yr)`;
+
+    expect(() => parseDomesticTariffsCsv(csv)).toThrow(
+      'CSV file must contain header and at least one data row',
+    );
+  });
+
+  it('throws when CSV is empty (single blank line)', () => {
+    expect(() => parseDomesticTariffsCsv('')).toThrow(
+      'CSV file must contain header and at least one data row',
+    );
+  });
+
+  it('parses pm-to-am EV time windows correctly (12-hour conversion)', () => {
+    const csv = `Supplier,Plan Name / Type,24hr / Day (c/kWh),Night Rate (c/kWh),Peak (5-7pm) (c/kWh),EV / Boost Rate (c/kWh),EV Slot / Time,Standing Charge (€/yr)
+TestCo,EV Night,30c,20c,N/A,8c,7pm – 12am,€200`;
+
+    const tariffs = parseDomesticTariffsCsv(csv);
+
+    expect(tariffs).toHaveLength(1);
+    // 7pm → 19, 12am → 0
+    expect(tariffs[0].evTimeWindow).toBeDefined();
+    expect(tariffs[0].evTimeWindow?.hourRanges).toEqual([{ start: 19, end: 0 }]);
+  });
+
+  it('parses 12pm start correctly (noon edge case)', () => {
+    const csv = `Supplier,Plan Name / Type,24hr / Day (c/kWh),Night Rate (c/kWh),Peak (5-7pm) (c/kWh),EV / Boost Rate (c/kWh),EV Slot / Time,Standing Charge (€/yr)
+TestCo,Midday Boost,30c,20c,N/A,5c,12pm – 3pm,€200`;
+
+    const tariffs = parseDomesticTariffsCsv(csv);
+
+    expect(tariffs).toHaveLength(1);
+    // 12pm → 12 (noon), 3pm → 15
+    expect(tariffs[0].evTimeWindow?.hourRanges).toEqual([{ start: 12, end: 15 }]);
+  });
+
+  it('logs console.error and continues when parseRow throws', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Use a standing charge value that will cause parseFloat to be called on a
+    // value whose .replace() returns a poison string. We can't easily make
+    // parseRow throw with normal CSV input, so we monkey-patch parseFloat
+    // to throw only for a sentinel value.
+    const origParseFloat = globalThis.parseFloat;
+    globalThis.parseFloat = ((val: string) => {
+      if (val === '__THROW__') throw new Error('forced parseRow failure');
+      return origParseFloat(val);
+    }) as typeof parseFloat;
+
+    try {
+      // The standing charge field goes through: value.replace(/[€,\s]/g, '')
+      // If we put '__THROW__' it stays '__THROW__' after replace, then parseFloat('__THROW__')
+      // will trigger our monkey-patched version.
+      const csv = `Supplier,Plan Name / Type,24hr / Day (c/kWh),Night Rate (c/kWh),Peak (5-7pm) (c/kWh),EV / Boost Rate (c/kWh),EV Slot / Time,Standing Charge (€/yr)
+TestCo,Plan A,30c,20c,N/A,N/A,N/A,__THROW__`;
+
+      const tariffs = parseDomesticTariffsCsv(csv);
+
+      expect(tariffs).toHaveLength(0);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error parsing row:',
+        expect.any(String),
+        expect.any(Error),
+      );
+    } finally {
+      globalThis.parseFloat = origParseFloat;
+      errorSpy.mockRestore();
+    }
+  });
+});
+
+describe('loadDomesticTariffs', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('fetches and parses CSV when response is OK', async () => {
+    const csvContent = `Supplier,Plan Name / Type,24hr / Day (c/kWh),Night Rate (c/kWh),Peak (5-7pm) (c/kWh),EV / Boost Rate (c/kWh),EV Slot / Time,Standing Charge (€/yr)
+TestCo,Flat Plan,25c,N/A,N/A,N/A,N/A,€200`;
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve(csvContent),
+      }),
+    );
+
+    const tariffs = await loadDomesticTariffs();
+
+    expect(fetch).toHaveBeenCalledWith('/data/tarrifs/domestic-tarrifs.csv');
+    expect(tariffs).toHaveLength(1);
+    expect(tariffs[0].supplier).toBe('TestCo');
+    expect(tariffs[0].type).toBe('flat');
+    expect(tariffs[0].flatRate).toBeCloseTo(0.25, 4);
+  });
+
+  it('throws when fetch response is not OK', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        statusText: 'Not Found',
+      }),
+    );
+
+    await expect(loadDomesticTariffs()).rejects.toThrow(
+      'Failed to load domestic tariffs: Not Found',
+    );
   });
 });

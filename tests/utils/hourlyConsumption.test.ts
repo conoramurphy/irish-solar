@@ -117,6 +117,52 @@ describe('hourlyConsumption', () => {
         expect(val).toBeGreaterThan(0);
       });
     });
+
+    describe('farm mode', () => {
+      it('should return 24 values summing to 1', () => {
+        const curve = generateDailyConsumptionCurve('farm');
+        expect(curve).toHaveLength(24);
+        const sum = curve.reduce((a, b) => a + b, 0);
+        expect(sum).toBeCloseTo(1, 10);
+      });
+
+      it('should have two peaks at hour 7 (morning milking) and hour 17 (evening milking)', () => {
+        const curve = generateDailyConsumptionCurve('farm');
+        // Hour 7 should be a local maximum in the morning block
+        expect(curve[7]).toBeGreaterThan(curve[6]);
+        expect(curve[7]).toBeGreaterThan(curve[9]);
+        // Hour 17 should be a local maximum in the evening block
+        expect(curve[17]).toBeGreaterThan(curve[16]);
+        expect(curve[17]).toBeGreaterThan(curve[19]);
+        // Both peaks should be the same height
+        expect(curve[7]).toBeCloseTo(curve[17], 10);
+      });
+
+      it('should have a water-heating spike at hour 0', () => {
+        const curve = generateDailyConsumptionCurve('farm');
+        // Hour 0 should be higher than surrounding base-load hours (2-5)
+        expect(curve[0]).toBeGreaterThan(curve[2]);
+        expect(curve[0]).toBeGreaterThan(curve[3]);
+        expect(curve[0]).toBeGreaterThan(curve[4]);
+        expect(curve[0]).toBeGreaterThan(curve[5]);
+      });
+    });
+
+    describe('half-hourly (48-slot) curves', () => {
+      it('should return 48 values summing to 1 for hotel', () => {
+        const curve = generateDailyConsumptionCurve('hotel', 48);
+        expect(curve).toHaveLength(48);
+        const sum = curve.reduce((a, b) => a + b, 0);
+        expect(sum).toBeCloseTo(1, 10);
+      });
+
+      it('should return 48 values summing to 1 for farm', () => {
+        const curve = generateDailyConsumptionCurve('farm', 48);
+        expect(curve).toHaveLength(48);
+        const sum = curve.reduce((a, b) => a + b, 0);
+        expect(sum).toBeCloseTo(1, 10);
+      });
+    });
   });
 
   describe('distributeMonthlyConsumptionToHourly', () => {
@@ -250,6 +296,41 @@ describe('hourlyConsumption', () => {
       const expectedAnnual = profile.months.reduce((sum, m) => sum + m.totalKwh, 0);
       const actualAnnual = result.reduce((a, b) => a + b, 0);
       expect(actualAnnual).toBeCloseTo(expectedAnnual, 1);
+    });
+
+    it('should throw when timeStamps length does not match totalHoursInYear', () => {
+      const profile: ConsumptionProfile = {
+        months: Array.from({ length: 12 }, (_, i) => ({
+          monthIndex: i,
+          totalKwh: 10000,
+          bucketShares: { night: 0.3, day: 0.5, other: 0.2 }
+        }))
+      };
+
+      const wrongLengthTimeStamps = Array.from({ length: 100 }, (_, i) => ({
+        monthIndex: 0,
+        day: 1,
+        hour: i % 24
+      }));
+
+      expect(() =>
+        generateHourlyConsumption(profile, testTariff, 8760, wrongLengthTimeStamps)
+      ).toThrow('timeStamps length must match totalHoursInYear');
+    });
+
+    it('should throw when month data produces wrong number of slots', () => {
+      const profile: ConsumptionProfile = {
+        months: Array.from({ length: 12 }, (_, i) => ({
+          monthIndex: i,
+          totalKwh: 10000,
+          bucketShares: { night: 0.3, day: 0.5, other: 0.2 }
+        }))
+      };
+
+      // totalHoursInYear=5000 won't match the 8760 slots produced by 12 months of standard days
+      expect(() =>
+        generateHourlyConsumption(profile, testTariff, 5000)
+      ).toThrow(/produced .* slots, expected 5000/);
     });
   });
 
