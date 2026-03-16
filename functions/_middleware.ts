@@ -22,21 +22,21 @@ interface ReportRow {
 interface ReportPayload {
   config?: {
     location?: string;
-    solarKwp?: number;
-    batteryKwh?: number;
+    systemSizeKwp?: number;
+    batterySizeKwh?: number;
   };
   result?: {
     annualSavings?: number;
-    paybackYears?: number;
+    simplePayback?: number;
   };
 }
 
 function buildOgDescription(payload: ReportPayload): string {
   const location = payload.config?.location ?? 'Ireland';
-  const solar = payload.config?.solarKwp;
-  const battery = payload.config?.batteryKwh;
+  const solar = payload.config?.systemSizeKwp;
+  const battery = payload.config?.batterySizeKwh;
   const savings = payload.result?.annualSavings;
-  const payback = payload.result?.paybackYears;
+  const payback = payload.result?.simplePayback;
 
   const parts: string[] = [`Location: ${location}`];
   if (solar) parts.push(`${solar} kWp solar`);

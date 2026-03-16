@@ -12,7 +12,7 @@ function corsHeaders(request: Request, env: Env): Record<string, string> {
   const allowOrigin = allowed.includes(origin) ? origin : allowed[0] ?? '*';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
 }
@@ -43,18 +43,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const createdAt = Date.now();
   const payloadJson = JSON.stringify(body.report);
 
-  // Write payload to R2 (no 1 MB row limit). Fall back to D1 payload column if R2 not bound.
   if (env.REPORTS_BUCKET) {
+    // Write payload to R2. If the subsequent D1 insert fails, clean up the R2 object
+    // so we don't end up with an orphaned payload that can never be retrieved.
     await env.REPORTS_BUCKET.put(`reports/${id}.json`, payloadJson, {
       httpMetadata: { contentType: 'application/json' },
     });
-    await env.DB.prepare(
-      'INSERT INTO reports (id, name, schema_version, locked, created_at) VALUES (?, ?, ?, 0, ?)'
-    )
-      .bind(id, name, schemaVersion, createdAt)
-      .run();
+    try {
+      await env.DB.prepare(
+        'INSERT INTO reports (id, name, schema_version, locked, created_at) VALUES (?, ?, ?, 0, ?)'
+      )
+        .bind(id, name, schemaVersion, createdAt)
+        .run();
+    } catch (err) {
+      // Rollback: remove the R2 object so it doesn't become an orphan
+      await env.REPORTS_BUCKET.delete(`reports/${id}.json`).catch(() => undefined);
+      throw err;
+    }
   } else {
-    // Local dev / environments without R2 — store in D1 as before
+    // Local dev / environments without R2 — store payload in D1 directly
     await env.DB.prepare(
       'INSERT INTO reports (id, name, schema_version, payload, locked, created_at) VALUES (?, ?, ?, ?, 0, ?)'
     )
