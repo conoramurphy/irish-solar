@@ -57,4 +57,61 @@ describe('billSummary', () => {
     expect(out.payment).toBe(50);
     expect(out.netOutOfPocket).toBe(5);
   });
+
+  describe('safeNumber coercion (non-number branch)', () => {
+    it('treats undefined fields as 0', () => {
+      const row = makeMonth({ monthIndex: 0, baselineCost: 100, importCost: 50, exportRevenue: 10 });
+      // Force fields to undefined to exercise the non-number branch
+      (row as Record<string, unknown>).debtPayment = undefined;
+      (row as Record<string, unknown>).netOutOfPocket = undefined;
+
+      const out = calculateAnnualBillSummary([row]);
+
+      expect(out.payment).toBe(0);
+      expect(out.netOutOfPocket).toBe(0);
+      expect(out.baseline).toBe(100);
+    });
+
+    it('coerces numeric string fields to numbers', () => {
+      const row = makeMonth({ monthIndex: 0 });
+      (row as Record<string, unknown>).baselineCost = '200';
+      (row as Record<string, unknown>).importCost = '80';
+      (row as Record<string, unknown>).exportRevenue = '15';
+
+      const out = calculateAnnualBillSummary([row]);
+
+      expect(out.baseline).toBe(200);
+      expect(out.importCost).toBe(80);
+      expect(out.exportRevenue).toBe(15);
+      expect(out.netBill).toBe(65);
+      expect(out.savings).toBe(135);
+    });
+
+    it('treats NaN fields as 0', () => {
+      const row = makeMonth({ monthIndex: 0, baselineCost: 100 });
+      (row as Record<string, unknown>).importCost = NaN;
+      (row as Record<string, unknown>).exportRevenue = NaN;
+      (row as Record<string, unknown>).debtPayment = NaN;
+      (row as Record<string, unknown>).netOutOfPocket = NaN;
+
+      const out = calculateAnnualBillSummary([row]);
+
+      expect(out.importCost).toBe(0);
+      expect(out.exportRevenue).toBe(0);
+      expect(out.netBill).toBe(0);
+      expect(out.payment).toBe(0);
+      expect(out.netOutOfPocket).toBe(0);
+    });
+
+    it('treats non-numeric strings as 0', () => {
+      const row = makeMonth({ monthIndex: 0 });
+      (row as Record<string, unknown>).baselineCost = 'abc';
+      (row as Record<string, unknown>).importCost = 'hello';
+
+      const out = calculateAnnualBillSummary([row]);
+
+      expect(out.baseline).toBe(0);
+      expect(out.importCost).toBe(0);
+    });
+  });
 });

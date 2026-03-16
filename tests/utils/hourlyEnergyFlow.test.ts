@@ -626,6 +626,162 @@ describe('hourlyEnergyFlow', () => {
     });
   });
 
+  describe('simulateHourlyEnergyFlow - DISCHARGE signal (domestic tariff optimization)', () => {
+    const evTariff: Tariff = {
+      id: 'ev',
+      supplier: 'Test',
+      product: 'EV',
+      type: 'ev',
+      standingCharge: 1.0,
+      rates: [
+        { period: 'night', hours: '23:00-08:00', rate: 0.10 },
+        { period: 'day', hours: '08:00-23:00', rate: 0.35 }
+      ],
+      exportRate: 0.20,
+      psoLevy: 0,
+      evRate: 0.05,
+      evTimeWindow: { description: '2-5am', hourRanges: [{ start: 2, end: 5 }] }
+    };
+
+    it('should discharge battery to grid during expensive hours (surplus scenario)', () => {
+      const generation = Array(8760).fill(0);
+      const consumption = Array(8760).fill(0);
+
+      // Night hours (cheap / CHARGE signal): high solar, low consumption -> battery charges
+      // Day hours (expensive / DISCHARGE signal): low solar, low consumption -> battery dumps to grid
+      for (let day = 0; day < 365; day++) {
+        // Hours 2-5 are EV rate (0.05) = cheapest -> CHARGE signal
+        for (let h = 2; h < 5; h++) {
+          const idx = day * 24 + h;
+          generation[idx] = 15; // surplus solar to charge battery
+          consumption[idx] = 1;
+        }
+        // Hours 8-23 are day rate (0.35) = most expensive -> DISCHARGE signal
+        for (let h = 8; h < 23; h++) {
+          const idx = day * 24 + h;
+          generation[idx] = 10; // surplus: solar > consumption
+          consumption[idx] = 2;
+        }
+      }
+
+      const battery: BatteryConfig = {
+        capacityKwh: 10,
+        efficiency: 0.9
+      };
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        evTariff,
+        battery,
+        true,
+        undefined,
+        undefined,
+        undefined,
+        true // useDomesticOptimization
+      );
+
+      // During DISCHARGE hours with surplus, battery should discharge to grid
+      const dischargeHours = result.hourlyData!.filter(h => h.batteryDischarge > 0);
+      expect(dischargeHours.length).toBeGreaterThan(0);
+
+      // Grid export should include battery discharge
+      expect(result.totalGridExport).toBeGreaterThan(0);
+    });
+
+    it('should discharge battery to cover deficit during expensive hours', () => {
+      const generation = Array(8760).fill(0);
+      const consumption = Array(8760).fill(0);
+
+      for (let day = 0; day < 365; day++) {
+        // EV window (hours 2-5): charge battery from solar surplus
+        for (let h = 2; h < 5; h++) {
+          const idx = day * 24 + h;
+          generation[idx] = 15;
+          consumption[idx] = 1;
+        }
+        // Day hours (8-23): deficit scenario, consumption > generation
+        for (let h = 8; h < 23; h++) {
+          const idx = day * 24 + h;
+          generation[idx] = 2;
+          consumption[idx] = 5; // deficit: consumption > generation
+        }
+      }
+
+      const battery: BatteryConfig = {
+        capacityKwh: 10,
+        efficiency: 0.9
+      };
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        evTariff,
+        battery,
+        true,
+        undefined,
+        undefined,
+        undefined,
+        true
+      );
+
+      // Battery should discharge to cover load during expensive hours
+      const dischargeHours = result.hourlyData!.filter(h => h.batteryDischarge > 0);
+      expect(dischargeHours.length).toBeGreaterThan(0);
+
+      // Grid import should be reduced compared to no-battery
+      const noBatteryResult = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        evTariff
+      );
+      expect(result.totalGridImport).toBeLessThan(noBatteryResult.totalGridImport);
+    });
+
+    it('should dump remaining battery energy to grid when battery exceeds deficit', () => {
+      const generation = Array(8760).fill(0);
+      const consumption = Array(8760).fill(0);
+
+      for (let day = 0; day < 365; day++) {
+        // EV window: large surplus to fully charge battery
+        for (let h = 2; h < 5; h++) {
+          const idx = day * 24 + h;
+          generation[idx] = 20;
+          consumption[idx] = 0;
+        }
+        // Day hours (DISCHARGE): small deficit so battery covers load AND has extra to export
+        for (let h = 8; h < 23; h++) {
+          const idx = day * 24 + h;
+          generation[idx] = 0;
+          consumption[idx] = 0.1; // very small deficit
+        }
+      }
+
+      const battery: BatteryConfig = {
+        capacityKwh: 10,
+        efficiency: 0.9
+      };
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        evTariff,
+        battery,
+        true,
+        undefined,
+        undefined,
+        undefined,
+        true
+      );
+
+      // Battery covers tiny deficit and dumps rest to grid
+      const exportFromDischarge = result.hourlyData!.filter(
+        h => h.batteryDischarge > 0 && h.gridExport > 0
+      );
+      expect(exportFromDischarge.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('aggregateHourlyResultsToMonthly', () => {
     it('should aggregate to 12 months', () => {
       const generation = Array(8760).fill(5);
@@ -682,6 +838,61 @@ describe('hourlyEnergyFlow', () => {
       expect(monthly[0].generation).toBeCloseTo(31 * 24 * 5, 1);
       expect(monthly[0].consumption).toBeCloseTo(31 * 24 * 10, 1);
       expect(monthly[0].gridImport).toBeCloseTo(31 * 24 * 5, 1);
+    });
+
+    it('should throw when timeStamps length does not match hourlyData length', () => {
+      const generation = Array(8760).fill(5);
+      const consumption = Array(8760).fill(10);
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        flatTariff,
+        undefined,
+        true
+      );
+
+      const wrongLengthStamps = Array(100).fill({
+        year: 2024,
+        monthIndex: 0,
+        day: 1,
+        hour: 0,
+        minute: 0,
+        stamp: '2024-01-01T00:00'
+      });
+
+      expect(() =>
+        aggregateHourlyResultsToMonthly(result.hourlyData!, wrongLengthStamps)
+      ).toThrow('timeStamps length must match hourlyData length');
+    });
+
+    it('should use hourToMonthIndexFallback when no timeStamps provided', () => {
+      const generation = Array(8760).fill(5);
+      const consumption = Array(8760).fill(10);
+
+      const result = simulateHourlyEnergyFlow(
+        generation,
+        consumption,
+        flatTariff,
+        undefined,
+        true
+      );
+
+      // Call without timeStamps to exercise fallback path
+      const monthly = aggregateHourlyResultsToMonthly(result.hourlyData!);
+
+      expect(monthly).toHaveLength(12);
+
+      // January: 31 days * 24 hours
+      expect(monthly[0].generation).toBeCloseTo(31 * 24 * 5, 1);
+      expect(monthly[0].consumption).toBeCloseTo(31 * 24 * 10, 1);
+
+      // February: 28 days * 24 hours (non-leap)
+      expect(monthly[1].generation).toBeCloseTo(28 * 24 * 5, 1);
+
+      // All months should sum to yearly total
+      const totalGen = monthly.reduce((sum, m) => sum + m.generation, 0);
+      expect(totalGen).toBeCloseTo(8760 * 5, 1);
     });
   });
 });
