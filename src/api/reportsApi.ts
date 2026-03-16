@@ -18,6 +18,16 @@ export interface GetReportResponse {
   id: string;
   name: string | null;
   schemaVersion: number;
+  locked: boolean;
   payload: SavedReport;
   createdAt: number;
+}
+
+export interface PatchReportRequest {
+  locked: boolean;
+}
+
+export interface PatchReportResponse {
+  id: string;
+  locked: boolean;
 }

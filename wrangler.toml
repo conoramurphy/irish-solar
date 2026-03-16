@@ -6,3 +6,7 @@ pages_build_output_dir = "dist"
 binding = "DB"
 database_name = "wattreports"
 database_id = "1e1498da-f8f4-4570-a8dc-7935b37c3cf8"
+
+[[r2_buckets]]
+binding = "REPORTS_BUCKET"
+bucket_name = "wattreports-payloads"

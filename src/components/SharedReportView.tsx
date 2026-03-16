@@ -1,21 +1,20 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { migrateReport } from '../utils/migrateReport';
 import { ResultsSection } from './ResultsSection';
 import type { SavedReport } from '../types/savedReports';
 import type { CalculationResult } from '../types';
 
-interface SharedReportViewProps {
-  editMode?: boolean;
-}
-
 type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; report: SavedReport };
+  | { status: 'ready'; report: SavedReport; locked: boolean };
 
-export function SharedReportView({ editMode = false }: SharedReportViewProps) {
+export function SharedReportView() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const isAdmin = searchParams.get('mode') === 'admin';
+
   const [state, setState] = useState<LoadState>({ status: 'loading' });
 
   useEffect(() => {
@@ -32,12 +31,12 @@ export function SharedReportView({ editMode = false }: SharedReportViewProps) {
           const body = await res.json().catch(() => ({})) as { error?: string };
           throw new Error(body.error ?? `HTTP ${res.status}`);
         }
-        return res.json() as Promise<{ payload: Record<string, unknown> }>;
+        return res.json() as Promise<{ payload: Record<string, unknown>; locked?: boolean }>;
       })
-      .then(({ payload }) => {
+      .then(({ payload, locked }) => {
         if (cancelled) return;
         const report = migrateReport(payload);
-        setState({ status: 'ready', report });
+        setState({ status: 'ready', report, locked: locked === true });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -47,6 +46,19 @@ export function SharedReportView({ editMode = false }: SharedReportViewProps) {
 
     return () => { cancelled = true; };
   }, [id]);
+
+  const handleLockToggle = async (locked: boolean) => {
+    if (!id) return;
+    const res = await fetch(`/api/reports/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locked }),
+    });
+    if (!res.ok) throw new Error(`Lock toggle failed: HTTP ${res.status}`);
+    setState((prev) =>
+      prev.status === 'ready' ? { ...prev, locked } : prev
+    );
+  };
 
   if (state.status === 'loading') {
     return (
@@ -76,7 +88,7 @@ export function SharedReportView({ editMode = false }: SharedReportViewProps) {
     );
   }
 
-  const { report } = state;
+  const { report, locked } = state;
   const result = report.result as CalculationResult | undefined;
 
   if (!result) {
@@ -93,18 +105,16 @@ export function SharedReportView({ editMode = false }: SharedReportViewProps) {
     );
   }
 
+  // reportMode: admin → 'edit', locked report → 'locked', otherwise → 'view'
+  const reportMode = isAdmin ? 'edit' : locked ? 'locked' : 'view';
+
   return (
     <div className="min-h-screen bg-slate-50">
-      {editMode && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-800 text-center">
-          You are viewing this report in <strong>edit mode</strong>. Changes you make here are not saved automatically.
-          {' '}<Link to={`/r/${id}`} className="underline">View read-only version</Link>
-        </div>
-      )}
       <ResultsSection
         standardResult={result}
         config={report.config}
-        isReadOnly={!editMode}
+        reportMode={reportMode}
+        onLockToggle={isAdmin ? handleLockToggle : undefined}
       />
     </div>
   );
