@@ -449,20 +449,19 @@ export function ResultsSection({
                 !best || c.year10NetCashFlow > best.year10NetCashFlow ? c : best,
               null);
 
-              // 3. Energy independence — configuration that gets nearest to zero annual electricity cost.
-              //    Picks the cell with the highest year1NetCashFlow (savings net of loan payments),
-              //    which minimises (originalBill − year1NetCashFlow). Export credits count toward this.
-              const independence = cells
-                .filter((c) => c.annualGenerationKwh > 0 && c.year1NetCashFlow > 0)
-                .reduce<Cell | null>((best, c) =>
-                  !best || c.year1NetCashFlow > best.year1NetCashFlow ? c : best,
-                null)
-                // Fall back to best available if no cell is cash-flow positive
-                ?? cells
+              // 3. Energy independence — configuration whose annual electricity savings (incl. export)
+              //    land nearest to the original baseline bill, i.e. net bill closest to €0.
+              //    Loan payments are irrelevant here — this is about energy cost, not financing.
+              const originalBill = annualBill?.baseline ?? 0;
+              const independence = originalBill > 0
+                ? cells
                   .filter((c) => c.annualGenerationKwh > 0)
-                  .reduce<Cell | null>((best, c) =>
-                    !best || c.year1NetCashFlow > best.year1NetCashFlow ? c : best,
-                  null);
+                  .reduce<Cell | null>((best, c) => {
+                    const distC = Math.abs(originalBill - c.annualSavings);
+                    const distBest = best ? Math.abs(originalBill - best.annualSavings) : Infinity;
+                    return distC < distBest ? c : best;
+                  }, null)
+                : null;
 
               if (!fastestPayback && !best10yr && !independence) return null;
 
@@ -505,13 +504,19 @@ export function ResultsSection({
               }
 
               if (independence) {
-                const selfConsumePct = ((1 - independence.spillageFraction) * 100).toFixed(0);
+                const netBill = originalBill - independence.annualSavings;
+                const netBillDisplay = netBill <= 0
+                  ? `${formatCurrency(Math.abs(netBill))}/yr credit`
+                  : `${formatCurrency(netBill)}/yr net bill`;
+                const tagline = netBill <= 0
+                  ? `Electricity effectively free — ${formatCurrency(Math.abs(netBill))}/yr export credit.`
+                  : `Nearest to a zero electricity bill — ${formatCurrency(netBill)}/yr residual.`;
                 picks.push({
                   cell: independence,
                   icon: '🏠',
                   title: 'Energy Independence',
-                  value: `${selfConsumePct}% self-use`,
-                  tagline: 'Your electricity bill is effectively zero incl. export.',
+                  value: netBillDisplay,
+                  tagline,
                   accent: 'text-blue-700',
                   accentBg: 'bg-blue-50',
                   accentBorder: 'border-blue-200',
