@@ -114,6 +114,7 @@ export function SharedReportView() {
         standardResult={result}
         config={report.config}
         reportMode={reportMode}
+        reportLocked={locked}
         onLockToggle={isAdmin ? handleLockToggle : undefined}
       />
     </div>

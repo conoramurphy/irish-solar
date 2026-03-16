@@ -31,6 +31,8 @@ interface ResultsSectionProps {
   /** undefined = wizard (full access). 'view' = shared unlocked (interactive, no edit buttons).
    *  'locked' = shared locked (tabs 2–3 blurred). 'edit' = admin on shared report. */
   reportMode?: 'view' | 'locked' | 'edit';
+  /** Whether the report is currently locked — used by AdminBar to show lock/unlock button. */
+  reportLocked?: boolean;
   onShare?: () => Promise<void>;
   onLockToggle?: (locked: boolean) => Promise<void>;
 }
@@ -67,31 +69,54 @@ function reprojectVariant(
   };
 }
 
-function AdminBar({ onLockToggle }: { onLockToggle?: (locked: boolean) => Promise<void> }) {
-  const [locking, setLocking] = useState(false);
+function AdminBar({
+  locked,
+  onLockToggle,
+}: {
+  locked?: boolean;
+  onLockToggle?: (locked: boolean) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLock = async () => {
+  const handleToggle = async (newLocked: boolean) => {
     if (!onLockToggle) return;
-    setLocking(true);
+    setBusy(true);
+    setError(null);
     try {
-      await onLockToggle(true);
+      await onLockToggle(newLocked);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update lock state');
     } finally {
-      setLocking(false);
+      setBusy(false);
     }
   };
 
   return (
     <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 flex items-center justify-between gap-4 text-sm text-amber-800">
       <span>Admin view — changes are not saved automatically.</span>
-      {onLockToggle && (
-        <button
-          onClick={handleLock}
-          disabled={locking}
-          className="inline-flex items-center gap-1.5 rounded-md border border-amber-400 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {locking ? 'Locking…' : '🔒 Lock Report'}
-        </button>
-      )}
+      <div className="flex items-center gap-3">
+        {error && <span className="text-red-600 text-xs">{error}</span>}
+        {onLockToggle && (
+          locked ? (
+            <button
+              onClick={() => handleToggle(false)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-400 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {busy ? 'Unlocking…' : '🔓 Unlock Report'}
+            </button>
+          ) : (
+            <button
+              onClick={() => handleToggle(true)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-400 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-200 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {busy ? 'Locking…' : '🔒 Lock Report'}
+            </button>
+          )
+        )}
+      </div>
     </div>
   );
 }
@@ -133,6 +158,7 @@ export function ResultsSection({
   onSaveReport,
   existingReportNames = [],
   reportMode,
+  reportLocked,
   onShare,
   onLockToggle,
 }: ResultsSectionProps) {
@@ -329,7 +355,7 @@ export function ResultsSection({
     <section className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
       {/* Admin bar — only shown in edit mode (admin on a shared report) */}
       {isEditMode && (
-        <AdminBar onLockToggle={onLockToggle} />
+        <AdminBar locked={reportLocked} onLockToggle={onLockToggle} />
       )}
       <div className="px-8 py-7 md:px-10 md:py-8 border-b border-slate-100">
         <div className="flex items-start justify-between gap-6">
