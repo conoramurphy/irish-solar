@@ -27,6 +27,12 @@ export interface CashFlowRow {
   loanPayment: number;
   netCashFlow: number;
   cumulativeCashFlow: number;
+  /** Solar → load savings for this year (set when breakdown inputs are provided). */
+  solarDirectSavings?: number;
+  /** Battery → load savings for this year (set when breakdown inputs are provided). */
+  batteryDisplacement?: number;
+  /** Export revenue for this year (set when breakdown inputs are provided). */
+  exportRevenueSplit?: number;
 }
 
 export interface ProjectionResult {
@@ -55,6 +61,17 @@ export interface ProjectionInputs {
    */
   applyFutureRateChanges: boolean;
   baseCalendarYear: number;
+  /**
+   * Year 1 solar → load savings (from annualSolarToLoadSavings).
+   * When provided together with year1BatteryDisplacement, each CashFlowRow will include
+   * solarDirectSavings / batteryDisplacement / exportRevenueSplit breakdown fields.
+   */
+  year1SolarDirectSavings?: number;
+  /**
+   * Year 1 battery → load savings (from annualBatteryToLoadSavings).
+   * See year1SolarDirectSavings for details.
+   */
+  year1BatteryDisplacement?: number;
 }
 
 /** Conservative historical electricity price inflation rate (per year). */
@@ -81,7 +98,12 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
     analysisYears = 25,
     applyFutureRateChanges,
     baseCalendarYear,
+    year1SolarDirectSavings,
+    year1BatteryDisplacement,
   } = inputs;
+
+  const hasBreakdown =
+    year1SolarDirectSavings !== undefined && year1BatteryDisplacement !== undefined;
 
   const year1NonExportSavings = year1OperationalSavings - year1ExportRevenue;
   const cashFlows: CashFlowRow[] = [];
@@ -112,14 +134,22 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
     const netCashFlow = yearTotalSavings - loanPayment;
     cumulativeCashFlow += netCashFlow;
 
-    cashFlows.push({
+    const row: CashFlowRow = {
       year,
       generation: yearGeneration,
       savings: yearOperationalSavings,
       loanPayment,
       netCashFlow,
       cumulativeCashFlow,
-    });
+    };
+
+    if (hasBreakdown) {
+      row.solarDirectSavings = year1SolarDirectSavings! * degradationFactor * importEscalation;
+      row.batteryDisplacement = year1BatteryDisplacement! * degradationFactor * importEscalation;
+      row.exportRevenueSplit = yearExportRevenue;
+    }
+
+    cashFlows.push(row);
   }
 
   const annualCashFlows = cashFlows.map((cf) => cf.netCashFlow);

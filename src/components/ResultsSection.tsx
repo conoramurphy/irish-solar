@@ -13,6 +13,7 @@ import { InputsUsedPanel } from './InputsUsedPanel';
 import { SaveReportModal } from './SaveReportModal';
 import { TariffComparisonTab } from './TariffComparisonTab';
 import type { TariffComparisonRow } from './TariffComparisonTab';
+import { SavingsBreakdownChart } from './SavingsBreakdownChart';
 
 interface ResultsSectionProps {
   standardResult: CalculationResult | null;
@@ -173,6 +174,8 @@ export function ResultsSection({
       effectiveNetCost: standardResult.effectiveNetCost ?? standardResult.netCost,
       analysisYears: 25,
       baseCalendarYear,
+      year1SolarDirectSavings: standardResult.annualSolarToLoadSavings,
+      year1BatteryDisplacement: standardResult.annualBatteryToLoadSavings,
     };
 
     return {
@@ -974,6 +977,13 @@ export function ResultsSection({
                 </div>
               </div>
             </div>
+
+            {/* Savings Breakdown Chart */}
+            <SavingsBreakdownChart
+              cashFlows={projCashFlows}
+              hasBattery={(activeResult?.annualBatteryToLoadSavings ?? 0) > 0}
+              applyFutureRateChanges={applyFutureRateChanges}
+            />
 
             {/* Cash Flow Timeline */}
             <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">

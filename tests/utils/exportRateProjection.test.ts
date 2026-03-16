@@ -380,3 +380,91 @@ describe('reprojectVariant math (via projectCashFlows)', () => {
     expect(proj.irr).toBeCloseTo(irrOnNetCost, 5);
   });
 });
+
+describe('savings breakdown fields', () => {
+  const baseInputs: ProjectionInputs = {
+    year1OperationalSavings: 3000,
+    year1ExportRevenue: 600,
+    year1TaxSavings: 0,
+    baseGeneration: 5000,
+    annualLoanPayment: 0,
+    loanTermYears: 0,
+    equityAmount: 12000,
+    effectiveNetCost: 12000,
+    analysisYears: 25,
+    applyFutureRateChanges: false,
+    baseCalendarYear: 2025,
+    year1SolarDirectSavings: 1800,  // solar → load
+    year1BatteryDisplacement: 600,  // battery → load
+    // year1ExportRevenue = 600; 1800 + 600 + 600 = 3000 ✓
+  };
+
+  it('breakdown fields are present when breakdown inputs are supplied', () => {
+    const result = projectCashFlows(baseInputs);
+    expect(result.cashFlows[0].solarDirectSavings).toBeDefined();
+    expect(result.cashFlows[0].batteryDisplacement).toBeDefined();
+    expect(result.cashFlows[0].exportRevenueSplit).toBeDefined();
+  });
+
+  it('breakdown fields are absent when breakdown inputs are omitted', () => {
+    const withoutBreakdown: ProjectionInputs = {
+      year1OperationalSavings: baseInputs.year1OperationalSavings,
+      year1ExportRevenue: baseInputs.year1ExportRevenue,
+      year1TaxSavings: baseInputs.year1TaxSavings,
+      baseGeneration: baseInputs.baseGeneration,
+      annualLoanPayment: baseInputs.annualLoanPayment,
+      loanTermYears: baseInputs.loanTermYears,
+      equityAmount: baseInputs.equityAmount,
+      effectiveNetCost: baseInputs.effectiveNetCost,
+      analysisYears: baseInputs.analysisYears,
+      applyFutureRateChanges: baseInputs.applyFutureRateChanges,
+      baseCalendarYear: baseInputs.baseCalendarYear,
+    };
+    const result = projectCashFlows(withoutBreakdown);
+    expect(result.cashFlows[0].solarDirectSavings).toBeUndefined();
+    expect(result.cashFlows[0].batteryDisplacement).toBeUndefined();
+    expect(result.cashFlows[0].exportRevenueSplit).toBeUndefined();
+  });
+
+  it('Year 1 breakdown components sum to Year 1 savings', () => {
+    const result = projectCashFlows(baseInputs);
+    const cf = result.cashFlows[0];
+    const sum = (cf.solarDirectSavings ?? 0) + (cf.batteryDisplacement ?? 0) + (cf.exportRevenueSplit ?? 0);
+    expect(sum).toBeCloseTo(cf.savings, 2);
+  });
+
+  it('all 25 years have breakdown components summing to savings', () => {
+    const result = projectCashFlows(baseInputs);
+    for (const cf of result.cashFlows) {
+      const sum = (cf.solarDirectSavings ?? 0) + (cf.batteryDisplacement ?? 0) + (cf.exportRevenueSplit ?? 0);
+      expect(sum).toBeCloseTo(cf.savings, 2);
+    }
+  });
+
+  it('solar and battery components get import escalation; export uses export multiplier', () => {
+    const inputs: ProjectionInputs = {
+      ...baseInputs,
+      applyFutureRateChanges: true,
+      baseCalendarYear: 2025,
+    };
+    const result = projectCashFlows(inputs);
+
+    // Year 2 (index 1): import escalation = (1.03)^1
+    // Solar and battery should both be higher than flat (which has no escalation)
+    const flatResult = projectCashFlows({ ...inputs, applyFutureRateChanges: false });
+    expect(result.cashFlows[1].solarDirectSavings!).toBeGreaterThan(flatResult.cashFlows[1].solarDirectSavings!);
+    expect(result.cashFlows[1].batteryDisplacement!).toBeGreaterThan(flatResult.cashFlows[1].batteryDisplacement!);
+
+    // Year 9 (index 8) = calendar 2033: export multiplier = 6/14 < 1.0
+    // Export component must be lower than flat (which doesn't apply export decline)
+    expect(result.cashFlows[8].exportRevenueSplit!).toBeLessThan(flatResult.cashFlows[8].exportRevenueSplit!);
+  });
+
+  it('degradation applies to all three breakdown components', () => {
+    const result = projectCashFlows(baseInputs);
+    // Year 25 solar component must be less than Year 1 (0.5%/yr degradation over 24 years)
+    expect(result.cashFlows[24].solarDirectSavings!).toBeLessThan(result.cashFlows[0].solarDirectSavings!);
+    expect(result.cashFlows[24].batteryDisplacement!).toBeLessThan(result.cashFlows[0].batteryDisplacement!);
+    expect(result.cashFlows[24].exportRevenueSplit!).toBeLessThan(result.cashFlows[0].exportRevenueSplit!);
+  });
+});
