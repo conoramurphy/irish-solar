@@ -10,12 +10,13 @@
 
 interface Env {
   DB: D1Database;
+  REPORTS_BUCKET?: R2Bucket;
 }
 
 interface ReportRow {
   id: string;
   name: string | null;
-  payload: string;
+  payload: string | null;
 }
 
 interface ReportPayload {
@@ -115,9 +116,23 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   if (!row) return response;
 
+  // Resolve payload: R2 first (new records), D1 payload column as fallback (old records)
+  let payloadJson: string | null = row.payload;
+  if (!payloadJson && env.REPORTS_BUCKET) {
+    try {
+      const obj = await env.REPORTS_BUCKET.get(`reports/${id}.json`);
+      if (obj) payloadJson = await obj.text();
+    } catch {
+      // R2 unavailable — skip OG injection
+    }
+  }
+
+  if (!payloadJson) return response;
+
   let payload: ReportPayload = {};
   try {
-    payload = JSON.parse(row.payload) as ReportPayload;
+    payload = JSON.parse(payloadJson) as ReportPayload;
+    if (!payload || typeof payload !== 'object') payload = {};
   } catch {
     return response;
   }
