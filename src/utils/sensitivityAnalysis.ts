@@ -94,7 +94,7 @@ function computeScenarioMetrics(
   // Cash flows are net of loan payments; initial outflow is equity (what the investor actually pays).
   // If equity is 0 (fully financed with no upfront cash), fall back to netCost for IRR basis.
   const netCashFlows: number[] = [];
-  let cumulativeCashFlow = -equityAmount;
+  let cumulativeCashFlow = 0;
 
   for (let year = 1; year <= ANALYSIS_YEARS; year++) {
     const degradationFactor = applyDegradation(1, year - 1);

@@ -41,7 +41,7 @@ function reprojectVariant(
 ): SensitivityVariant {
   const year1NonExport = v.annualSavings - v.year1ExportRevenue;
   const netCashFlows: number[] = [];
-  let year10Net = -v.equityAmount;
+  let year10Net = 0;
 
   for (let year = 1; year <= ANALYSIS_YEARS; year++) {
     const deg = applyDegradation(1, year - 1);
@@ -865,14 +865,6 @@ export function ResultsSection({
                                     {formatIrr(v.irr)}
                                   </span>
                                   <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">IRR</span>
-                                </div>
-
-                                {/* Yr1 cashflow */}
-                                <div className="flex items-baseline gap-1 mt-1.5">
-                                  <span className={`text-xs tabular-nums font-medium ${v.year1NetCashFlow >= 0 ? 'text-slate-600' : 'text-rose-500'}`}>
-                                    {formatSignedCurrency(v.year1NetCashFlow)}
-                                  </span>
-                                  <span className="text-[10px] text-slate-400">yr1</span>
                                 </div>
 
                                 {/* Yr10 cumulative */}
