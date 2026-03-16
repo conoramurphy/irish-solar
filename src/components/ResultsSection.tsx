@@ -121,12 +121,12 @@ function AdminBar({
   );
 }
 
-function LockedTabPlaceholder() {
+function LockedOverlay() {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in duration-300">
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-10 rounded-b-2xl">
       <div className="text-5xl mb-4">🔒</div>
       <p className="text-lg font-semibold text-slate-700 mb-2">This analysis is locked</p>
-      <p className="text-sm text-slate-500 max-w-xs">
+      <p className="text-sm text-slate-500 max-w-xs text-center">
         Contact the report owner to unlock full financial and tariff analysis.
       </p>
     </div>
@@ -1066,8 +1066,8 @@ export function ResultsSection({
 
         {/* --- TARIFF COMPARISON TAB --- */}
         {activeTab === 'tariff-comparison' && tariffComparisonResults && tariffComparisonResults.length > 0 && (
-          isLockedMode ? <LockedTabPlaceholder /> : (
-            <div className="animate-in fade-in duration-300">
+          <div className="relative animate-in fade-in duration-300">
+            <div className={isLockedMode ? 'pointer-events-none select-none' : ''}>
               <TariffComparisonTab
                 rows={projectedTariffRows ?? tariffComparisonResults}
                 activeTariffId={tariff?.id}
@@ -1082,12 +1082,12 @@ export function ResultsSection({
                 </div>
               )}
             </div>
-          )
+            {isLockedMode && <LockedOverlay />}
+          </div>
         )}
 
         {/* --- FINANCIAL TAB --- */}
-        {activeTab === 'financial' && isLockedMode && <LockedTabPlaceholder />}
-        {activeTab === 'financial' && !isLockedMode && standardResult && financialProjection && (() => {
+        {activeTab === 'financial' && standardResult && financialProjection && (() => {
           const proj = financialProjection.active;
           const flatProj = financialProjection.flat;
           const projCashFlows = proj.cashFlows;
@@ -1096,7 +1096,9 @@ export function ResultsSection({
           const flatTotalSavings = flatProj.cashFlows.reduce((s, cf) => s + cf.savings, 0);
 
           return (
-          <div className="animate-in fade-in duration-300">
+          <div className="relative animate-in fade-in duration-300">
+            {isLockedMode && <LockedOverlay />}
+            <div className={isLockedMode ? 'pointer-events-none select-none' : ''}>
             {/* Active projection mode indicator */}
             <div className="flex items-center gap-3 mb-6">
               {applyFutureRateChanges ? (
@@ -1314,6 +1316,7 @@ export function ResultsSection({
                 </div>
               </div>
             </div>
+          </div>
           </div>
           );
         })()}
