@@ -6,7 +6,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  type TooltipProps,
 } from 'recharts';
 import type { CashFlowRow } from '../utils/exportRateProjection';
 import { formatCurrency } from '../utils/format';
@@ -24,15 +23,28 @@ interface ChartDataPoint {
   export: number;
 }
 
-function CustomTooltip({ active, payload, label }: TooltipProps<number, string>) {
+interface TooltipEntry {
+  dataKey?: string;
+  value?: number;
+  name?: string;
+  color?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+}
+
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
 
-  const total = payload.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
+  const total = payload.reduce((sum: number, entry: TooltipEntry) => sum + (entry.value ?? 0), 0);
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs">
       <p className="font-semibold text-slate-700 mb-2">Year {label}</p>
-      {payload.map((entry) => {
+      {payload.map((entry: TooltipEntry) => {
         const pct = total > 0 ? ((entry.value ?? 0) / total) * 100 : 0;
         return (
           <div key={entry.dataKey} className="flex items-center gap-2 mb-1">
