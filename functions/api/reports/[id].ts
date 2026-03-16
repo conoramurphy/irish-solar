@@ -7,6 +7,7 @@ interface Env {
 interface ReportRow {
   id: string;
   name: string | null;
+  description: string | null;
   schema_version: number;
   payload: string | null;
   locked: number;
@@ -33,7 +34,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   const id = params.id as string;
 
   const row = await env.DB.prepare(
-    'SELECT id, name, schema_version, payload, locked, created_at FROM reports WHERE id = ?'
+    'SELECT id, name, description, schema_version, payload, locked, created_at FROM reports WHERE id = ?'
   )
     .bind(id)
     .first<ReportRow>();
@@ -68,6 +69,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     JSON.stringify({
       id: row.id,
       name: row.name,
+      description: row.description,
       schemaVersion: row.schema_version,
       locked: row.locked === 1,
       payload,
@@ -77,33 +79,61 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
   );
 };
 
-// PATCH /api/reports/:id — toggle locked state (admin only, guarded by ?mode=admin in the UI)
+// PATCH /api/reports/:id — update name, description, and/or locked state (admin only)
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env, params }) => {
   const headers = { 'Content-Type': 'application/json', ...corsHeaders(request, env) };
   const id = params.id as string;
 
-  let body: { locked?: boolean };
+  let body: { locked?: boolean; name?: string; description?: string };
   try {
     body = await request.json();
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers });
   }
 
-  if (typeof body.locked !== 'boolean') {
+  if (body.locked !== undefined && typeof body.locked !== 'boolean') {
     return new Response(JSON.stringify({ error: 'locked must be a boolean' }), { status: 400, headers });
   }
+  if (body.name !== undefined && typeof body.name !== 'string') {
+    return new Response(JSON.stringify({ error: 'name must be a string' }), { status: 400, headers });
+  }
+  if (body.description !== undefined && typeof body.description !== 'string') {
+    return new Response(JSON.stringify({ error: 'description must be a string' }), { status: 400, headers });
+  }
 
+  // Build SET clause dynamically based on which fields are provided
+  const sets: string[] = [];
+  const binds: (string | number | null)[] = [];
+
+  if (body.locked !== undefined) {
+    sets.push('locked = ?');
+    binds.push(body.locked ? 1 : 0);
+  }
+  if (body.name !== undefined) {
+    sets.push('name = ?');
+    binds.push(body.name.trim() || null);
+  }
+  if (body.description !== undefined) {
+    sets.push('description = ?');
+    binds.push(body.description.trim() || null);
+  }
+
+  if (sets.length === 0) {
+    return new Response(JSON.stringify({ error: 'No fields to update' }), { status: 400, headers });
+  }
+
+  binds.push(id);
   const result = await env.DB.prepare(
-    'UPDATE reports SET locked = ? WHERE id = ?'
+    `UPDATE reports SET ${sets.join(', ')} WHERE id = ?`
   )
-    .bind(body.locked ? 1 : 0, id)
+    .bind(...binds)
     .run();
 
   if (result.meta.changes === 0) {
     return new Response(JSON.stringify({ error: 'Report not found' }), { status: 404, headers });
   }
 
-  return new Response(JSON.stringify({ id, locked: body.locked }), { status: 200, headers });
+  return new Response(JSON.stringify({ id, ...body }), { status: 200, headers });
 };
 
 // DELETE /api/reports/:id — permanently delete a report

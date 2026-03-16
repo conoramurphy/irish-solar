@@ -8,7 +8,7 @@ import type { CalculationResult } from '../types';
 type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; report: SavedReport; locked: boolean };
+  | { status: 'ready'; report: SavedReport; locked: boolean; name: string | null; description: string | null };
 
 export function SharedReportView() {
   const { id } = useParams<{ id: string }>();
@@ -31,12 +31,23 @@ export function SharedReportView() {
           const body = await res.json().catch(() => ({})) as { error?: string };
           throw new Error(body.error ?? `HTTP ${res.status}`);
         }
-        return res.json() as Promise<{ payload: Record<string, unknown>; locked?: boolean }>;
+        return res.json() as Promise<{
+          payload: Record<string, unknown>;
+          locked?: boolean;
+          name?: string | null;
+          description?: string | null;
+        }>;
       })
-      .then(({ payload, locked }) => {
+      .then(({ payload, locked, name, description }) => {
         if (cancelled) return;
         const report = migrateReport(payload);
-        setState({ status: 'ready', report, locked: locked === true });
+        setState({
+          status: 'ready',
+          report,
+          locked: locked === true,
+          name: name ?? null,
+          description: description ?? null,
+        });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -47,17 +58,29 @@ export function SharedReportView() {
     return () => { cancelled = true; };
   }, [id]);
 
-  const handleLockToggle = async (locked: boolean) => {
+  const patch = async (fields: { locked?: boolean; name?: string; description?: string }) => {
     if (!id) return;
     const res = await fetch(`/api/reports/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locked }),
+      body: JSON.stringify(fields),
     });
-    if (!res.ok) throw new Error(`Lock toggle failed: HTTP ${res.status}`);
-    setState((prev) =>
-      prev.status === 'ready' ? { ...prev, locked } : prev
-    );
+    if (!res.ok) throw new Error(`Save failed: HTTP ${res.status}`);
+  };
+
+  const handleLockToggle = async (locked: boolean) => {
+    await patch({ locked });
+    setState((prev) => prev.status === 'ready' ? { ...prev, locked } : prev);
+  };
+
+  const handleTitleChange = async (name: string) => {
+    await patch({ name });
+    setState((prev) => prev.status === 'ready' ? { ...prev, name } : prev);
+  };
+
+  const handleDescriptionChange = async (description: string) => {
+    await patch({ description });
+    setState((prev) => prev.status === 'ready' ? { ...prev, description } : prev);
   };
 
   if (state.status === 'loading') {
@@ -88,7 +111,7 @@ export function SharedReportView() {
     );
   }
 
-  const { report, locked } = state;
+  const { report, locked, name, description } = state;
   const result = report.result as CalculationResult | undefined;
 
   if (!result) {
@@ -115,7 +138,11 @@ export function SharedReportView() {
         config={report.config}
         reportMode={reportMode}
         reportLocked={locked}
+        reportTitle={name}
+        reportDescription={description}
         onLockToggle={isAdmin ? handleLockToggle : undefined}
+        onTitleChange={isAdmin ? handleTitleChange : undefined}
+        onDescriptionChange={isAdmin ? handleDescriptionChange : undefined}
       />
     </div>
   );

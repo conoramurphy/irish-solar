@@ -33,8 +33,14 @@ interface ResultsSectionProps {
   reportMode?: 'view' | 'locked' | 'edit';
   /** Whether the report is currently locked — used by AdminBar to show lock/unlock button. */
   reportLocked?: boolean;
+  /** Editable report title shown in the header (defaults to 'Projected Impact Report'). */
+  reportTitle?: string | null;
+  /** Editable report description shown below the title. */
+  reportDescription?: string | null;
   onShare?: () => Promise<void>;
   onLockToggle?: (locked: boolean) => Promise<void>;
+  onTitleChange?: (title: string) => Promise<void>;
+  onDescriptionChange?: (description: string) => Promise<void>;
 }
 
 const ANALYSIS_YEARS = 25;
@@ -123,12 +129,15 @@ function AdminBar({
 
 function LockedOverlay() {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-10 rounded-b-2xl">
-      <div className="text-5xl mb-4">🔒</div>
-      <p className="text-lg font-semibold text-slate-700 mb-2">This analysis is locked</p>
-      <p className="text-sm text-slate-500 max-w-xs text-center">
-        Contact the report owner to unlock full financial and tariff analysis.
-      </p>
+    <div className="absolute inset-0 flex flex-col items-center justify-center z-10 rounded-b-2xl">
+      <div className="bg-white/80 backdrop-blur-[2px] absolute inset-0 rounded-b-2xl" />
+      <div className="relative z-10 flex flex-col items-center text-center px-4">
+        <div className="text-5xl mb-4">🔒</div>
+        <p className="text-lg font-semibold text-slate-700 mb-2">This analysis is locked</p>
+        <p className="text-sm text-slate-500 max-w-xs">
+          Contact the report owner to unlock full financial and tariff analysis.
+        </p>
+      </div>
     </div>
   );
 }
@@ -159,8 +168,12 @@ export function ResultsSection({
   existingReportNames = [],
   reportMode,
   reportLocked,
+  reportTitle,
+  reportDescription,
   onShare,
   onLockToggle,
+  onTitleChange,
+  onDescriptionChange,
 }: ResultsSectionProps) {
   // Derived flags from reportMode
   const isLockedMode = reportMode === 'locked';
@@ -359,9 +372,33 @@ export function ResultsSection({
       )}
       <div className="px-8 py-7 md:px-10 md:py-8 border-b border-slate-100">
         <div className="flex items-start justify-between gap-6">
-          <div>
-            <h2 className="text-3xl font-serif font-bold text-tines-dark leading-tight">Projected Impact Report</h2>
-            <p className="mt-1 text-sm text-slate-500">Summary of costs, savings, and returns based on your inputs.</p>
+          <div className="flex-1 min-w-0">
+            {isEditMode && onTitleChange ? (
+              <input
+                type="text"
+                defaultValue={reportTitle ?? 'Projected Impact Report'}
+                onBlur={(e) => { void onTitleChange(e.target.value); }}
+                className="w-full text-3xl font-serif font-bold text-tines-dark leading-tight bg-transparent border-b-2 border-dashed border-amber-300 focus:border-amber-500 focus:outline-none"
+                placeholder="Report title"
+              />
+            ) : (
+              <h2 className="text-3xl font-serif font-bold text-tines-dark leading-tight">
+                {reportTitle ?? 'Projected Impact Report'}
+              </h2>
+            )}
+            {isEditMode && onDescriptionChange ? (
+              <textarea
+                defaultValue={reportDescription ?? 'Summary of costs, savings, and returns based on your inputs.'}
+                onBlur={(e) => { void onDescriptionChange(e.target.value); }}
+                rows={2}
+                className="mt-1 w-full text-sm text-slate-500 bg-transparent border-b-2 border-dashed border-amber-300 focus:border-amber-500 focus:outline-none resize-none"
+                placeholder="Report description"
+              />
+            ) : (
+              <p className="mt-1 text-sm text-slate-500">
+                {reportDescription ?? 'Summary of costs, savings, and returns based on your inputs.'}
+              </p>
+            )}
           </div>
           <div className="flex flex-col items-end gap-3">
             <div className="flex items-center gap-4">
@@ -386,8 +423,8 @@ export function ResultsSection({
               )}
               <div className="text-sm font-medium text-slate-400 shrink-0">{reportDate}</div>
             </div>
-            {/* Future rate changes toggle */}
-            <div className="flex items-center gap-2">
+            {/* Future rate changes toggle — hidden in locked mode */}
+            <div className={`flex items-center gap-2${isLockedMode ? ' hidden' : ''}`}>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
@@ -639,6 +676,10 @@ export function ResultsSection({
               </div>
             )}
 
+            {/* Everything below the energy chart is locked in locked mode */}
+            <div className="relative">
+            {isLockedMode && <LockedOverlay />}
+            <div className={isLockedMode ? 'pointer-events-none select-none blur-sm' : ''}>
             {/* Savings Breakdown Compact Section */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
@@ -1061,13 +1102,15 @@ export function ResultsSection({
                 </div>
               </div>
             )}
+            </div>{/* end blur wrapper */}
+            </div>{/* end relative locked section */}
           </div>
         )}
 
         {/* --- TARIFF COMPARISON TAB --- */}
         {activeTab === 'tariff-comparison' && tariffComparisonResults && tariffComparisonResults.length > 0 && (
           <div className="relative animate-in fade-in duration-300">
-            <div className={isLockedMode ? 'pointer-events-none select-none' : ''}>
+            <div className={isLockedMode ? 'pointer-events-none select-none blur-sm' : ''}>
               <TariffComparisonTab
                 rows={projectedTariffRows ?? tariffComparisonResults}
                 activeTariffId={tariff?.id}
@@ -1086,7 +1129,10 @@ export function ResultsSection({
           </div>
         )}
 
-        {/* --- FINANCIAL TAB --- */}
+        {/* --- FINANCIAL TAB — show overlay even when projection data unavailable --- */}
+        {activeTab === 'financial' && isLockedMode && !financialProjection && (
+          <div className="relative min-h-96"><LockedOverlay /></div>
+        )}
         {activeTab === 'financial' && standardResult && financialProjection && (() => {
           const proj = financialProjection.active;
           const flatProj = financialProjection.flat;
@@ -1098,7 +1144,7 @@ export function ResultsSection({
           return (
           <div className="relative animate-in fade-in duration-300">
             {isLockedMode && <LockedOverlay />}
-            <div className={isLockedMode ? 'pointer-events-none select-none' : ''}>
+            <div className={isLockedMode ? 'pointer-events-none select-none blur-sm' : ''}>
             {/* Active projection mode indicator */}
             <div className="flex items-center gap-3 mb-6">
               {applyFutureRateChanges ? (
