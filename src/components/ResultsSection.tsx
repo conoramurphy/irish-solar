@@ -891,6 +891,16 @@ export function ResultsSection({
                                   <span className="text-[10px] text-slate-400">export</span>
                                 </div>
 
+                                {/* Export-limited hours */}
+                                {v.exportCurtailedHours > 0 && (
+                                  <div className="flex items-baseline gap-1 mt-0.5">
+                                    <span className={`text-[10px] tabular-nums font-medium ${v.exportCurtailedHours > 500 ? 'text-rose-600' : v.exportCurtailedHours > 100 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                      {v.exportCurtailedHours}h
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">cap-limited</span>
+                                  </div>
+                                )}
+
                                 {/* Battery size */}
                                 {v.batterySizeKwh > 0 && (
                                   <span className="text-[10px] text-slate-400 mt-0.5">

@@ -209,6 +209,8 @@ export interface HourlySimulationResult {
   totalGridExport: number;
   /** Total energy curtailed due to export cap (kWh) - unpaid spill */
   totalGridExportCurtailed: number;
+  /** Number of hours where any export curtailment occurred */
+  totalExportCurtailedHours: number;
   /** Total self-consumed solar (kWh) */
   totalSelfConsumption: number;
   /** Total cost of grid imports (EUR) */
@@ -269,6 +271,8 @@ export interface SensitivityVariant {
   exportPaidFraction: number;
   /** Fraction of generation curtailed above export cap (unpaid). */
   exportUnpaidFraction: number;
+  /** Hours per year where export was curtailed by the grid cap. */
+  exportCurtailedHours: number;
 }
 
 export interface SensitivityScenario {

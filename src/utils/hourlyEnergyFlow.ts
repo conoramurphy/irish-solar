@@ -225,6 +225,7 @@ export function simulateHourlyEnergyFlow(
   let totalGridImport = 0;
   let totalGridExport = 0;
   let totalGridExportCurtailed = 0; // Energy that would be exported but is above cap (unpaid)
+  let totalExportCurtailedHours = 0; // Hours where any curtailment occurred
   let totalSelfConsumption = 0;
   let totalImportCost = 0;
   let totalExportRevenue = 0;
@@ -273,6 +274,7 @@ export function simulateHourlyEnergyFlow(
     const baselineCost = calculateBaselineCost(consumption, hourOfDay, tariff, dayOfWeek, slotsPerDay, hourlyPrice, tradingConfig);
     totalBaselineCost += baselineCost;
 
+    const curtailedBefore = totalGridExportCurtailed;
     let gridImport = 0;
     let gridExport = 0;
     let batteryCharge = 0;
@@ -626,6 +628,7 @@ export function simulateHourlyEnergyFlow(
     
     totalImportCost += importCost;
     totalExportRevenue += exportRevenue;
+    if (totalGridExportCurtailed > curtailedBefore) totalExportCurtailedHours++;
 
     if (includeHourlyDetail) {
       // Prefer the *effective* bucket so audit + downstream reporting can distinguish EV/free windows.
@@ -656,6 +659,7 @@ export function simulateHourlyEnergyFlow(
     totalGridImport,
     totalGridExport,
     totalGridExportCurtailed,
+    totalExportCurtailedHours,
     totalSelfConsumption,
     totalImportCost,
     totalExportRevenue,

@@ -86,6 +86,7 @@ function computeScenarioMetrics(
   const firstYearExportRevenue = year1Result.totalExportRevenue;
   const exportPaidFraction = year1Result.totalGridExport / (annualGenerationKwh || 1);
   const exportUnpaidFraction = year1Result.totalGridExportCurtailed / (annualGenerationKwh || 1);
+  const exportCurtailedHours = year1Result.totalExportCurtailedHours;
   // Include curtailed (wasted above export cap) generation in spillage fraction
   const spillageFraction = exportPaidFraction + exportUnpaidFraction;
 
@@ -129,6 +130,7 @@ function computeScenarioMetrics(
     spillageFraction,
     exportPaidFraction,
     exportUnpaidFraction,
+    exportCurtailedHours,
   };
 }
 
