@@ -172,8 +172,10 @@ export function projectCashFlows(inputs: ProjectionInputs): ProjectionResult {
     }
   }
 
+  const equityAmount = inputs.equityAmount;
+  const irrBasis = equityAmount > 0 ? equityAmount : effectiveNetCost;
   const npv = calculateNPV(effectiveNetCost, annualCashFlows, 0.05);
-  const irr = calculateIRR(effectiveNetCost, annualCashFlows);
+  const irr = calculateIRR(irrBasis, annualCashFlows);
 
   return { cashFlows, simplePayback, npv, irr, annualSavings };
 }

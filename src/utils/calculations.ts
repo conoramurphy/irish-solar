@@ -186,7 +186,6 @@ export function runCalculation(
       capacityKwh: config.batterySizeKwh,
       efficiency: 0.9,
       initialSoC: 0,
-      gridExportCapKw: config.gridExportCapKw
     } : undefined;
     
     const baseYearElectricity = simulateHourlyEnergyFlow(
@@ -198,7 +197,8 @@ export function runCalculation(
       timeStamps,
       hourlyPrices,
       trading,
-      config.businessType === 'house' // Enable domestic optimization only for house mode
+      config.businessType === 'house', // Enable domestic optimization only for house mode
+      config.gridExportCapKw           // Always pass export cap regardless of battery
     );
 
     const hourly = baseYearElectricity.hourlyData ?? [];

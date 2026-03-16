@@ -181,6 +181,7 @@ function calculateTradingSignals(
  * @param hourlyPrices Optional array of hourly prices (EUR/kWh) for dynamic pricing
  * @param tradingConfig Optional trading configuration
  * @param useDomesticOptimization Whether to use domestic tariff optimization (smart charging for TOU tariffs)
+ * @param gridExportCapKw Grid export cap in kW (takes precedence over batteryConfig.gridExportCapKw). Applies even with no battery.
  */
 export function simulateHourlyEnergyFlow(
   hourlyGeneration: number[],
@@ -191,7 +192,8 @@ export function simulateHourlyEnergyFlow(
   timeStamps?: HourStamp[],
   hourlyPrices?: number[],
   tradingConfig?: TradingConfig,
-  useDomesticOptimization = false
+  useDomesticOptimization = false,
+  gridExportCapKw?: number
 ): HourlySimulationResult {
   if (hourlyGeneration.length !== hourlyConsumption.length) {
     throw new Error('Generation and consumption arrays must have the same length');
@@ -217,10 +219,8 @@ export function simulateHourlyEnergyFlow(
     maxDischargeRate: Math.max(0, batteryConfig.maxDischargeRateKw ?? batteryConfig.capacityKwh) * hoursPerSlot
   } : null;
 
-  // Use the export cap from batteryConfig or default to infinity (no limit)
-  // Even if no battery is present, we might want to respect this, but currently it's passed in BatteryConfig.
-  // Ideally, it should be a top-level parameter, but let's extract it safely.
-  const gridExportCapPerSlot = (batteryConfig?.gridExportCapKw ?? Infinity) * hoursPerSlot;
+  // Top-level gridExportCapKw takes precedence; falls back to batteryConfig value; then unlimited.
+  const gridExportCapPerSlot = (gridExportCapKw ?? batteryConfig?.gridExportCapKw ?? Infinity) * hoursPerSlot;
 
   let totalGridImport = 0;
   let totalGridExport = 0;
@@ -566,14 +566,6 @@ export function simulateHourlyEnergyFlow(
       // No battery: direct import/export
       if (netEnergy < 0) {
         const potentialExport = Math.abs(netEnergy);
-        // Apply export cap even without battery
-        // We need to pass gridExportCapKw to this function even if batteryConfig is undefined?
-        // Currently it's inside batteryConfig. 
-        // We defined `gridExportCapPerSlot` at top of function scope from batteryConfig?.gridExportCapKw.
-        // If batteryConfig is undefined, it defaults to Infinity.
-        // If the user has NO battery but wants to cap export (e.g. 100kW limit), 
-        // they must pass a dummy batteryConfig or we need a top-level param.
-        // For now, `gridExportCapPerSlot` handles it if passed.
         gridExport = Math.min(potentialExport, gridExportCapPerSlot);
         const curtailed = Math.max(0, potentialExport - gridExport);
         totalGridExportCurtailed += curtailed;

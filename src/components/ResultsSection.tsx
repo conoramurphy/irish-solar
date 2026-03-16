@@ -55,9 +55,11 @@ function reprojectVariant(
     if (year <= 10) year10Net += netCf;
   }
 
+  // IRR basis is equity (actual cash outlay); fall back to netCost if equity is zero (all-cash).
+  const irrBasis = v.equityAmount > 0 ? v.equityAmount : v.netCost;
   return {
     ...v,
-    irr: calculateIRR(v.netCost, netCashFlows),
+    irr: calculateIRR(irrBasis, netCashFlows),
     year10NetCashFlow: year10Net,
   };
 }
@@ -416,6 +418,133 @@ export function ResultsSection({
         {/* --- STANDARD ANALYSIS TAB --- */}
         {activeTab === 'standard' && activeResult && (
           <div className="animate-in fade-in duration-300">
+
+            {/* Top Picks from the heat map */}
+            {projectedSensitivity && (() => {
+              const COLS = ['noBattery', 'halfBattery', 'fullBattery', 'doubleBattery'] as const;
+
+              // Flatten every cell into a list with its row metadata
+              type Cell = SensitivityVariant & { sizeKwp: number; genKwh: number };
+              const cells: Cell[] = projectedSensitivity.rows.flatMap((row) =>
+                COLS.map((c) => ({
+                  ...row[c],
+                  sizeKwp: row.systemSizeKwp,
+                  genKwh: row.annualGenerationKwh,
+                }))
+              );
+
+              // 1. Fastest payback — lowest equity / net-annual-cash-flow ratio.
+              //    Denominator is year1NetCashFlow (savings minus loan payments) so loan repayments are
+              //    correctly accounted for. Only consider cells where the investor actually recovers cash.
+              const fastestPayback = cells
+                .filter((c) => c.year1NetCashFlow > 0 && c.equityAmount > 0)
+                .reduce<Cell | null>((best, c) => {
+                  const pb = c.equityAmount / c.year1NetCashFlow;
+                  const bestPb = best ? best.equityAmount / best.year1NetCashFlow : Infinity;
+                  return pb < bestPb ? c : best;
+                }, null);
+
+              // 2. Best 10-year return — highest cumulative net cash at year 10
+              const best10yr = cells.reduce<Cell | null>((best, c) =>
+                !best || c.year10NetCashFlow > best.year10NetCashFlow ? c : best,
+              null);
+
+              // 3. Energy independence — configuration that gets nearest to zero annual electricity cost.
+              //    Picks the cell with the highest year1NetCashFlow (savings net of loan payments),
+              //    which minimises (originalBill − year1NetCashFlow). Export credits count toward this.
+              const independence = cells
+                .filter((c) => c.annualGenerationKwh > 0 && c.year1NetCashFlow > 0)
+                .reduce<Cell | null>((best, c) =>
+                  !best || c.year1NetCashFlow > best.year1NetCashFlow ? c : best,
+                null)
+                // Fall back to best available if no cell is cash-flow positive
+                ?? cells
+                  .filter((c) => c.annualGenerationKwh > 0)
+                  .reduce<Cell | null>((best, c) =>
+                    !best || c.year1NetCashFlow > best.year1NetCashFlow ? c : best,
+                  null);
+
+              if (!fastestPayback && !best10yr && !independence) return null;
+
+              const picks: Array<{
+                cell: Cell;
+                icon: string;
+                title: string;
+                value: string;
+                tagline: string;
+                accent: string;
+                accentBg: string;
+                accentBorder: string;
+              }> = [];
+
+              if (fastestPayback) {
+                const pb = fastestPayback.equityAmount / fastestPayback.year1NetCashFlow;
+                picks.push({
+                  cell: fastestPayback,
+                  icon: '⚡',
+                  title: 'Fastest Payback',
+                  value: `${pb.toFixed(1)} years`,
+                  tagline: `Equity recovered in ${pb.toFixed(1)} years net of loan payments.`,
+                  accent: 'text-amber-700',
+                  accentBg: 'bg-amber-50',
+                  accentBorder: 'border-amber-200',
+                });
+              }
+
+              if (best10yr) {
+                picks.push({
+                  cell: best10yr,
+                  icon: '📈',
+                  title: 'Best 10-Year Return',
+                  value: formatSignedCurrency(best10yr.year10NetCashFlow),
+                  tagline: 'You make the most money over a decade.',
+                  accent: 'text-emerald-700',
+                  accentBg: 'bg-emerald-50',
+                  accentBorder: 'border-emerald-200',
+                });
+              }
+
+              if (independence) {
+                const selfConsumePct = ((1 - independence.spillageFraction) * 100).toFixed(0);
+                picks.push({
+                  cell: independence,
+                  icon: '🏠',
+                  title: 'Energy Independence',
+                  value: `${selfConsumePct}% self-use`,
+                  tagline: 'Your electricity bill is effectively zero incl. export.',
+                  accent: 'text-blue-700',
+                  accentBg: 'bg-blue-50',
+                  accentBorder: 'border-blue-200',
+                });
+              }
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  {picks.map((p) => (
+                    <button
+                      key={p.title}
+                      type="button"
+                      onClick={() => onSelectSimulation?.(p.cell.genKwh, p.cell.batterySizeKwh)}
+                      className={`relative rounded-2xl border ${p.accentBorder} ${p.accentBg} p-6 text-left transition-all hover:shadow-md hover:brightness-[0.97] cursor-pointer group`}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-xl">{p.icon}</span>
+                        <span className={`text-xs font-bold uppercase tracking-wider ${p.accent}`}>{p.title}</span>
+                      </div>
+                      <div className={`text-3xl font-bold ${p.accent} tabular-nums`}>{p.value}</div>
+                      <p className="text-sm text-slate-600 mt-2 leading-relaxed">{p.tagline}</p>
+                      <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
+                        <span>{p.cell.sizeKwp.toFixed(1)} kWp · {p.cell.batterySizeKwh > 0 ? `${p.cell.batterySizeKwh.toFixed(1)} kWh battery` : 'No battery'}</span>
+                        <span className={`font-semibold ${p.accent} opacity-0 group-hover:opacity-100 transition-opacity`}>
+                          Simulate →
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* 1. Energy Analytics Chart (Top) */}
             {activeResult.audit?.hourly && activeResult.audit.hourly.length > 0 && (
               <div className="mb-8">

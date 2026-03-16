@@ -644,8 +644,15 @@ export function Step4Finance({
                   )}
 
                   <div className="flex justify-between items-baseline pt-2 border-t border-slate-100">
-                    <dt className="text-slate-500 font-medium">Your Equity</dt>
-                    <dd className="font-semibold text-slate-900">€{financing.equity.toLocaleString()}</dd>
+                    <dt className="text-slate-500 font-medium">
+                      Your Equity
+                      {financing.isTaxReliefEligible && (
+                        <span className="ml-1 text-xs text-blue-600 font-normal">(after tax credit)</span>
+                      )}
+                    </dt>
+                    <dd className="font-semibold text-slate-900">
+                      €{Math.round(financing.equity - (financing.isTaxReliefEligible ? displayNetCost * (financing.taxRate || 0) : 0)).toLocaleString()}
+                    </dd>
                   </div>
 
                   <div className="flex justify-between items-baseline pt-2 border-t border-slate-100">

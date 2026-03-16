@@ -354,7 +354,9 @@ describe('reprojectVariant math (via projectCashFlows)', () => {
     };
     const proj = projectCashFlows(inputs);
     const netCashFlows = proj.cashFlows.map((cf) => cf.netCashFlow);
-    const irrManual = calculateIRR(inputs.effectiveNetCost, netCashFlows);
+    // IRR basis is equity when equity > 0 (actual cash outlay), not effectiveNetCost
+    const irrBasis = inputs.equityAmount > 0 ? inputs.equityAmount : inputs.effectiveNetCost;
+    const irrManual = calculateIRR(irrBasis, netCashFlows);
     expect(Number.isFinite(irrManual)).toBe(true);
     expect(proj.irr).toBeCloseTo(irrManual, 5);
   });

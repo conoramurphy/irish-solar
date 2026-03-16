@@ -77,19 +77,23 @@ function computeScenarioMetrics(
     false,
     timeStamps,
     hourlyPrices,
-    trading
+    trading,
+    false,                     // useDomesticOptimization
+    ctx.config.gridExportCapKw // always pass export cap regardless of battery
   );
 
   const firstYearSavings = year1Result.totalSavings;
   const firstYearExportRevenue = year1Result.totalExportRevenue;
   const exportPaidFraction = year1Result.totalGridExport / (annualGenerationKwh || 1);
   const exportUnpaidFraction = year1Result.totalGridExportCurtailed / (annualGenerationKwh || 1);
-  const spillageFraction = exportPaidFraction;
+  // Include curtailed (wasted above export cap) generation in spillage fraction
+  const spillageFraction = exportPaidFraction + exportUnpaidFraction;
 
-  // Roll up ANALYSIS_YEARS of cash flows using Year 1 savings + degradation
-  // (same pattern as runCalculation — no re-simulation needed for years 2+)
-  const netCashFlows: number[] = [];   // savings minus loan — used for IRR and Yr1/Yr10 display
-  let cumulativeCashFlow = -netCost;
+  // Roll up ANALYSIS_YEARS of cash flows using Year 1 savings + degradation.
+  // Cash flows are net of loan payments; initial outflow is equity (what the investor actually pays).
+  // If equity is 0 (fully financed with no upfront cash), fall back to netCost for IRR basis.
+  const netCashFlows: number[] = [];
+  let cumulativeCashFlow = -equityAmount;
 
   for (let year = 1; year <= ANALYSIS_YEARS; year++) {
     const degradationFactor = applyDegradation(1, year - 1);
@@ -101,9 +105,12 @@ function computeScenarioMetrics(
   }
 
   const year1NetCashFlow = netCashFlows[0];
-  const year10NetCashFlow = cumulativeCashFlow; // cumulative through year 10 (from -equity)
+  const year10NetCashFlow = cumulativeCashFlow; // cumulative through year 10 (from -equityAmount)
 
-  const irr = calculateIRR(netCost, netCashFlows);
+  // IRR basis is equity (actual cash outlay). Cash flows are already net of loan payments.
+  // Fall back to netCost if equity is zero (all-cash, no loan).
+  const irrBasis = equityAmount > 0 ? equityAmount : netCost;
+  const irr = calculateIRR(irrBasis, netCashFlows);
 
   return {
     batteryFactor,
