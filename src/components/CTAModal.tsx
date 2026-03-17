@@ -39,7 +39,8 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
   const [sent, setSent] = useState(false);
   const captured = useRef(false);
 
-  // Reset whenever modal opens
+  // Reset whenever modal opens — setState calls in effects are intentional here
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (open) {
       setStep(1);
@@ -60,14 +61,13 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
     onClose();
   }
 
-  // Escape key — must be declared after handleClose
+  // Escape key — re-registers on every render so handleClose always has fresh state
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  });
 
   function handleNext() {
     if (!email.trim()) return;
