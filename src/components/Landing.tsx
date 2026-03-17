@@ -2,10 +2,19 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CTAModal } from './CTAModal';
 
-const GRID_BG = {
+// Grid overlay styles — white lines for dark sections, dark lines for light sections
+const GRID_LIGHT: React.CSSProperties = {
   backgroundImage: [
     'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)',
     'linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)',
+  ].join(', '),
+  backgroundSize: '48px 48px',
+};
+
+const GRID_DARK: React.CSSProperties = {
+  backgroundImage: [
+    'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px)',
+    'linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)',
   ].join(', '),
   backgroundSize: '48px 48px',
 };
@@ -21,7 +30,7 @@ const LOGO = (
     <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FDEAB4' }}>
       {SUN_ICON}
     </div>
-    <span className="text-base font-bold tracking-widest uppercase text-white">
+    <span className="text-sm font-bold tracking-widest uppercase text-white">
       Watt <span style={{ color: '#FDEAB4' }}>Profit</span>
     </span>
   </div>
@@ -55,8 +64,8 @@ const STEPS = [
 ];
 
 const EXAMPLE_MODELS = [
-  { name: 'Longford dairy farm', size: '52 kWp', grant: 'TAMS 3', payback: '6.4 years', saving: '€28,400' },
-  { name: 'Cavan hotel',         size: '38 kWp', grant: 'SEAI',   payback: '7.1 years', saving: '€19,800' },
+  { name: 'Longford dairy farm', size: '52 kWp', grant: 'TAMS 3', payback: '6.4 years', saving: '€28,400', reportId: 'FARM_REPORT_ID' },
+  { name: 'Cavan hotel',         size: '38 kWp', grant: 'SEAI',   payback: '7.1 years', saving: '€19,800', reportId: 'HOTEL_REPORT_ID' },
 ];
 
 const ARROW = (
@@ -77,14 +86,14 @@ export function Landing() {
       <button
         type="button"
         onClick={() => setCtaOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
-        style={{ backgroundColor: '#2D6A4F' }}
-        aria-label="Get your free solar profit model"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white hover:-translate-y-0.5 transition-all duration-200"
+        style={{ backgroundColor: '#3A7A5C', boxShadow: '0 0 0 6px rgba(58,122,92,0.18), 0 4px 16px rgba(0,0,0,0.25)' }}
+        aria-label="Get your solar profit model"
       >
         <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
         </svg>
-        <span className="hidden sm:inline">Get your free model</span>
+        <span className="hidden sm:inline">Get your model</span>
       </button>
 
       <div>
@@ -92,36 +101,36 @@ export function Landing() {
         {/* ─────────────────────────────────────────────
             SECTION 1 — HERO + PROCESS  (green)
         ───────────────────────────────────────────── */}
-        <section aria-labelledby="hero-heading" style={{ backgroundColor: '#74C69D' }}>
+        <section aria-labelledby="hero-heading" className="relative" style={{ backgroundColor: '#3A7A5C' }}>
 
           {/* Grid overlay */}
-          <div className="pointer-events-none fixed inset-0" style={GRID_BG} />
+          <div className="pointer-events-none absolute inset-0" style={GRID_LIGHT} />
 
           <div className="relative z-10 w-full max-w-5xl mx-auto px-5 md:px-8">
 
             {/* Nav */}
             <header className="flex items-center justify-between pt-6 pb-2" role="banner">
               {LOGO}
-              <span className="hidden md:block text-sm font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                36 Irish locations · 2020–25
+              <span className="hidden md:block text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                Irish solar · Independent advice · 36 Irish locations · 2020–25
               </span>
             </header>
 
             {/* Hero copy */}
             <div className="pt-14 pb-10 md:pt-20 md:pb-14 max-w-3xl">
-              <p className="text-xs font-semibold tracking-widest uppercase mb-5" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                Irish solar · Independent advice
-              </p>
               <h1
                 id="hero-heading"
-                className="text-5xl sm:text-6xl md:text-[5rem] font-serif font-bold text-white leading-[1.05] tracking-tight mb-7"
+                className="text-5xl sm:text-6xl md:text-7xl font-serif font-bold text-white leading-[1.05] tracking-tight mb-7"
               >
                 What profit will<br />solar make you?
               </h1>
-              <p className="text-lg md:text-xl font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Half-hourly Irish consumption and irradiation data, with export rates modelled through 2033.
-                The output is your capital cost, annual return, and exact payback year.{' '}
-                <span className="font-semibold text-white">We give you the numbers.</span>
+              <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                We tell you exactly what a solar installation will cost, what it will earn you each year,
+                and your 10 year profit. Using your actual electricity usage, your site's real sunlight
+                data, and Irish export rates as they're likely to change through 2033.
+              </p>
+              <p className="text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                No estimates. Just real numbers.
               </p>
 
               {/* CTA */}
@@ -130,13 +139,13 @@ export function Landing() {
                   type="button"
                   onClick={() => setCtaOpen(true)}
                   className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                  style={{ backgroundColor: '#0D4027' }}
-                  aria-label="Get your free solar profit model"
+                  style={{ backgroundColor: '#1A4A35' }}
+                  aria-label="Get your solar profit model"
                 >
-                  Get your free model {ARROW}
+                  Get your model {ARROW}
                 </button>
               </div>
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
                 2 min to submit · results in 24 hrs
               </p>
             </div>
@@ -157,35 +166,37 @@ export function Landing() {
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="font-semibold text-white text-sm leading-snug">{m.name}</p>
-                      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      <p className="text-sm font-semibold text-white leading-snug">{m.name}</p>
+                      <p className="text-xs font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
                         {m.size} · {m.grant} grant
                       </p>
                     </div>
-                    <span
-                      className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ml-2"
-                      style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.9)' }}
-                    >
-                      Open model
-                    </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 mb-4">
                     <div>
                       <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>Payback</p>
-                      <p className="text-2xl font-bold text-white leading-none">{m.payback}</p>
+                      <p className="text-3xl font-bold text-white leading-none">{m.payback}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>Year 1 saving</p>
-                      <p className="text-2xl font-bold leading-none" style={{ color: '#FDEAB4' }}>{m.saving}</p>
+                      <p className="text-3xl font-bold leading-none" style={{ color: '#FDEAB4' }}>{m.saving}</p>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/r/${m.reportId}`)}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80"
+                    style={{ color: '#FDEAB4' }}
+                  >
+                    Open model {ARROW}
+                  </button>
                 </article>
               ))}
             </div>
 
             {/* ── Process steps — merged into hero, compressed ── */}
             <div className="mt-14 pb-16 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
-              <p className="text-xs font-semibold tracking-widest uppercase mt-10 mb-8" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              <p className="text-xs font-medium tracking-widest uppercase mt-10 mb-8" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 The process
               </p>
               <ol
@@ -195,25 +206,25 @@ export function Landing() {
                 {STEPS.map(s => (
                   <li key={s.n} className="flex gap-4">
                     <span
-                      className="text-2xl font-bold leading-none shrink-0 mt-0.5 select-none w-8"
-                      style={{ color: 'rgba(255,255,255,0.3)' }}
+                      className="text-xs font-medium leading-none shrink-0 mt-1 select-none w-5"
+                      style={{ color: 'rgba(255,255,255,0.35)' }}
                       aria-hidden="true"
                     >
                       {s.n}
                     </span>
                     <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <h3 className="font-semibold text-sm text-white">{s.title}</h3>
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-base font-semibold text-white">{s.title}</h3>
                         {s.time && (
                           <span
                             className="text-xs font-medium px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.8)' }}
+                            style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.75)' }}
                           >
                             {s.time}
                           </span>
                         )}
                       </div>
-                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
                         {s.body}
                       </p>
                     </div>
@@ -233,11 +244,12 @@ export function Landing() {
         ───────────────────────────────────────────── */}
         <section
           aria-labelledby="tariff-heading"
-          className="py-20 md:py-28"
-          style={{ backgroundColor: '#0F2660' }}
+          className="relative py-20 md:py-28"
+          style={{ backgroundColor: '#1B3A72' }}
         >
-          <div className="w-full max-w-5xl mx-auto px-5 md:px-8">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-5" style={{ color: 'rgba(219,234,254,0.6)' }}>
+          <div className="pointer-events-none absolute inset-0" style={GRID_LIGHT} />
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-5 md:px-8">
+            <p className="text-xs font-medium tracking-widest uppercase mb-5" style={{ color: 'rgba(219,234,254,0.6)' }}>
               Business electricity
             </p>
             <h2
@@ -246,7 +258,7 @@ export function Landing() {
             >
               Are you on the right tariff?
             </h2>
-            <p className="text-lg md:text-xl font-light leading-relaxed mb-10 max-w-2xl" style={{ color: 'rgba(219,234,254,0.85)' }}>
+            <p className="text-xl font-light leading-relaxed mb-10 max-w-2xl" style={{ color: 'rgba(219,234,254,0.85)' }}>
               Most Irish businesses overpay by switching at the wrong time or on the wrong contract.
               Find your best rate in two minutes.
             </p>
@@ -268,11 +280,12 @@ export function Landing() {
         <section
           id="heatpump"
           aria-labelledby="heatpump-heading"
-          className="py-20 md:py-28"
+          className="relative py-20 md:py-28"
           style={{ backgroundColor: '#FEF3C7' }}
         >
-          <div className="w-full max-w-5xl mx-auto px-5 md:px-8">
-            <p className="text-xs font-semibold tracking-widest uppercase mb-5" style={{ color: 'rgba(146,64,14,0.6)' }}>
+          <div className="pointer-events-none absolute inset-0" style={GRID_DARK} />
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-5 md:px-8">
+            <p className="text-xs font-medium tracking-widest uppercase mb-5" style={{ color: 'rgba(146,64,14,0.6)' }}>
               Coming soon
             </p>
             <h2
@@ -282,7 +295,7 @@ export function Landing() {
             >
               Domestic and business heat pump modelling.
             </h2>
-            <p className="text-lg md:text-xl font-light leading-relaxed mb-10 max-w-2xl" style={{ color: 'rgba(120,53,15,0.8)' }}>
+            <p className="text-xl font-light leading-relaxed mb-10 max-w-2xl" style={{ color: 'rgba(120,53,15,0.8)' }}>
               The same approach — half-hourly data, real costs, independent numbers.
               Register your interest and we'll let you know when it's live.
             </p>
@@ -303,17 +316,17 @@ export function Landing() {
         ───────────────────────────────────────────── */}
         <footer
           className="py-14"
-          style={{ backgroundColor: '#5FAD8F' }}
+          style={{ backgroundColor: '#1A4A35' }}
           role="contentinfo"
         >
           <div className="w-full max-w-5xl mx-auto px-5 md:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
             <div>
               {LOGO}
-              <p className="mt-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
+              <p className="mt-2 text-sm font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>
                 Independent energy analysis for Irish businesses.
               </p>
             </div>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
               36 Irish locations · 2020–25 · Not financial advice
             </p>
           </div>
