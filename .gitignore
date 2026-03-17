@@ -33,3 +33,4 @@ Other tools/
 
 # Claude Code worktrees (nested git repos — must not be tracked as submodules)
 .claude/worktrees/
+.env.local
