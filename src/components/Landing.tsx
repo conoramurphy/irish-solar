@@ -1,6 +1,7 @@
 interface LandingProps {
   onSelectSolarBattery: () => void;
   onSelectTariff: () => void;
+  onOpenCTA: () => void;
 }
 
 // Tines-style grid: fine horizontal + vertical lines at low opacity
@@ -16,7 +17,7 @@ const BG = '#74C69D';
 
 export { BG as LANDING_BG };
 
-export function Landing({ onSelectSolarBattery, onSelectTariff }: LandingProps) {
+export function Landing({ onSelectSolarBattery, onSelectTariff, onOpenCTA }: LandingProps) {
   return (
     <div
       className="min-h-screen flex flex-col"
@@ -115,6 +116,23 @@ export function Landing({ onSelectSolarBattery, onSelectTariff }: LandingProps) 
             </svg>
           </button>
 
+        </div>
+
+        {/* ── Hero CTA ── */}
+        <div className="pb-8 -mt-4">
+          <button
+            type="button"
+            onClick={onOpenCTA}
+            className="group inline-flex items-center gap-2 text-sm font-medium transition-opacity hover:opacity-80"
+            style={{ color: 'rgba(255,255,255,0.85)' }}
+          >
+            <span className="underline underline-offset-4 decoration-white/40 group-hover:decoration-white/80 transition-colors">
+              Or get a free personalised model built for you
+            </span>
+            <svg className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+          </button>
         </div>
 
         {/* Mobile data badge */}
