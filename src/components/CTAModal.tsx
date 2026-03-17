@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string | undefined;
+const WHATSAPP_NUMBER = '353858082080';
 
 const ROLES = [
   { value: 'homeowner', label: 'Homeowner' },
@@ -86,7 +86,7 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
 
   if (!open) return null;
 
-  const waHref = WHATSAPP_NUMBER ? `https://wa.me/${WHATSAPP_NUMBER}` : '#';
+  const waHref = `https://wa.me/${WHATSAPP_NUMBER}`;
 
   const whatsappBtn = (
     <a
