@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { SharedReportView } from './components/SharedReportView';
 import { migrateReport } from './utils/migrateReport';
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
@@ -34,7 +34,6 @@ import { useSavedReports } from './hooks/useSavedReports';
 import type { SavedReport } from './types/savedReports';
 import { Landing } from './components/Landing';
 import { UnifiedWizardBar } from './components/UnifiedWizardBar';
-import { CTAModal } from './components/CTAModal';
 
 import { TariffModeller } from './components/TariffModeller';
 import { Step0BuildingType } from './components/steps/Step0BuildingType';
@@ -56,8 +55,9 @@ const historicalTariffData = rawHistoricalTariffData as unknown as HistoricalTar
 
 type AppMode = 'solar-battery' | 'tariff' | null;
 
-function WizardApp() {
-  const [appMode, setAppMode] = useState<AppMode>(null);
+function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' }) {
+  const navigate = useNavigate();
+  const appMode: AppMode = defaultMode;
 
   // Saved Reports (solar & battery mode only)
   const { reports, saveReport, deleteReport, clearReports, importReports } = useSavedReports();
@@ -851,8 +851,7 @@ function WizardApp() {
   };
 
   const handleStartNewReport = () => {
-    // Fully reset all state
-    setAppMode('solar-battery');
+    // Fully reset all state — appMode is fixed to defaultMode, no setter needed
     setCurrentStep(0);
     setCompletedSteps(new Set());
     setStandardResult(null);
@@ -891,51 +890,21 @@ function WizardApp() {
   };
 
   const showSolarBattery = appMode === 'solar-battery';
-  const [ctaOpen, setCtaOpen] = useState(false);
 
   return (
     <div className="min-h-screen font-sans text-slate-600 app-root">
-      <CTAModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
-
-      {/* Floating CTA button — visible on all pages */}
-      <button
-        type="button"
-        onClick={() => setCtaOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
-        style={{ backgroundColor: '#2D6A4F' }}
-        aria-label="Get your profit model"
-      >
-        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
-        </svg>
-        <span className="hidden sm:inline">See your numbers</span>
-      </button>
-
-      {appMode === null ? (
-        <Landing
-          onSelectSolarBattery={() => {
-            setAppMode('solar-battery');
-            setCurrentStep(0);
-            setCompletedSteps(new Set());
-            setStandardResult(null);
-            setMarketResult(null);
-          }}
-          onSelectTariff={() => setAppMode('tariff')}
-          onOpenCTA={() => setCtaOpen(true)}
-        />
-      ) : (
-        <UnifiedWizardBar
+      <UnifiedWizardBar
           appMode={appMode}
           onBack={() => {
             if (appMode === 'solar-battery' && currentStep > 0 && !standardResult) {
               handleBackStep();
             } else {
-              setAppMode(null);
+              navigate('/');
               setIsEditingReport(false);
             }
           }}
           onExit={() => {
-            setAppMode(null);
+            navigate('/');
             setIsEditingReport(false);
           }}
           onStartNew={handleStartNewReport}
@@ -947,7 +916,6 @@ function WizardApp() {
           currentStep={currentStep > 0 && !standardResult ? currentStep : undefined}
           completedSteps={completedSteps}
         />
-      )}
 
       {/* Saved Reports List Modal (solar & battery mode only) */}
       {showSolarBattery && (
@@ -1131,8 +1099,11 @@ function WizardApp() {
 function App() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/full-model/*" element={<WizardApp defaultMode="solar-battery" />} />
+      <Route path="/tariffs/*" element={<WizardApp defaultMode="tariff" />} />
       <Route path="/r/:id" element={<SharedReportView />} />
-      <Route path="/*" element={<WizardApp />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

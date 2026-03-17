@@ -148,16 +148,10 @@ describe('Step Skip Behavior', () => {
     vi.clearAllMocks();
   });
 
-  async function enterSolarBatteryMode(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByText('Solar & Battery ROI'));
-    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
-  }
-
   it('navigates from Step 2 to Step 3, then Step 4', async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter><App /></MemoryRouter>);
-
-    await enterSolarBatteryMode(user);
+    render(<MemoryRouter initialEntries={['/full-model']}><App /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
 
     // Click through Step 0
     await user.click(screen.getByText('Select Hotel'));
@@ -184,9 +178,8 @@ describe('Step Skip Behavior', () => {
 
   it('navigates back from Step 4 to Step 3', async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter><App /></MemoryRouter>);
-
-    await enterSolarBatteryMode(user);
+    render(<MemoryRouter initialEntries={['/full-model']}><App /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
 
     // Navigate to Step 4
     await user.click(screen.getByText('Select Hotel'));
@@ -213,9 +206,8 @@ describe('Step Skip Behavior', () => {
 
   it('navigates back from Step 1 to Step 0', async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter><App /></MemoryRouter>);
-
-    await enterSolarBatteryMode(user);
+    render(<MemoryRouter initialEntries={['/full-model']}><App /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
 
     // Navigate to Step 1
     await user.click(screen.getByText('Select Hotel'));
@@ -233,9 +225,8 @@ describe('Step Skip Behavior', () => {
 
   it('Step 3 is enabled in stepper', async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter><App /></MemoryRouter>);
-
-    await enterSolarBatteryMode(user);
+    render(<MemoryRouter initialEntries={['/full-model']}><App /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
 
     // Navigate past Step 0 to show stepper
     await user.click(screen.getByText('Select Hotel'));
@@ -248,9 +239,8 @@ describe('Step Skip Behavior', () => {
 
   it('Step3Battery is rendered during navigation', async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter><App /></MemoryRouter>);
-
-    await enterSolarBatteryMode(user);
+    render(<MemoryRouter initialEntries={['/full-model']}><App /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
 
     // Navigate through all steps
     await user.click(screen.getByText('Select Hotel'));
@@ -273,9 +263,8 @@ describe('Step Skip Behavior', () => {
 
   it('stepper is hidden on Step 0', async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter><App /></MemoryRouter>);
-
-    await enterSolarBatteryMode(user);
+    render(<MemoryRouter initialEntries={['/full-model']}><App /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
 
     // Stepper should not be visible
     expect(screen.queryByTestId('step-indicator')).not.toBeInTheDocument();
@@ -283,9 +272,8 @@ describe('Step Skip Behavior', () => {
 
   it('stepper becomes visible after Step 0', async () => {
     const user = userEvent.setup();
-    render(<MemoryRouter><App /></MemoryRouter>);
-
-    await enterSolarBatteryMode(user);
+    render(<MemoryRouter initialEntries={['/full-model']}><App /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByTestId('step0')).toBeInTheDocument());
 
     // Navigate to Step 1
     await user.click(screen.getByText('Select Hotel'));

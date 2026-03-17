@@ -2,7 +2,10 @@
   "defaultMode": "acceptEdits",
   "permissions": {
     "allow": [
-      "Bash(*)"
+      "Bash(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Read(*)"
     ],
     "deny": [
       "Bash(git push*)"
