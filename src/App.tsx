@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { SharedReportView } from './components/SharedReportView';
-import { migrateReport } from './utils/migrateReport';
+import ReportsListView from './components/ReportsListView';
+import LinksPage from './components/LinksPage';
+
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
 import rawTariffsData from './data/tariffs.json';
-import { domesticTariffs } from './utils/domesticTariffParser';
+
 import rawHistoricalSolarData from './data/historical/solar-irradiance.json';
 import rawHistoricalTariffData from './data/historical/tariff-history.json';
 import { getEligibleGrants } from './models/grants';
@@ -29,9 +31,7 @@ import type { ParsedSolarData } from './utils/solarTimeseriesParser';
 import type { ParsedPriceData } from './utils/priceTimeseriesParser';
 
 import { CalendarSidebar } from './components/CalendarSidebar';
-import { SavedReportsList } from './components/SavedReportsList';
-import { useSavedReports } from './hooks/useSavedReports';
-import type { SavedReport } from './types/savedReports';
+
 import { Landing } from './components/Landing';
 import { UnifiedWizardBar } from './components/UnifiedWizardBar';
 
@@ -58,10 +58,6 @@ type AppMode = 'solar-battery' | 'tariff' | null;
 function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' }) {
   const navigate = useNavigate();
   const appMode: AppMode = defaultMode;
-
-  // Saved Reports (solar & battery mode only)
-  const { reports, saveReport, deleteReport, clearReports, importReports } = useSavedReports();
-  const [showSavedReports, setShowSavedReports] = useState(false);
 
   // Building type selection (Step 0)
   const [, setBuildingTypeSelection] = useState<BuildingTypeSelection | null>(null);
@@ -706,104 +702,7 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
     }
   };
 
-  const handleLoadReport = (saved: SavedReport) => {
-    const report = migrateReport(saved as unknown as Record<string, unknown>);
-    setCalculationError(null);
-    setIsEditingReport(true); // Loading a report puts us in editing mode if we go back
-    // 1. Restore all state
-    setConfig(report.config);
-    setFinancing(report.financing);
-    setSelectedGrantIds(report.selectedGrantIds);
-    setTrading(report.trading);
-    // tariffId is stateful but derived from const in this MVP (only 1 tariff supported mostly), 
-    // but if we had multiple tariffs we'd set it here.
-    // setTariffId(report.tariffId);
-
-    setExampleMonths(report.exampleMonths);
-    setTariffConfig(report.tariffConfig);
-    setCurvedMonthlyKwh(report.curvedMonthlyKwh);
-    
-    // Restore house mode data if available
-    setHourlyConsumptionOverride(report.hourlyConsumptionOverride);
-    setUploadSummary(report.uploadSummary);
-    if (report.selectedDomesticTariffId) {
-      const found = domesticTariffs.find(t => t.id === report.selectedDomesticTariffId);
-      setSelectedDomesticTariff(found);
-    } else {
-      setSelectedDomesticTariff(undefined);
-    }
-    
-    // estimatedMonthlyBills is derived, no need to set
-    
-    if (report.selectedYear) {
-      setSelectedYear(report.selectedYear);
-    }
-
-    // 2. Close modal
-    setShowSavedReports(false);
-
-    // 3. Mark steps as complete
-    setCompletedSteps(new Set([0, 1, 2, 3, 4]));
-    
-    // 4. Navigate to results or trigger calculation
-    // Ideally we re-run the calculation to ensure freshness
-    // But we need to wait for state updates? 
-    // State updates are async. We can't call handleCalculate immediately with old state.
-    // Option A: Just set result from saved snapshot (if available)
-    if (report.result) {
-      setStandardResult(report.result);
-      setMarketResult(null);
-      setTariffComparisonResults(null); // Saved reports pre-date comparison feature
-    } else {
-      setStandardResult(null);
-      setMarketResult(null);
-      setTariffComparisonResults(null);
-    }
-    
-    // 5. If we have a location, we need to ensure solar data loads.
-    // The existing useEffect on config.location will trigger loadSolarData.
-    // That's good.
-    
-    // 6. Go to last step (Finance) or results?
-    // If we have a result, show it.
-    // If not, go to Finance step.
-    if (report.result) {
-        // Results are shown when result != null
-        // And we scroll to top
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-        setCurrentStep(4);
-    }
-
-    logInfo('ui', 'Loaded saved report', { reportId: report.id, name: report.name });
-  };
-
-  const handleSaveReport = (name: string) => {
-    if (!standardResult) return;
-
-    saveReport({
-        name,
-        schemaVersion: 1,
-        config,
-        financing,
-        selectedGrantIds,
-        trading,
-        tariffId,
-        exampleMonths,
-        tariffConfig,
-        curvedMonthlyKwh,
-        estimatedMonthlyBills,
-        selectedYear,
-        hourlyConsumptionOverride,
-        uploadSummary,
-        selectedDomesticTariffId: selectedDomesticTariff?.id,
-        result: standardResult // Snapshot (save standard result for now)
-    });
-    
-    logInfo('ui', 'Saved report', { name });
-  };
-
-  const handleShareReport = async (): Promise<void> => {
+  const handleShareReport = async (): Promise<string> => {
     if (!standardResult) throw new Error('No result to share');
 
     const payload = {
@@ -836,7 +735,8 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
 
     const url = `${window.location.origin}/r/${id}`;
     await navigator.clipboard.writeText(url);
-    logInfo('ui', 'Shared report', { id, url });
+    logInfo('ui', 'Saved & shared report', { id, url });
+    return url;
   };
 
   const handleBackFromResults = () => {
@@ -910,25 +810,11 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
           onStartNew={handleStartNewReport}
           onRecalculate={handleCalculate}
           isEditing={isEditingReport}
-          onOpenSavedReports={showSolarBattery ? () => setShowSavedReports(true) : undefined}
           showExit={appMode === 'solar-battery' && (currentStep > 0 || standardResult !== null)}
           steps={appMode === 'solar-battery' && currentStep > 0 && !standardResult ? steps : undefined}
           currentStep={currentStep > 0 && !standardResult ? currentStep : undefined}
           completedSteps={completedSteps}
         />
-
-      {/* Saved Reports List Modal (solar & battery mode only) */}
-      {showSolarBattery && (
-        <SavedReportsList
-            isOpen={showSavedReports}
-            reports={reports}
-            onClose={() => setShowSavedReports(false)}
-            onLoad={handleLoadReport}
-            onDelete={deleteReport}
-            onClearAll={clearReports}
-            onImport={importReports}
-          />
-      )}
 
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 md:py-8 relative z-20">
 
@@ -979,8 +865,6 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   onBack={handleBackFromResults}
-                  onSaveReport={handleSaveReport}
-                  existingReportNames={reports.map((r) => r.name)}
                   onShare={handleShareReport}
                 />
               </div>
@@ -1102,6 +986,8 @@ function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/full-model/*" element={<WizardApp defaultMode="solar-battery" />} />
       <Route path="/tariffs/*" element={<WizardApp defaultMode="tariff" />} />
+      <Route path="/links" element={<LinksPage />} />
+      <Route path="/r" element={<ReportsListView />} />
       <Route path="/r/:id" element={<SharedReportView />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

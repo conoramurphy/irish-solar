@@ -66,7 +66,8 @@ class OgTagInjector {
       `<meta property="og:url" content="${escapeAttr(this.url)}" />` +
       `<meta name="twitter:card" content="summary" />` +
       `<meta name="twitter:title" content="${escapeAttr(this.title)}" />` +
-      `<meta name="twitter:description" content="${escapeAttr(this.description)}" />`,
+      `<meta name="twitter:description" content="${escapeAttr(this.description)}" />` +
+      `<meta name="robots" content="noindex, nofollow" />`,
       { html: true }
     );
   }
@@ -114,7 +115,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     return response;
   }
 
-  if (!row) return response;
+  if (!row) {
+    return new HTMLRewriter()
+      .on('head', {
+        element(el: Element) {
+          el.append('<meta name="robots" content="noindex, nofollow" />', { html: true });
+        },
+      })
+      .transform(response);
+  }
 
   // Resolve payload: R2 first (new records), D1 payload column as fallback (old records)
   let payloadJson: string | null = row.payload;
@@ -127,7 +136,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     }
   }
 
-  if (!payloadJson) return response;
+  if (!payloadJson) {
+    return new HTMLRewriter()
+      .on('head', {
+        element(el: Element) {
+          el.append('<meta name="robots" content="noindex, nofollow" />', { html: true });
+        },
+      })
+      .transform(response);
+  }
 
   let payload: ReportPayload = {};
   try {

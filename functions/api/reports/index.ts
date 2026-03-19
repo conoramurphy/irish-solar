@@ -21,6 +21,24 @@ export const onRequestOptions: PagesFunction<Env> = async ({ request, env }) => 
   return new Response(null, { status: 204, headers: corsHeaders(request, env) });
 };
 
+export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+  const headers = { 'Content-Type': 'application/json', ...corsHeaders(request, env) };
+
+  const { results } = await env.DB.prepare(
+    'SELECT id, name, description, locked, created_at FROM reports ORDER BY created_at DESC'
+  ).all<{ id: string; name: string | null; description: string | null; locked: number; created_at: number }>();
+
+  const reports = (results ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    locked: r.locked === 1,
+    createdAt: r.created_at,
+  }));
+
+  return new Response(JSON.stringify(reports), { status: 200, headers });
+};
+
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const headers = { 'Content-Type': 'application/json', ...corsHeaders(request, env) };
 
