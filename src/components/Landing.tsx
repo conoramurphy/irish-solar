@@ -72,8 +72,8 @@ const STEPS = [
 ];
 
 const EXAMPLE_MODELS = [
-  { name: 'Longford dairy farm', size: '65–97.5 kWp', grant: 'TAMS 3', payback: '4.4 years', savingLabel: '10-year return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
-  { name: 'Cavan hotel, 20 beds', size: '150–1,200 kWp', grant: 'SEAI', payback: '2.9 years', savingLabel: '10-year return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
+  { name: 'Longford dairy farm', size: '65–97.5 kWp', grant: 'TAMS 3', payback: '4.4 yrs', savingLabel: '10-yr return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
+  { name: 'Cavan hotel, 20 beds', size: '150–1,200 kWp', grant: 'SEAI', payback: '2.9 yrs', savingLabel: '10-yr return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
 ];
 
 const ARROW = (
@@ -180,14 +180,14 @@ export function Landing() {
                       </p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div>
-                      <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>Payback</p>
-                      <p className="text-3xl font-bold text-white leading-none">{m.payback}</p>
+                  <div className="flex gap-6 mb-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Payback</p>
+                      <p className="text-2xl font-semibold font-sans tabular-nums text-white leading-none">{m.payback}</p>
                     </div>
-                    <div>
-                      <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>{m.savingLabel}</p>
-                      <p className="text-3xl font-bold leading-none" style={{ color: '#FDEAB4' }}>{m.saving}</p>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>{m.savingLabel}</p>
+                      <p className="text-2xl font-semibold font-sans tabular-nums leading-none" style={{ color: '#FDEAB4' }}>{m.saving}</p>
                     </div>
                   </div>
                   <button
