@@ -13,7 +13,7 @@ Single running list of future work items. Add new items at the top under the app
 - [x] ROI-DA day-ahead price fetcher (`Other tools/dayahead_ireland.py`): handle missing `Index prices;30;EUR` by supporting alternate SEMOpx formats (e.g. `Index prices;60;EUR` and multi-line blocks).
 
 ## Next up
-- Fix saved reports (saving/loading previously generated reports) not working
+- **Re-save to same link**: Allow updating a shared report's results/payload while keeping the same `/r/{id}` URL. Currently shared reports are frozen snapshots — if cost curves or tariff rates change, there's no way to re-run the model and push updated numbers to an existing link. Needs a PUT endpoint on `/api/reports/:id` that accepts a new payload, and a UI flow to "re-save" from the wizard to an existing report ID instead of always creating a new one.
 - Deployment: push/host the app on Google Cloud (define target: Cloud Run vs static hosting, CI/CD)
 - Multi-scenario comparison (save multiple runs, compare side-by-side, export a comparison report)
 - “Best fit” sizing / optimization (suggest PV + battery sizes that maximize NPV or hit a payback target, with constraints)

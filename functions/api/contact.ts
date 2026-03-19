@@ -66,7 +66,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     },
     body: JSON.stringify({
       from: 'Watt Profit <onboarding@resend.dev>',
-      to: ['conormurphy@outlook.com'],
+      to: ['conor.smurf@gmail.com'],
       reply_to: email,
       subject,
       text: textBody,

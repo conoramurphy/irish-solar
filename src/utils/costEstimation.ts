@@ -24,12 +24,13 @@ export interface SystemCostBreakdown {
 }
 
 function getCommercialSolarPricePerKwp(kwp: number): { tier: SolarPriceTier; pricePerKwp: number } {
-  // Curve calibrated to ~€880/kWp for ~75kWp commercial systems
+  // Curve calibrated against real quotes:
+  //   100 kWp fully installed (no battery) = €104,000 → €104k / 1.33 BOS / 100 = ~€782/kWp base
   if (kwp <= 0) return { tier: 'none', pricePerKwp: 0 };
-  if (kwp <= 10) return { tier: '<=10kWp', pricePerKwp: 1200 };
-  if (kwp <= 50) return { tier: '10-50kWp', pricePerKwp: 1200 - ((kwp - 10) / 40) * 250 }; // 1200 -> 950
-  if (kwp <= 150) return { tier: '50-150kWp', pricePerKwp: 950 - ((kwp - 50) / 100) * 150 }; // 950 -> 800
-  return { tier: '>150kWp', pricePerKwp: 800 };
+  if (kwp <= 10) return { tier: '<=10kWp', pricePerKwp: 1100 };
+  if (kwp <= 50) return { tier: '10-50kWp', pricePerKwp: 1100 - ((kwp - 10) / 40) * 250 }; // 1100 -> 850
+  if (kwp <= 150) return { tier: '50-150kWp', pricePerKwp: 850 - ((kwp - 50) / 100) * 120 }; // 850 -> 730
+  return { tier: '>150kWp', pricePerKwp: 730 };
 }
 
 function getDomesticSolarPricePerKwp(kwp: number): { tier: SolarPriceTier; pricePerKwp: number } {

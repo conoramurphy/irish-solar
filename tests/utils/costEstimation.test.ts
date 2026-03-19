@@ -3,23 +3,23 @@ import { estimateSystemCost, estimateSystemCostBreakdown } from '../../src/utils
 
 describe('estimateSystemCost', () => {
   it('matches the commercial benchmark (74kWp + 460kWh)', () => {
-    // PV: 74 * ~914 = 67,636
+    // PV: 74 * ~821 = 60,769
     // Batt: 460 * 350 = 161,000
-    // Sum = 228,636
-    // * 1.33 = 304,085
+    // Sum = 221,769
+    // * 1.33 = ~294,953
     const cost = estimateSystemCost(74, 460, 'commercial');
-    expect(cost).toBeGreaterThan(295000);
-    expect(cost).toBeLessThan(310000);
+    expect(cost).toBeGreaterThan(285000);
+    expect(cost).toBeLessThan(300000);
   });
 
   it('calculates small domestic system reasonably (6kWp + 5kWh) in commercial mode', () => {
-    // PV: 6 * 1200 = 7200
+    // PV: 6 * 1100 = 6600
     // Batt: 5 * 350 = 1750
-    // Sum = 8950
-    // * 1.33 = 11,903
+    // Sum = 8350
+    // * 1.33 = 11,106
     const cost = estimateSystemCost(6, 5, 'commercial');
-    expect(cost).toBeGreaterThan(11000);
-    expect(cost).toBeLessThan(13000);
+    expect(cost).toBeGreaterThan(10500);
+    expect(cost).toBeLessThan(12000);
   });
 
   it('matches domestic baseline (8kWp + 5kWh ≈ €8,000 inc VAT @ 13.5%)', () => {
@@ -33,11 +33,11 @@ describe('estimateSystemCost', () => {
   });
 
   it('handles PV only (50kWp)', () => {
-    // PV: 50 * 950 = 47,500
-    // * 1.33 = 63,175
+    // PV: 50 * 850 = 42,500
+    // * 1.33 = 56,525
     const cost = estimateSystemCost(50, 0, 'commercial');
-    expect(cost).toBeGreaterThan(60000);
-    expect(cost).toBeLessThan(65000);
+    expect(cost).toBeGreaterThan(54000);
+    expect(cost).toBeLessThan(58000);
   });
 
   it('handles Battery only (100kWh)', () => {
