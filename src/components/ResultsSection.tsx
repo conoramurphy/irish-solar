@@ -11,6 +11,7 @@ import { EnergyAnalyticsChart } from './EnergyAnalyticsChart';
 import { MarketAnalysis } from './MarketAnalysis';
 import { InputsUsedPanel } from './InputsUsedPanel';
 import { SaveReportModal } from './SaveReportModal';
+import { CTAModal } from './CTAModal';
 import { TariffComparisonTab } from './TariffComparisonTab';
 import type { TariffComparisonRow } from './TariffComparisonTab';
 import { SavingsBreakdownChart } from './SavingsBreakdownChart';
@@ -127,7 +128,7 @@ function AdminBar({
   );
 }
 
-function LockedOverlay() {
+function LockedOverlay({ onContact }: { onContact?: () => void }) {
   return (
     <div className="absolute inset-0 flex flex-col items-start justify-start z-10 rounded-b-2xl">
       <div className="bg-white/80 backdrop-blur-[2px] absolute inset-0 rounded-b-2xl" />
@@ -135,7 +136,7 @@ function LockedOverlay() {
         <div className="text-4xl mb-3">🔒</div>
         <p className="text-lg font-semibold text-slate-700 mb-1">This analysis is locked</p>
         <p className="text-sm text-slate-500">
-          Contact <a href="mailto:conormurphy@outlook.com" className="text-emerald-700 underline underline-offset-2 hover:text-emerald-900">conormurphy@outlook.com</a> to unlock the full report.
+          <button type="button" onClick={onContact} className="text-emerald-700 underline underline-offset-2 hover:text-emerald-900">Contact us</button> to unlock the full report.
         </p>
       </div>
     </div>
@@ -186,6 +187,7 @@ export function ResultsSection({
   const [applyFutureRateChanges, setApplyFutureRateChanges] = useState(true);
   const [ratesInfoOpen, setRatesInfoOpen] = useState(false);
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied' | 'error'>('idle');
+  const [ctaOpen, setCtaOpen] = useState(false);
 
   const reportDate = new Date().toLocaleDateString();
 
@@ -600,7 +602,7 @@ export function ResultsSection({
                 picks.push({
                   cell: fastestPayback,
                   icon: '⚡',
-                  title: 'Fastest Payback',
+                  title: 'Best Setup for Fastest Payback',
                   value: `${pb.toFixed(1)} years`,
                   tagline: `Equity recovered in ${pb.toFixed(1)} years net of loan payments.`,
                   accent: 'text-amber-700',
@@ -613,7 +615,7 @@ export function ResultsSection({
                 picks.push({
                   cell: best10yr,
                   icon: '📈',
-                  title: 'Best 10-Year Return',
+                  title: 'Best Setup for Highest 10-Year Return',
                   value: formatSignedCurrency(best10yr.year10NetCashFlow),
                   tagline: 'You make the most money over a decade.',
                   accent: 'text-emerald-700',
@@ -633,7 +635,7 @@ export function ResultsSection({
                 picks.push({
                   cell: independence,
                   icon: '🏠',
-                  title: 'Energy Independence',
+                  title: 'Best Setup for Energy Independence',
                   value: netBillDisplay,
                   tagline,
                   accent: 'text-blue-700',
@@ -658,7 +660,7 @@ export function ResultsSection({
                       <div className={`text-3xl font-bold ${p.accent} tabular-nums`}>{p.value}</div>
                       <p className="text-sm text-slate-600 mt-2 leading-relaxed">{p.tagline}</p>
                       <div className="mt-4 pt-3 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
-                        <span>{p.cell.sizeKwp.toFixed(1)} kWp · {p.cell.batterySizeKwh > 0 ? `${p.cell.batterySizeKwh.toFixed(1)} kWh battery` : 'No battery'}</span>
+                        <span>{p.cell.sizeKwp.toFixed(1)} kWp · {p.cell.batterySizeKwh > 0 ? `${p.cell.batterySizeKwh.toFixed(1)} kWh battery` : 'No battery'} — Est. {formatCurrency(p.cell.netCost)} after grants</span>
                         <span className={`font-semibold ${p.accent} opacity-0 group-hover:opacity-100 transition-opacity`}>
                           Simulate →
                         </span>
@@ -678,7 +680,7 @@ export function ResultsSection({
 
             {/* Everything below the energy chart is locked in locked mode */}
             <div className="relative">
-            {isLockedMode && <LockedOverlay />}
+            {isLockedMode && <LockedOverlay onContact={() => setCtaOpen(true)} />}
             <div className={isLockedMode ? 'pointer-events-none select-none blur-sm' : ''}>
             {/* Savings Breakdown Compact Section */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -1125,13 +1127,13 @@ export function ResultsSection({
                 </div>
               )}
             </div>
-            {isLockedMode && <LockedOverlay />}
+            {isLockedMode && <LockedOverlay onContact={() => setCtaOpen(true)} />}
           </div>
         )}
 
         {/* --- FINANCIAL TAB — show overlay even when projection data unavailable --- */}
         {activeTab === 'financial' && isLockedMode && !financialProjection && (
-          <div className="relative min-h-96"><LockedOverlay /></div>
+          <div className="relative min-h-96"><LockedOverlay onContact={() => setCtaOpen(true)} /></div>
         )}
         {activeTab === 'financial' && standardResult && financialProjection && (() => {
           const proj = financialProjection.active;
@@ -1143,7 +1145,7 @@ export function ResultsSection({
 
           return (
           <div className="relative animate-in fade-in duration-300">
-            {isLockedMode && <LockedOverlay />}
+            {isLockedMode && <LockedOverlay onContact={() => setCtaOpen(true)} />}
             <div className={isLockedMode ? 'pointer-events-none select-none blur-sm' : ''}>
             {/* Active projection mode indicator */}
             <div className="flex items-center gap-3 mb-6">
@@ -1477,6 +1479,7 @@ export function ResultsSection({
             setSaveModalOpen(false);
           }}
         />
+        <CTAModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
       </div>
     </section>
   );

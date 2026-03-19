@@ -20,8 +20,16 @@ const GRID_DARK: React.CSSProperties = {
 };
 
 const SUN_ICON = (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="#145735" className="w-4 h-4">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-5 h-5">
+    <circle cx="16" cy="16" r="5.5" fill="#145735"/>
+    <rect x="14.75" y="2.5" width="2.5" height="5" rx="1.25" fill="#145735"/>
+    <rect x="14.75" y="24.5" width="2.5" height="5" rx="1.25" fill="#145735"/>
+    <rect x="2.5" y="14.75" width="5" height="2.5" rx="1.25" fill="#145735"/>
+    <rect x="24.5" y="14.75" width="5" height="2.5" rx="1.25" fill="#145735"/>
+    <rect x="14.75" y="2.5" width="2.5" height="5" rx="1.25" fill="#145735" transform="rotate(45 16 16)"/>
+    <rect x="14.75" y="24.5" width="2.5" height="5" rx="1.25" fill="#145735" transform="rotate(45 16 16)"/>
+    <rect x="2.5" y="14.75" width="5" height="2.5" rx="1.25" fill="#145735" transform="rotate(45 16 16)"/>
+    <rect x="24.5" y="14.75" width="5" height="2.5" rx="1.25" fill="#145735" transform="rotate(45 16 16)"/>
   </svg>
 );
 
@@ -64,8 +72,8 @@ const STEPS = [
 ];
 
 const EXAMPLE_MODELS = [
-  { name: 'Longford dairy farm', size: '52 kWp', grant: 'TAMS 3', payback: '6.4 years', saving: '€28,400', reportId: 'FARM_REPORT_ID' },
-  { name: 'Cavan hotel',         size: '38 kWp', grant: 'SEAI',   payback: '7.1 years', saving: '€19,800', reportId: 'HOTEL_REPORT_ID' },
+  { name: 'Longford dairy farm', size: '65–97.5 kWp', grant: 'TAMS 3', payback: '4.4 years', savingLabel: '10-year return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
+  { name: 'Cavan hotel',         size: '38 kWp', grant: 'SEAI',   payback: '7.1 years', savingLabel: 'Year 1 saving', saving: '€19,800', reportId: 'HOTEL_REPORT_ID' },
 ];
 
 const ARROW = (
@@ -178,7 +186,7 @@ export function Landing() {
                       <p className="text-3xl font-bold text-white leading-none">{m.payback}</p>
                     </div>
                     <div>
-                      <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>Year 1 saving</p>
+                      <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>{m.savingLabel}</p>
                       <p className="text-3xl font-bold leading-none" style={{ color: '#FDEAB4' }}>{m.saving}</p>
                     </div>
                   </div>
@@ -312,24 +320,144 @@ export function Landing() {
         </section>
 
         {/* ─────────────────────────────────────────────
-            FOOTER  (same green family as hero, slightly deeper)
+            FOOTER
         ───────────────────────────────────────────── */}
-        <footer
-          className="py-14"
-          style={{ backgroundColor: '#1A4A35' }}
-          role="contentinfo"
-        >
-          <div className="w-full max-w-5xl mx-auto px-5 md:px-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div>
-              {LOGO}
-              <p className="mt-2 text-sm font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                Independent energy analysis for Irish businesses.
+        <footer style={{ backgroundColor: '#1A4A35' }} role="contentinfo">
+
+          {/* ── References section ── */}
+          <div className="w-full max-w-5xl mx-auto px-5 md:px-8 pt-14 pb-10">
+
+            {/* Section heading */}
+            <div style={{ borderTop: '1px solid rgba(253,234,180,0.25)', paddingTop: '2rem', marginBottom: '1.75rem' }}>
+              <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: 'rgba(253,234,180,0.5)', fontVariant: 'small-caps', letterSpacing: '0.18em' }}>
+                Methodology &amp; Data Sources
               </p>
+              <h3 className="font-serif text-xl font-semibold leading-snug" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                References
+              </h3>
             </div>
-            <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              36 Irish locations · 2020–25 · Not financial advice
+
+            {/* Reference grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-0">
+
+              {/* ── Grants & Policy ── */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', marginBottom: '1.25rem' }}>
+                <p className="text-xs font-semibold mb-3 tracking-widest" style={{ color: 'rgba(253,234,180,0.6)', fontVariant: 'small-caps', letterSpacing: '0.15em' }}>
+                  Grants &amp; Policy
+                </p>
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[1]</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Sustainable Energy Authority of Ireland. <span className="italic">Solar PV Grant — Domestic.</span>{' '}
+                      <a href="https://www.seai.ie/grants/home-energy-grants/solar-electricity-grant/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>seai.ie</a>.
+                      {' '}<span style={{ color: 'rgba(255,255,255,0.4)' }}>Last verified 22 Feb 2025.</span>
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[2]</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Sustainable Energy Authority of Ireland. <span className="italic">Non-Domestic Microgen Grant (Solar PV).</span>{' '}
+                      <a href="https://www.seai.ie/grants/business-grants/commercial-solar-pv/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>seai.ie</a>.
+                      {' '}<span style={{ color: 'rgba(255,255,255,0.4)' }}>Last verified 8 Feb 2026.</span>
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[3]</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Department of Agriculture, Food and the Marine. <span className="italic">TAMS 3 Solar Capital Investment Scheme (SCIS).</span>{' '}
+                      <a href="https://www.gov.ie/en/service/f8cb3-solar-capital-investment-scheme-scis/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>gov.ie</a>.
+                      {' '}<span style={{ color: 'rgba(255,255,255,0.4)' }}>Last verified 8 Feb 2026.</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Solar Irradiance ── */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', marginBottom: '1.25rem' }}>
+                <p className="text-xs font-semibold mb-3 tracking-widest" style={{ color: 'rgba(253,234,180,0.6)', fontVariant: 'small-caps', letterSpacing: '0.15em' }}>
+                  Solar Irradiance
+                </p>
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[4]</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Copernicus Atmosphere Monitoring Service. <span className="italic">CAMS Radiation Service — Global Horizontal Irradiance, 36 Irish locations, 2020–2025.</span>{' '}
+                      <a href="https://www.soda-pro.com/web-services/radiation/cams-radiation-service" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>soda-pro.com</a>.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[5]</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      European Commission Joint Research Centre. <span className="italic">PVGIS — Photovoltaic Geographical Information System (PVGIS-SARAH3).</span>{' '}
+                      <a href="https://re.jrc.ec.europa.eu/pvgis/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>re.jrc.ec.europa.eu</a>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Electricity Prices ── */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', marginBottom: '1.25rem' }}>
+                <p className="text-xs font-semibold mb-3 tracking-widest" style={{ color: 'rgba(253,234,180,0.6)', fontVariant: 'small-caps', letterSpacing: '0.15em' }}>
+                  Electricity Prices
+                </p>
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[6]</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Single Electricity Market Operator. <span className="italic">SEMOpx Day-Ahead Market Reports — ROI-DA, 30-minute intervals, 2021–present.</span>{' '}
+                      <a href="https://reports.semopx.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>reports.semopx.com</a>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Consumption Benchmarks ── */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', marginBottom: '1.25rem' }}>
+                <p className="text-xs font-semibold mb-3 tracking-widest" style={{ color: 'rgba(253,234,180,0.6)', fontVariant: 'small-caps', letterSpacing: '0.15em' }}>
+                  Consumption Benchmarks
+                </p>
+                <div className="space-y-3">
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[7]</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Sustainable Energy Authority of Ireland. <span className="italic">Energy in Ireland 2024.</span>{' '}
+                      <a href="https://www.seai.ie/data-and-insights/seai-statistics/key-publications/energy-in-ireland/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>seai.ie</a>.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[8]</span>
+                    <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                      Central Statistics Office Ireland. <span className="italic">Household Energy Survey 2020.</span>{' '}
+                      <a href="https://www.cso.ie" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>cso.ie</a>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Disclaimer line */}
+            <p className="text-xs mt-2 italic" style={{ color: 'rgba(255,255,255,0.35)' }}>
+              All grant values, tariff rates, and irradiance data are subject to change. This tool provides modelling estimates only and does not constitute financial or investment advice.
             </p>
           </div>
+
+          {/* ── Branding row ── */}
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="w-full max-w-5xl mx-auto px-5 md:px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div>
+                {LOGO}
+                <p className="mt-2 text-sm font-medium" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                  Independent energy analysis for Irish businesses.
+                </p>
+              </div>
+              <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                36 Irish locations · 2020–25 · Not financial advice
+              </p>
+            </div>
+          </div>
+
         </footer>
 
       </div>
