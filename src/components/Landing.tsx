@@ -73,7 +73,7 @@ const STEPS = [
 
 const EXAMPLE_MODELS = [
   { name: 'Longford dairy farm', size: '65–97.5 kWp', grant: 'TAMS 3', payback: '4.4 years', savingLabel: '10-year return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
-  { name: 'Cavan hotel',         size: '38 kWp', grant: 'SEAI',   payback: '7.1 years', savingLabel: 'Year 1 saving', saving: '€19,800', reportId: 'HOTEL_REPORT_ID' },
+  { name: 'Cavan hotel, 20 beds', size: '150–1,200 kWp', grant: 'SEAI', payback: '2.9 years', savingLabel: '10-year return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
 ];
 
 const ARROW = (
