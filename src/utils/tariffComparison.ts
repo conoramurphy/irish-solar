@@ -1,6 +1,7 @@
 import type { Tariff } from '../types';
 import { simulateHourlyEnergyFlow } from './hourlyEnergyFlow';
-import { buildCanonicalHourStampsForYear, expectedHoursInYear } from './solarTimeseriesParser';
+import { buildCanonicalStampsForYear, expectedSlotsInYear } from './solarTimeseriesParser';
+import type { SlotsPerDay } from './solarTimeseriesParser';
 import { getEffectiveTariffBucketForHour, getTariffRateForHour } from './tariffRate';
 
 export interface TariffComparisonRow {
@@ -67,14 +68,17 @@ function rateKey(rate: number): string {
 export function compareDomesticTariffsForUsage(input: CompareDomesticTariffsInput): TariffComparisonRow[] {
   const { hourlyConsumption, year, tariffs } = input;
 
-  const expectedHours = expectedHoursInYear(year);
-  if (hourlyConsumption.length !== expectedHours) {
+  // Detect resolution from slot count: 17520/17568 = half-hourly, 8760/8784 = hourly
+  const slotsPerDay: SlotsPerDay = hourlyConsumption.length > 10000 ? 48 : 24;
+  const expectedSlots = expectedSlotsInYear(year, slotsPerDay);
+
+  if (hourlyConsumption.length !== expectedSlots) {
     throw new Error(
-      `Hourly usage length (${hourlyConsumption.length}) does not match expected hours (${expectedHours}) for year ${year}.`
+      `Usage slot count (${hourlyConsumption.length}) does not match expected ${expectedSlots} slots (${slotsPerDay}/day) for year ${year}.`
     );
   }
 
-  const stamps = buildCanonicalHourStampsForYear(year);
+  const stamps = buildCanonicalStampsForYear(year, slotsPerDay);
   const zeros = new Array(hourlyConsumption.length).fill(0);
 
   const baseRows: Omit<TariffComparisonRow, 'deltaVsBestEur' | 'deltaVsBestPct'>[] = tariffs.map((tariff) => {
@@ -82,7 +86,7 @@ export function compareDomesticTariffsForUsage(input: CompareDomesticTariffsInpu
     const sim = simulateHourlyEnergyFlow(zeros, hourlyConsumption, tariff, undefined, false, stamps);
     const annualCostEur = safeNumber(sim.totalImportCost);
 
-    const days = stamps.length / 24;
+    const days = stamps.length / slotsPerDay;
     const annualStandingEur = safeNumber(tariff.standingCharge) * days;
     const annualEnergyEur = annualCostEur - annualStandingEur;
 

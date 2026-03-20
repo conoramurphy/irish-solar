@@ -3,8 +3,6 @@ import { domesticTariffs } from '../utils/domesticTariffParser';
 import { compareDomesticTariffsForUsage } from '../utils/tariffComparison';
 import { formatCurrency } from '../utils/format';
 import { parseEsbUsageProfile } from '../utils/usageProfileParser';
-import { SampleHouseSelector } from './SampleHouseSelector';
-import type { SampleHouseLoadResult } from './SampleHouseSelector';
 
 function formatUnitRate(value: number) {
   return `€${value.toFixed(4)}/kWh`;
@@ -25,8 +23,6 @@ export function TariffModeller() {
     warnings: string[];
     filename?: string;
   } | null>(null);
-  const [activeHouseId, setActiveHouseId] = useState<string | null>(null);
-
   const [selectedTariffId, setSelectedTariffId] = useState<string | null>(null);
 
   const rows = useMemo(() => {
@@ -51,7 +47,6 @@ export function TariffModeller() {
     setUploadError(null);
     setParsedProfile(null);
     setSelectedTariffId(null);
-    setActiveHouseId(null);
 
     try {
       const text = await file.text();
@@ -68,19 +63,6 @@ export function TariffModeller() {
       const msg = err instanceof Error ? err.message : 'Failed to parse file';
       setUploadError(msg);
     }
-  };
-
-  const handleSampleLoad = (result: SampleHouseLoadResult, houseId: string) => {
-    setUploadError(null);
-    setSelectedTariffId(null);
-    setActiveHouseId(houseId);
-    setParsedProfile({
-      hourly: result.hourly,
-      year: result.year,
-      totalKwh: result.totalKwh,
-      warnings: result.warnings,
-      filename: result.filename,
-    });
   };
 
   return (
@@ -132,14 +114,6 @@ export function TariffModeller() {
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" /></svg>
             {uploadError}
           </p>}
-        </div>
-
-        {/* Sample house profiles */}
-        <div className="mb-8 pt-2 border-t border-slate-100">
-          <SampleHouseSelector
-            activeId={activeHouseId}
-            onLoad={(result) => handleSampleLoad(result, result.houseId)}
-          />
         </div>
 
         {/* Empty state — shown before any file is uploaded */}
