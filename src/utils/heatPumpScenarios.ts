@@ -546,8 +546,8 @@ export function buildPackageScenarios(
     {
       id: 'full_retrofit',
       label: 'Full Retrofit',
-      description: `All major insulation (attic + ${wallLabel} + air sealing + EWI). No solar/battery — fabric first.`,
-      insulation: ['attic', wallMeasure, 'airSealing', 'ewi'],
+      description: `Everything: attic + ${wallLabel} + air sealing + EWI + windows + doors. Standard Irish deep retrofit.`,
+      insulation: ['attic', wallMeasure, 'airSealing', 'ewi', 'windows', 'doors'],
       solarKwp: 0,
       batteryKwh: 0,
       extraCostEur: 0,

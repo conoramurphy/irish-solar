@@ -73,7 +73,7 @@ export function getArchetype(id: string): HeatPumpArchetype {
 // Insulation measures
 // ---------------------------------------------------------------------------
 
-export type InsulationMeasure = 'attic' | 'cavity' | 'airSealing' | 'ewi' | 'drylining' | 'floor' | 'windows';
+export type InsulationMeasure = 'attic' | 'cavity' | 'airSealing' | 'ewi' | 'drylining' | 'floor' | 'windows' | 'doors';
 
 export interface InsulationMeasureData {
   label: string;
@@ -125,7 +125,13 @@ export const INSULATION_MEASURES: Record<InsulationMeasure, InsulationMeasureDat
   windows: {
     label: 'Windows (double → triple glazing)',
     hliDelta: 0.12,
-    netCostEur: 6000,
+    netCostEur: 5000,  // typical €8,000, SEAI grant €3,000 (semi-d, Feb 2026)
+    requiresCavity: false,
+  },
+  doors: {
+    label: 'Front & back doors',
+    hliDelta: 0.05,  // small but measurable draught + thermal bridge reduction
+    netCostEur: 1200,  // typical €2,800 (2 doors), SEAI grant €1,600 (€800 × 2, Feb 2026)
     requiresCavity: false,
   },
 };
