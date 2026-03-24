@@ -195,4 +195,13 @@ describe('solarDataLoader', () => {
     expect(status.size).toBe(0);
     expect(status.keys).toEqual([]);
   });
+
+  it('uses "Unknown error" when a non-Error is thrown (line 56 false branch)', async () => {
+    // Throw a plain string instead of an Error to trigger the non-instanceof-Error branch
+    globalThis.fetch = vi.fn().mockRejectedValue('a plain string error');
+
+    await expect(loadSolarData('Test', 2020)).rejects.toThrow(
+      /Failed to load solar data.*Test.*2020.*Unknown error/
+    );
+  });
 });

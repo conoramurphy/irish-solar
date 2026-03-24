@@ -382,5 +382,126 @@ describe('hourlyConsumption', () => {
         expect(monthlyKwh).toBeCloseTo(originalMonthly[i], 1);
       });
     });
+
+    it('should handle half-hourly (17520-length) data with slotsPerDay=48 branch (lines 286-295)', () => {
+      const halfHourly = Array(17520).fill(0.5);
+      const monthly = aggregateHourlyToMonthly(halfHourly);
+      expect(monthly).toHaveLength(12);
+
+      const monthlyTotal = monthly.reduce((a, b) => a + b, 0);
+      const halfHourlyTotal = halfHourly.reduce((a: number, b: number) => a + b, 0);
+      expect(monthlyTotal).toBeCloseTo(halfHourlyTotal, 1);
+
+      // January: 31 days × 48 slots = 1488 slots × 0.5 = 744
+      expect(monthly[0]).toBeCloseTo(31 * 48 * 0.5, 1);
+      // February (non-leap): 28 days × 48 slots = 1344 slots × 0.5 = 672
+      expect(monthly[1]).toBeCloseTo(28 * 48 * 0.5, 1);
+    });
+
+    it('handles array with 0 values (covers || 0 right branch at line 295)', () => {
+      // Array of zeros triggers the || 0 fallback branch in aggregateHourlyToMonthly
+      const zeros = new Array(8760).fill(0);
+      const monthly = aggregateHourlyToMonthly(zeros);
+      expect(monthly).toHaveLength(12);
+      monthly.forEach(v => expect(v).toBe(0));
+    });
+
+    it('should handle half-hourly leap year (17568-length) - covers getDaysPerMonthFromHours leap path', () => {
+      // Leap year: 366 * 48 = 17568
+      const halfHourlyLeap = Array(17568).fill(1.0);
+      const monthly = aggregateHourlyToMonthly(halfHourlyLeap);
+      expect(monthly).toHaveLength(12);
+
+      const monthlyTotal = monthly.reduce((a, b) => a + b, 0);
+      expect(monthlyTotal).toBeCloseTo(17568, 1);
+
+      // February in leap year: 29 days × 48 slots = 1392 slots × 1.0 = 1392
+      expect(monthly[1]).toBeCloseTo(29 * 48, 1);
+      // January: 31 × 48 = 1488
+      expect(monthly[0]).toBeCloseTo(31 * 48, 1);
+    });
+  });
+
+  describe('generateHourlyConsumption half-hourly mode', () => {
+    it('generates 17520 slots for a non-leap year (slotsPerDay=48)', () => {
+      const flatTariff: Tariff = {
+        id: 'flat',
+        supplier: 'Test',
+        product: 'Flat',
+        type: '24-hour',
+        standingCharge: 0,
+        rates: [{ period: 'all-day', rate: 0.25 }],
+        exportRate: 0.10
+      };
+
+      const profile: ConsumptionProfile = {
+        months: Array.from({ length: 12 }, (_, i) => ({
+          monthIndex: i,
+          totalKwh: 1000,
+          bucketShares: { 'all-day': 1.0 }
+        }))
+      };
+
+      // 17520 = 365 * 48 (non-leap year half-hourly)
+      const result = generateHourlyConsumption(profile, flatTariff, 17520);
+      expect(result).toHaveLength(17520);
+
+      const total = result.reduce((a, b) => a + b, 0);
+      expect(total).toBeCloseTo(1000 * 12, 1);
+    });
+
+    it('skips months where profile.months[i] is undefined (if (!month) continue branch)', () => {
+      const flatTariff: Tariff = {
+        id: 'flat',
+        supplier: 'Test',
+        product: 'Flat',
+        type: '24-hour',
+        standingCharge: 0,
+        rates: [{ period: 'all-day', rate: 0.25 }],
+        exportRate: 0.10
+      };
+
+      // Sparse months array: only months 0-10, missing month 11
+      const sparseMonths: ConsumptionProfile = {
+        months: Array.from({ length: 12 }, (_, i) => i < 11
+          ? { monthIndex: i, totalKwh: 1000, bucketShares: { 'all-day': 1.0 } }
+          : (undefined as unknown as { monthIndex: number; totalKwh: number; bucketShares: Record<string, number> })
+        )
+      };
+
+      // This will throw because the total slots won't match 8760 (month 11 is skipped)
+      // We just test that it correctly skips month 11 (no throw for undefined month itself)
+      // But it will throw with slot mismatch. Let's just test that month[11]=undefined is handled.
+      // Use a try-catch to verify the continue branch fires without crashing on undefined access
+      expect(() => generateHourlyConsumption(sparseMonths, flatTariff, 8760)).toThrow(/produced.*slots.*expected/);
+    });
+  });
+
+  describe('generateHourlyConsumption with undefined bucketShares', () => {
+    it('should fall back to empty bucketShares when month.bucketShares is falsy (lines 252-253)', () => {
+      const testTariff: Tariff = {
+        id: 'flat',
+        supplier: 'Test',
+        product: 'Flat',
+        type: '24-hour',
+        standingCharge: 1.0,
+        rates: [{ period: 'all-day', rate: 0.25 }],
+        exportRate: 0.20
+      };
+
+      // Create a profile where bucketShares is undefined on every month
+      const profile = {
+        months: Array.from({ length: 12 }, (_, i) => ({
+          monthIndex: i,
+          totalKwh: 1000,
+          bucketShares: undefined as unknown as Record<string, number>
+        }))
+      } as ConsumptionProfile;
+
+      const result = generateHourlyConsumption(profile, testTariff);
+      expect(result).toHaveLength(8760);
+      // All values should be 0 since empty bucketShares means no energy allocated to any bucket
+      expect(result.every(v => v === 0)).toBe(true);
+    });
   });
 });

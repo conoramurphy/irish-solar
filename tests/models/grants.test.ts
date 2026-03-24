@@ -157,6 +157,133 @@ describe('grants model', () => {
     });
   });
 
+  describe('SEAI Domestic Solar PV grant', () => {
+    const seaiDomesticGrant: Grant = {
+      id: 'seai-domestic',
+      name: 'SEAI Domestic Solar PV',
+      type: 'SEAI',
+      percentage: 0,
+      maxAmount: 1800,
+      eligibleFor: ['house'],
+      calculation: { method: 'seai-domestic-solar-pv' }
+    };
+
+    it('returns 700 for 1 kWp', () => {
+      expect(calculateSingleGrantAmount(10_000, seaiDomesticGrant, { systemSizeKwp: 1 })).toBe(700);
+    });
+
+    it('returns 1400 for exactly 2 kWp (boundary)', () => {
+      expect(calculateSingleGrantAmount(10_000, seaiDomesticGrant, { systemSizeKwp: 2 })).toBe(1400);
+    });
+
+    it('returns 1600 for 3 kWp (1400 + 200)', () => {
+      expect(calculateSingleGrantAmount(10_000, seaiDomesticGrant, { systemSizeKwp: 3 })).toBe(1600);
+    });
+
+    it('returns 1800 for 4 kWp (1400 + 400)', () => {
+      expect(calculateSingleGrantAmount(10_000, seaiDomesticGrant, { systemSizeKwp: 4 })).toBe(1800);
+    });
+
+    it('caps at 1800 for 5 kWp', () => {
+      expect(calculateSingleGrantAmount(10_000, seaiDomesticGrant, { systemSizeKwp: 5 })).toBe(1800);
+    });
+  });
+
+  describe('TAMS with invalid systemSizeKwp', () => {
+    const tamsGrant: Grant = {
+      id: 'tams-scis-solar-pv',
+      name: 'TAMS 3 Solar Capital Investment Scheme (SCIS)',
+      type: 'TAMS',
+      percentage: 60,
+      maxAmount: 54_000,
+      eligibleFor: ['farm'],
+      calculation: { method: 'tams-scis-solar-pv' }
+    };
+
+    it('returns 0 when systemSizeKwp is NaN', () => {
+      expect(calculateSingleGrantAmount(50_000, tamsGrant, {
+        systemSizeKwp: NaN,
+        batterySizeKwh: 10,
+        annualConsumptionKwh: 30_000
+      })).toBe(0);
+    });
+
+    it('returns 0 when systemSizeKwp is 0', () => {
+      expect(calculateSingleGrantAmount(50_000, tamsGrant, {
+        systemSizeKwp: 0,
+        batterySizeKwh: 10,
+        annualConsumptionKwh: 30_000
+      })).toBe(0);
+    });
+  });
+
+  describe('calculateSingleGrantAmount edge cases for uncovered lines', () => {
+    it('returns 0 when systemCost is NaN (line 120: !Number.isFinite check)', () => {
+      const grant: Grant = {
+        id: 'pct',
+        name: 'Percentage Grant',
+        type: 'SEAI',
+        percentage: 30,
+        maxAmount: 10000,
+        eligibleFor: ['hotel']
+      };
+      expect(calculateSingleGrantAmount(NaN, grant, {})).toBe(0);
+    });
+
+    it('returns 0 when systemCost is 0 (line 120: systemCost <= 0)', () => {
+      const grant: Grant = {
+        id: 'pct2',
+        name: 'Percentage Grant 2',
+        type: 'SEAI',
+        percentage: 30,
+        maxAmount: 10000,
+        eligibleFor: ['hotel']
+      };
+      expect(calculateSingleGrantAmount(0, grant, {})).toBe(0);
+    });
+
+    it('returns 0 when seai-domestic-solar-pv with systemSizeKwp=0 (line 127)', () => {
+      const grant: Grant = {
+        id: 'seai-domestic',
+        name: 'SEAI Domestic Solar PV',
+        type: 'SEAI',
+        percentage: 0,
+        maxAmount: 1800,
+        eligibleFor: ['house'],
+        calculation: { method: 'seai-domestic-solar-pv' }
+      };
+      expect(calculateSingleGrantAmount(10000, grant, { systemSizeKwp: 0 })).toBe(0);
+    });
+
+    it('throws when seai-non-domestic-microgen-solar-pv with systemSizeKwp undefined (line 133)', () => {
+      const grant: Grant = {
+        id: 'seai-ndmg',
+        name: 'SEAI Non-Domestic Microgen Grant',
+        type: 'SEAI',
+        percentage: 0,
+        maxAmount: 162600,
+        eligibleFor: ['hotel'],
+        calculation: { method: 'seai-non-domestic-microgen-solar-pv' }
+      };
+      expect(() =>
+        calculateSingleGrantAmount(10000, grant, { systemSizeKwp: undefined })
+      ).toThrow(/requires a valid system size/i);
+    });
+
+    it('returns 0 when tams-scis-solar-pv with systemSizeKwp=0 (line 142)', () => {
+      const grant: Grant = {
+        id: 'tams-scis-solar-pv',
+        name: 'TAMS 3 SCIS',
+        type: 'TAMS',
+        percentage: 60,
+        maxAmount: 54000,
+        eligibleFor: ['farm'],
+        calculation: { method: 'tams-scis-solar-pv' }
+      };
+      expect(calculateSingleGrantAmount(10000, grant, { systemSizeKwp: 0 })).toBe(0);
+    });
+  });
+
   describe('grant eligibility edge cases', () => {
     it('returns empty array when no grants match business type', () => {
       const eligible = getEligibleGrants('other', grants);

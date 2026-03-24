@@ -68,6 +68,59 @@ describe('normalizeHourlyConsumptionLength', () => {
     }).toThrow(/unexpected length/);
   });
 
+  // ---- Half-hourly (17520 / 17568) tests ----
+
+  it('pads half-hourly non-leap data to leap year (17520 -> 17568)', () => {
+    const data = new Array(17520).fill(0).map((_, i) => (i % 48) * 0.1 + 0.5);
+    const result = normalizeHourlyConsumptionLength(data, 17568);
+
+    expect(result.normalized.length).toBe(17568);
+    expect(result.corrections.padded).toBe(true);
+    expect(result.corrections.trimmed).toBe(false);
+    expect(result.corrections.originalLength).toBe(17520);
+    expect(result.corrections.targetLength).toBe(17568);
+    expect(result.corrections.warnings.length).toBeGreaterThan(0);
+
+    // Feb 29 starts at slot (31 + 28) * 48 = 2832
+    const feb29Start = (31 + 28) * 48;
+    // The inserted slot should be the average of Feb 28 and Mar 1 values
+    const feb28Start = (31 + 27) * 48;
+    const mar1Start = (31 + 28) * 48;
+    const expected = (data[feb28Start] + data[mar1Start]) / 2;
+    expect(result.normalized[feb29Start]).toBeCloseTo(expected, 5);
+  });
+
+  it('trims half-hourly leap data to non-leap year (17568 -> 17520)', () => {
+    const data = new Array(17568).fill(0).map((_, i) => i * 0.001);
+    const result = normalizeHourlyConsumptionLength(data, 17520);
+
+    expect(result.normalized.length).toBe(17520);
+    expect(result.corrections.padded).toBe(false);
+    expect(result.corrections.trimmed).toBe(true);
+    expect(result.corrections.warnings.length).toBeGreaterThan(0);
+
+    // The 48 slots for Feb 29 (starting at slot 2832) should have been removed
+    const feb29Start = (31 + 28) * 48;
+    // After trimming, slot at feb29Start should be the original Mar 1 data
+    expect(result.normalized[feb29Start]).toBeCloseTo(data[feb29Start + 48], 5);
+  });
+
+  it('uses ?? 0 fallback when array elements are undefined (lines 62-63)', () => {
+    // Create a sparse 8760-element array where most elements are undefined.
+    // The Feb 28 and Mar 1 slots are undefined → avg = (0 + 0) / 2 = 0 (via ?? 0)
+    const sparse = new Array(8760); // sparse: all elements undefined
+    const result = normalizeHourlyConsumptionLength(sparse, 8784);
+
+    expect(result.normalized.length).toBe(8784);
+    expect(result.corrections.padded).toBe(true);
+
+    // Feb 29 slots should be 0 (both neighbors were undefined → ?? 0 → avg = 0)
+    const feb29Start = (31 + 28) * 24;
+    for (let s = 0; s < 24; s++) {
+      expect(result.normalized[feb29Start + s]).toBe(0);
+    }
+  });
+
   it('preserves total consumption when padding (within rounding)', () => {
     // Use a fixed pattern instead of Math.random() to avoid flaky tests
     const data = new Array(8760).fill(0).map((_, i) => (i % 24) * 0.5 + 1);

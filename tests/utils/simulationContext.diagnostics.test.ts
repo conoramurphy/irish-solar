@@ -54,6 +54,13 @@ describe('prepareSimulationContext diagnostics', () => {
     expect(ctx.consumptionNormalization?.warnings?.length).toBeGreaterThan(0);
   });
 
+  it('throws when solar timesteps count is not 8760/8784/17520/17568', () => {
+    const solar = makeSolar(2021, 100); // invalid length
+    expect(() =>
+      prepareSimulationContext(baseConfig, tariff, { enabled: false }, solar)
+    ).toThrow(/Solar timeseries must contain/);
+  });
+
   it('returns price normalization corrections when filling missing hours', () => {
     const solar = makeSolar(2021, 8760);
 
