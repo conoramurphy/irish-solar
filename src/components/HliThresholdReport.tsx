@@ -120,9 +120,10 @@ export function HliThresholdReport() {
       <div className="mx-auto max-w-3xl px-4 py-10 space-y-16">
 
         {/* ============================================================= */}
-        {/* CONTEXT: THE RETROFIT PROBLEM                                  */}
+        {/* THE PROBLEM                                                     */}
         {/* ============================================================= */}
         <section>
+          <h2 className="text-xl font-bold text-slate-900 mb-4">The problem</h2>
           <p className="text-base text-slate-600 leading-relaxed">
             Ireland has committed to retrofitting 500,000 homes to BER B2 by 2030. We are
             not on track. The ESRI's 2026 analysis
@@ -144,7 +145,7 @@ export function HliThresholdReport() {
         {/* ============================================================= */}
         {paths.length === 2 && (
         <section>
-          <h2 className="text-xl font-bold text-slate-900 mb-4">What this looks like in practice</h2>
+          <h2 className="text-xl font-bold text-slate-900 mb-4">The solution</h2>
           <p className="text-base text-slate-700 mb-6">
             Take a typical 1980s semi-detached (HLI 2.5, 108 m²). Two ways to decarbonise it.
             One spends on generation, the other on fabric. Same heat pump in both.
