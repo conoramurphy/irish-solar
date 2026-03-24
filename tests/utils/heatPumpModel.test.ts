@@ -175,8 +175,8 @@ describe('irishWeatherProfiles', () => {
   });
 
   it('Cork is warmer than Donegal in January', () => {
-    const cork = getMonthlyMeanTemp('Cork', 0);
-    const donegal = getMonthlyMeanTemp('Donegal', 0);
+    const cork = getMonthlyMeanTemp('Cork_North', 0);
+    const donegal = getMonthlyMeanTemp('Donegal_North', 0);
     expect(cork).toBeGreaterThan(donegal);
   });
 });

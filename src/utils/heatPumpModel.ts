@@ -165,6 +165,11 @@ export interface HeatPumpProfileParams {
    * Must match the solar timeseries timestamps for the same year.
    */
   monthIndexPerSlot?: number[];
+  /**
+   * Optional: real half-hourly outdoor temperatures (°C) from weatherDataLoader.
+   * When provided, bypasses the synthetic sinusoidal temperature model entirely.
+   */
+  realTemperaturesC?: number[];
 }
 
 /**
@@ -209,6 +214,7 @@ export function generateHeatPumpProfile(params: HeatPumpProfileParams): number[]
     location,
     year,
     params.monthIndexPerSlot,
+    params.realTemperaturesC,
   );
 
   const profile: number[] = new Array(totalSlots).fill(0);
@@ -268,6 +274,7 @@ export function estimateSCOP(params: HeatPumpProfileParams): number {
     params.location,
     params.year,
     params.monthIndexPerSlot,
+    params.realTemperaturesC,
   );
 
   const designFlowTempC = getDesignFlowTempC(effectiveHLI);
