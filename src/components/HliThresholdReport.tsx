@@ -105,10 +105,10 @@ export function HliThresholdReport() {
             ← Heat Pump Calculator
           </Link>
           <h1 className="text-2xl font-bold text-slate-900 mt-3">
-            The HLI 2.0 Cliff
+            A simple, proven way to fix Ireland's domestic decarbonisation
           </h1>
           <p className="text-lg text-slate-600 mt-2">
-            Why Ireland's heat pump grant threshold costs homeowners and the climate
+            Why the HLI 2.0 grant threshold is holding us back — and what the numbers say instead
           </p>
           <p className="text-xs text-slate-400 mt-3">
             All figures generated live from a half-hourly heat pump simulation model.
