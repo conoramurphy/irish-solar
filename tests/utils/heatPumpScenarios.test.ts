@@ -10,23 +10,26 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('buildWaterfallScenarios — structure', () => {
-  it('returns 8 steps for a cavity archetype (1980s_semi)', () => {
+  it('returns 9 steps for a cavity archetype (8 main + 1 drylining alternative)', () => {
     const result = buildWaterfallScenarios('1980s_semi', 'Dublin', 2025);
-    expect(result.steps).toHaveLength(8);
+    expect(result.steps).toHaveLength(9);
+    expect(result.steps.find((s) => s.id === 'drylining')?.alternativeTo).toBe('cavity');
   });
 
-  it('returns 7 steps for a no-cavity archetype (pre1940_solid — cavity step skipped)', () => {
+  it('returns 8 steps for a no-cavity archetype (cavity skipped, drylining is alternative)', () => {
     const result = buildWaterfallScenarios('pre1940_solid', 'Dublin', 2025);
-    expect(result.steps).toHaveLength(7);
+    expect(result.steps).toHaveLength(8);
     const ids = result.steps.map((s) => s.id);
     expect(ids).not.toContain('cavity');
+    expect(ids).toContain('drylining');
   });
 
-  it('cumulative costs are monotonically non-decreasing', () => {
+  it('cumulative costs are monotonically non-decreasing for main (non-alternative) steps', () => {
     const result = buildWaterfallScenarios('1980s_semi', 'Dublin', 2025);
-    for (let i = 1; i < result.steps.length; i++) {
-      expect(result.steps[i].cumulativeCostEur).toBeGreaterThanOrEqual(
-        result.steps[i - 1].cumulativeCostEur,
+    const mainSteps = result.steps.filter((s) => !s.alternativeTo);
+    for (let i = 1; i < mainSteps.length; i++) {
+      expect(mainSteps[i].cumulativeCostEur).toBeGreaterThanOrEqual(
+        mainSteps[i - 1].cumulativeCostEur,
       );
     }
   });

@@ -22,10 +22,12 @@ import { ARCHETYPES } from '../data/heatPumpArchetypes';
 import {
   buildWaterfallScenarios,
   buildSolarMaxScenario,
+  buildPackageScenarios,
   estimateFuelBaseline,
   type WaterfallResult,
   type SolarMaxResult,
   type GasBaselineEstimate,
+  type PackagesResult,
 } from '../utils/heatPumpScenarios';
 import { calculateAllScenarioBills, type WaterfallBillingResults } from '../utils/heatPumpBilling';
 import { HeatPumpResults } from './HeatPumpResults';
@@ -68,6 +70,7 @@ export function HeatPumpCalculator() {
   const [results, setResults] = useState<{
     waterfall: WaterfallResult;
     solarMax: SolarMaxResult;
+    packages: PackagesResult;
     billing: WaterfallBillingResults;
     baseline: GasBaselineEstimate;
     floorAreaM2: number;
@@ -156,6 +159,17 @@ export function HeatPumpCalculator() {
         dhwSchedule,
       );
 
+      const packages = buildPackageScenarios(
+        form.archetypeId,
+        form.location,
+        YEAR,
+        floorAreaM2,
+        hliOverride,
+        occupants,
+        undefined,
+        dhwSchedule,
+      );
+
       const baseline = estimateFuelBaseline(
         form.archetypeId,
         form.fuelType,
@@ -179,6 +193,7 @@ export function HeatPumpCalculator() {
       setResults({
         waterfall,
         solarMax,
+        packages,
         billing,
         baseline,
         floorAreaM2: resolvedFloorArea,
@@ -405,6 +420,7 @@ export function HeatPumpCalculator() {
           <HeatPumpResults
             waterfall={results.waterfall}
             solarMax={results.solarMax}
+            packages={results.packages}
             billing={results.billing}
             baseline={results.baseline}
             floorAreaM2={results.floorAreaM2}

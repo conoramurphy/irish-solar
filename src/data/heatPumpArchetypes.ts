@@ -73,7 +73,7 @@ export function getArchetype(id: string): HeatPumpArchetype {
 // Insulation measures
 // ---------------------------------------------------------------------------
 
-export type InsulationMeasure = 'attic' | 'cavity' | 'airSealing' | 'ewi' | 'floor' | 'windows';
+export type InsulationMeasure = 'attic' | 'cavity' | 'airSealing' | 'ewi' | 'drylining' | 'floor' | 'windows';
 
 export interface InsulationMeasureData {
   label: string;
@@ -89,13 +89,13 @@ export const INSULATION_MEASURES: Record<InsulationMeasure, InsulationMeasureDat
   attic: {
     label: 'Attic insulation',
     hliDelta: 0.70,
-    netCostEur: 200,
+    netCostEur: 800,
     requiresCavity: false,
   },
   cavity: {
     label: 'Cavity wall fill',
     hliDelta: 0.55,
-    netCostEur: 150,
+    netCostEur: 400,
     requiresCavity: true,
   },
   airSealing: {
@@ -108,6 +108,12 @@ export const INSULATION_MEASURES: Record<InsulationMeasure, InsulationMeasureDat
     label: 'External wall insulation (EWI)',
     hliDelta: 0.30,
     netCostEur: 14000,
+    requiresCavity: false,
+  },
+  drylining: {
+    label: 'Internal dry lining (IWI)',
+    hliDelta: 0.30,
+    netCostEur: 6000,
     requiresCavity: false,
   },
   floor: {
@@ -190,18 +196,18 @@ export const INSTALL_QUALITY: Record<InstallQuality, InstallQualityData> = {
   good: {
     label: 'Good installation',
     flowTempOffsetC: 0,
-    incrementalCostEur: 4500,
+    incrementalCostEur: 2500,
     description:
       'Proper heat loss survey (€800), radiators sized/upgraded in 2–3 rooms (€3,000), ' +
-      'weather compensation calibrated (€700). Pessimistic total: €4,500.',
+      'weather compensation calibrated (€700). €4,500 gross but €2,000 covered by HP grant central heating upgrade component.',
   },
   heatgeek: {
     label: 'Heat Geek quality',
     flowTempOffsetC: -5,
-    incrementalCostEur: 7000,
+    incrementalCostEur: 5000,
     description:
       'All rooms checked, undersized radiators upgraded, fine-tuned weather compensation curve. ' +
-      'Pessimistic total above poor: €7,000.',
+      '€7,000 gross but €2,000 covered by HP grant.',
   },
 };
 

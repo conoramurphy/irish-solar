@@ -59,6 +59,8 @@ export interface ScenarioStep {
    * Informational — actual bill savings come from the simulation engine.
    */
   estimatedSCOP: number;
+  /** If set, this step is an alternative to the step with this ID (not cumulative) */
+  alternativeTo?: string;
 }
 
 export interface WaterfallResult {
@@ -84,6 +86,12 @@ export interface GasBaselineEstimate {
   fuelType: 'gas' | 'oil';
   /** Annual CO₂ (kg) — using SEAI emission factors */
   annualCo2Kg: number;
+  /** Annual carbon tax component of the fuel bill (€) */
+  annualCarbonTaxEur: number;
+  /** Annual standing charge that would be eliminated (€) */
+  standingChargeEur: number;
+  /** Projected 2030 annual fuel bill including carbon tax escalation (€) */
+  projectedBill2030Eur: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +109,13 @@ const OIL_BOILER_EFFICIENCY = 0.90;
 /** SEAI emission factors (kg CO₂/kWh primary energy) */
 const EMISSION_FACTOR_GAS = 0.203;
 const EMISSION_FACTOR_OIL = 0.264;
+
+/** Ireland carbon tax (€/tonne CO₂) — Finance Act 2020 S.40, rising €7.50/yr to €100 by 2030 */
+const CARBON_TAX_EUR_PER_TONNE_2026 = 63.50;
+const CARBON_TAX_EUR_PER_TONNE_2030 = 100.00;
+
+/** Gas standing charge eliminated when switching to HP (€/year, typical Irish domestic) */
+const GAS_STANDING_CHARGE_EUR_PER_YEAR = 225;
 
 /** DHW thermal demand (kWh/year) per occupant — averaged from DEAP standard values */
 const DHW_KWH_PER_OCCUPANT_PER_YEAR = 935;
@@ -121,6 +136,12 @@ interface WaterfallStepDef {
   batteryKwh: number;
   /** Extra cost beyond insulation and install quality costs (e.g. solar, battery) */
   extraCostEur: number;
+  /** If set, this step is an alternative to another step (not cumulative with main waterfall) */
+  alternativeTo?: string;
+  /** If true, only include this step when the archetype has a cavity */
+  requiresCavity?: boolean;
+  /** If true, only include this step when the archetype has NO cavity */
+  requiresNoCavity?: boolean;
 }
 
 const WATERFALL_STEP_DEFS: WaterfallStepDef[] = [
@@ -159,6 +180,17 @@ const WATERFALL_STEP_DEFS: WaterfallStepDef[] = [
     solarKwp: 0,
     batteryKwh: 0,
     extraCostEur: 0,
+    requiresCavity: true,
+  },
+  {
+    id: 'drylining',
+    label: '→ + Internal dry lining (alternative wall insulation)',
+    insulation: ['attic', 'drylining'],
+    installQuality: 'good',
+    solarKwp: 0,
+    batteryKwh: 0,
+    extraCostEur: 0,
+    alternativeTo: 'cavity',
   },
   {
     id: 'airsealing',
@@ -180,10 +212,10 @@ const WATERFALL_STEP_DEFS: WaterfallStepDef[] = [
   },
   {
     id: 'battery',
-    label: '→ + Battery 10 kWh',
+    label: '→ + Battery 10 kWh (night-rate arbitrage)',
     insulation: ['attic', 'cavity', 'airSealing'],
     installQuality: 'good',
-    solarKwp: 4,
+    solarKwp: 0,
     batteryKwh: 10,
     extraCostEur: 3500,
   },
@@ -192,7 +224,7 @@ const WATERFALL_STEP_DEFS: WaterfallStepDef[] = [
     label: '→ + External wall insulation (EWI)',
     insulation: ['attic', 'cavity', 'airSealing', 'ewi'],
     installQuality: 'good',
-    solarKwp: 4,
+    solarKwp: 0,
     batteryKwh: 10,
     extraCostEur: 0,
   },
@@ -244,49 +276,102 @@ export function buildWaterfallScenarios(
   let prevInstallQuality: InstallQuality = 'poor';
   const steps: ScenarioStep[] = [];
 
+  // Track the last main-waterfall step (non-alternative) for cost/insulation comparison
+  const baseHLI = hliOverride ?? archetype.defaultHLI;
+
   for (const def of WATERFALL_STEP_DEFS) {
-    // Skip cavity step if no cavity
-    if (def.insulation.includes('cavity') && !archetype.hasCavity) {
-      // Remove cavity from the insulation list for this and all subsequent steps
-      // by filtering it out — hasCavity=false means applyInsulationMeasures skips it anyway,
-      // but we also skip the step entry entirely to avoid a misleading zero-saving row
-      if (def.id === 'cavity') continue;
+    // Skip steps with cavity/no-cavity requirements
+    if (def.requiresCavity && !archetype.hasCavity) continue;
+    if (def.requiresNoCavity && archetype.hasCavity) continue;
+    // Houses without cavity can't do cavity — skip that step (old logic)
+    if (!def.alternativeTo && def.insulation.includes('cavity') && !archetype.hasCavity && def.id === 'cavity') continue;
+
+    // For houses without cavity, substitute drylining for cavity in insulation lists
+    // This affects later main-waterfall steps that reference ['attic', 'cavity', 'airSealing']
+    let resolvedInsulation = def.insulation;
+    if (!archetype.hasCavity) {
+      // No cavity: leave cavity out (applyInsulationMeasures skips it anyway)
+      // For drylining alternatives on no-cavity houses, the step already has correct insulation
     }
 
-    // Incremental cost for this step
-    const insulationCost = computeIncrementalInsulationCost(
-      def.insulation,
-      steps.length > 0 ? steps[steps.length - 1].insulation : [],
-      archetype.hasCavity,
-    );
-    const qualityCost = computeIncrementalQualityCost(def.installQuality, prevInstallQuality);
-    const stepCost = insulationCost + qualityCost + def.extraCostEur;
-    cumulativeCost += stepCost;
+    const isAlternative = def.alternativeTo !== undefined;
 
-    const profileParams: HeatPumpProfileParams = {
-      ...baseParams,
-      insulation: def.insulation,
-      installQuality: def.installQuality,
-    };
+    if (isAlternative) {
+      // Alternative step: calculate from the step BEFORE the one it replaces
+      const alternativeToIdx = steps.findIndex((s) => s.id === def.alternativeTo);
+      const baseStep = alternativeToIdx > 0 ? steps[alternativeToIdx - 1] : undefined;
+      const baseCost = baseStep?.cumulativeCostEur ?? 0;
+      const baseInsulation = baseStep?.insulation ?? [];
+      const baseQuality = baseStep?.installQuality ?? 'poor';
 
-    const baseHLI = hliOverride ?? archetype.defaultHLI;
-    const effectiveHLI = applyInsulationMeasures(baseHLI, def.insulation, archetype.hasCavity);
+      const insulationCost = computeIncrementalInsulationCost(
+        resolvedInsulation,
+        baseInsulation,
+        archetype.hasCavity,
+      );
+      const qualityCost = computeIncrementalQualityCost(def.installQuality, baseQuality);
+      const stepCost = insulationCost + qualityCost + def.extraCostEur;
 
-    steps.push({
-      id: def.id,
-      label: def.label,
-      insulation: def.insulation,
-      installQuality: def.installQuality,
-      solarKwp: def.solarKwp,
-      batteryKwh: def.batteryKwh,
-      incrementalCostEur: stepCost,
-      cumulativeCostEur: cumulativeCost,
-      hpProfileKwh: generateHeatPumpProfile(profileParams),
-      effectiveHLI,
-      estimatedSCOP: estimateSCOP(profileParams),
-    });
+      const profileParams: HeatPumpProfileParams = {
+        ...baseParams,
+        insulation: resolvedInsulation,
+        installQuality: def.installQuality,
+      };
 
-    prevInstallQuality = def.installQuality;
+      const effectiveHLI = applyInsulationMeasures(baseHLI, resolvedInsulation, archetype.hasCavity);
+
+      steps.push({
+        id: def.id,
+        label: def.label,
+        insulation: resolvedInsulation,
+        installQuality: def.installQuality,
+        solarKwp: def.solarKwp,
+        batteryKwh: def.batteryKwh,
+        incrementalCostEur: stepCost,
+        cumulativeCostEur: baseCost + stepCost,
+        hpProfileKwh: generateHeatPumpProfile(profileParams),
+        effectiveHLI,
+        estimatedSCOP: estimateSCOP(profileParams),
+        alternativeTo: def.alternativeTo,
+      });
+    } else {
+      // Main waterfall step: cumulative
+      const prevStep = steps.filter((s) => !s.alternativeTo);
+      const lastMain = prevStep[prevStep.length - 1];
+
+      const insulationCost = computeIncrementalInsulationCost(
+        resolvedInsulation,
+        lastMain?.insulation ?? [],
+        archetype.hasCavity,
+      );
+      const qualityCost = computeIncrementalQualityCost(def.installQuality, prevInstallQuality);
+      const stepCost = insulationCost + qualityCost + def.extraCostEur;
+      cumulativeCost += stepCost;
+
+      const profileParams: HeatPumpProfileParams = {
+        ...baseParams,
+        insulation: resolvedInsulation,
+        installQuality: def.installQuality,
+      };
+
+      const effectiveHLI = applyInsulationMeasures(baseHLI, resolvedInsulation, archetype.hasCavity);
+
+      steps.push({
+        id: def.id,
+        label: def.label,
+        insulation: resolvedInsulation,
+        installQuality: def.installQuality,
+        solarKwp: def.solarKwp,
+        batteryKwh: def.batteryKwh,
+        incrementalCostEur: stepCost,
+        cumulativeCostEur: cumulativeCost,
+        hpProfileKwh: generateHeatPumpProfile(profileParams),
+        effectiveHLI,
+        estimatedSCOP: estimateSCOP(profileParams),
+      });
+
+      prevInstallQuality = def.installQuality;
+    }
   }
 
   return {
@@ -363,6 +448,151 @@ export function buildSolarMaxScenario(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Packages — side-by-side comparison of complete bundles
+// ---------------------------------------------------------------------------
+
+export interface PackageScenario {
+  id: string;
+  label: string;
+  description: string;
+  insulation: InsulationMeasure[];
+  installQuality: InstallQuality;
+  solarKwp: number;
+  batteryKwh: number;
+  /** Total net cost of this package (€, after all grants) */
+  totalCostEur: number;
+  hpProfileKwh: number[];
+  effectiveHLI: number;
+  estimatedSCOP: number;
+}
+
+export interface PackagesResult {
+  archetypeId: string;
+  archetypeLabel: string;
+  floorAreaM2: number;
+  location: string;
+  packages: PackageScenario[];
+}
+
+/**
+ * Builds 4 named packages for side-by-side comparison.
+ * All packages include a good HP install. The packages differ in insulation + solar + battery.
+ */
+export function buildPackageScenarios(
+  archetypeId: string,
+  location: string,
+  year: number,
+  floorAreaM2?: number,
+  hliOverride?: number,
+  occupants?: number,
+  realTemperaturesC?: number[],
+  dhwSchedule?: 'draw-time' | 'night-boost',
+): PackagesResult {
+  const archetype = getArchetype(archetypeId);
+  const resolvedFloorArea = floorAreaM2 ?? archetype.floorAreaM2;
+  const baseHLI = hliOverride ?? archetype.defaultHLI;
+
+  const baseProfileParams: Omit<HeatPumpProfileParams, 'insulation' | 'installQuality'> = {
+    archetypeId,
+    floorAreaM2: resolvedFloorArea,
+    hliOverride,
+    location,
+    year,
+    occupants,
+    realTemperaturesC,
+    dhwSchedule,
+  };
+
+  const wallMeasure: InsulationMeasure = archetype.hasCavity ? 'cavity' : 'drylining';
+  const wallLabel = archetype.hasCavity ? 'cavity fill' : 'dry lining';
+
+  const packageDefs: Array<{
+    id: string;
+    label: string;
+    description: string;
+    insulation: InsulationMeasure[];
+    solarKwp: number;
+    batteryKwh: number;
+    extraCostEur: number;
+  }> = [
+    {
+      id: 'essentials',
+      label: 'Essentials',
+      description: `Good HP install + attic + ${wallLabel}. Cheapest path to an efficient system.`,
+      insulation: ['attic', wallMeasure],
+      solarKwp: 0,
+      batteryKwh: 0,
+      extraCostEur: 0,
+    },
+    {
+      id: 'comfort',
+      label: 'Comfort',
+      description: `Essentials + air sealing. Maximum fabric-first comfort without EWI.`,
+      insulation: ['attic', wallMeasure, 'airSealing'],
+      solarKwp: 0,
+      batteryKwh: 0,
+      extraCostEur: 0,
+    },
+    {
+      id: 'solar_saver',
+      label: 'Solar Saver',
+      description: `Comfort + 4 kWp solar. Balanced investment in insulation and generation.`,
+      insulation: ['attic', wallMeasure, 'airSealing'],
+      solarKwp: 4,
+      batteryKwh: 0,
+      extraCostEur: 3400,
+    },
+    {
+      id: 'solar_max',
+      label: 'Solar Maximalist',
+      description: `Comfort + 10 kWp solar + 10 kWh battery. Maximum self-sufficiency.`,
+      insulation: ['attic', wallMeasure, 'airSealing'],
+      solarKwp: 10,
+      batteryKwh: 10,
+      extraCostEur: 3400 + 3500, // solar 10kWp net + battery
+    },
+  ];
+
+  const packages: PackageScenario[] = packageDefs.map((def) => {
+    const profileParams: HeatPumpProfileParams = {
+      ...baseProfileParams,
+      insulation: def.insulation,
+      installQuality: 'good',
+    };
+
+    const effectiveHLI = applyInsulationMeasures(baseHLI, def.insulation, archetype.hasCavity);
+    const insulationCost = insulationMeasuresCost(def.insulation, archetype.hasCavity);
+    const totalCost =
+      HEAT_PUMP_NET_COST_EUR +
+      INSTALL_QUALITY['good'].incrementalCostEur +
+      insulationCost +
+      def.extraCostEur;
+
+    return {
+      id: def.id,
+      label: def.label,
+      description: def.description,
+      insulation: def.insulation,
+      installQuality: 'good' as InstallQuality,
+      solarKwp: def.solarKwp,
+      batteryKwh: def.batteryKwh,
+      totalCostEur: totalCost,
+      hpProfileKwh: generateHeatPumpProfile(profileParams),
+      effectiveHLI,
+      estimatedSCOP: estimateSCOP(profileParams),
+    };
+  });
+
+  return {
+    archetypeId,
+    archetypeLabel: archetype.label,
+    floorAreaM2: resolvedFloorArea,
+    location,
+    packages,
+  };
+}
+
 /**
  * Estimates the gas or oil baseline annual bill and CO₂ before any heat pump.
  * Uses degree-day method with whole-house heat loss coefficient.
@@ -397,7 +627,26 @@ export function estimateFuelBaseline(
   const emissionFactor = fuelType === 'gas' ? EMISSION_FACTOR_GAS : EMISSION_FACTOR_OIL;
   const annualCo2Kg = annualFuelKwh * emissionFactor;
 
-  return { annualFuelKwh, annualBillEur, fuelType, annualCo2Kg };
+  // Carbon tax: emissionFactor is kg CO₂/kWh, carbon tax is €/tonne = €/1000kg
+  const currentCarbonTaxPerKwh = (emissionFactor / 1000) * CARBON_TAX_EUR_PER_TONNE_2026;
+  const carbonTax2030PerKwh = (emissionFactor / 1000) * CARBON_TAX_EUR_PER_TONNE_2030;
+  const annualCarbonTaxEur = annualFuelKwh * currentCarbonTaxPerKwh;
+
+  const standingChargeEur = fuelType === 'gas' ? GAS_STANDING_CHARGE_EUR_PER_YEAR : 0;
+
+  // Projected 2030 bill: current bill + additional carbon tax escalation + standing charge
+  const projectedBill2030Eur =
+    annualFuelKwh * (ratePerKwh + (carbonTax2030PerKwh - currentCarbonTaxPerKwh)) + standingChargeEur;
+
+  return {
+    annualFuelKwh,
+    annualBillEur,
+    fuelType,
+    annualCo2Kg,
+    annualCarbonTaxEur,
+    standingChargeEur,
+    projectedBill2030Eur,
+  };
 }
 
 // ---------------------------------------------------------------------------

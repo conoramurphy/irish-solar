@@ -165,11 +165,14 @@ describe('calculateAllScenarioBills — non-solar', () => {
       gasBaseline.annualBillEur,
     );
 
-    // Non-solar steps (first 5 in sequence) should be monotonically decreasing
-    const nonSolarSteps = result.steps.filter((s) => s.annualSelfConsumptionKwh === 0);
-    for (let i = 1; i < nonSolarSteps.length; i++) {
-      expect(nonSolarSteps[i].annualBillEur).toBeLessThanOrEqual(
-        nonSolarSteps[i - 1].annualBillEur,
+    // Main (non-alternative) non-solar steps should be monotonically decreasing
+    const mainNonSolarSteps = result.steps.filter((s, idx) => {
+      const waterfallStep = waterfall.steps[idx];
+      return s.annualSelfConsumptionKwh === 0 && !waterfallStep?.alternativeTo;
+    });
+    for (let i = 1; i < mainNonSolarSteps.length; i++) {
+      expect(mainNonSolarSteps[i].annualBillEur).toBeLessThanOrEqual(
+        mainNonSolarSteps[i - 1].annualBillEur,
       );
     }
   });

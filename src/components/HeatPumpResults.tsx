@@ -1,17 +1,26 @@
 /**
  * Heat pump results display.
  *
- * Shows the waterfall payback table (poor install → each upgrade step)
- * and the solar-maximalist comparison, referenced against the gas/oil baseline.
+ * Two sections:
+ * 1. Packages — 4 named bundles shown side-by-side for easy comparison
+ * 2. Waterfall — marginal value of every addition, with cavity/drylining as alternatives
  *
- * "Continue in solar calculator" stores the HP profile in sessionStorage and
- * navigates to /full-model, where the wizard picks it up as the consumption profile.
+ * Gas baseline includes carbon tax (Finance Act 2020), standing charge saving,
+ * and 2030 projection.
  */
 
 import { useNavigate } from 'react-router-dom';
 import type { Tariff } from '../types';
-import type { WaterfallResult, SolarMaxResult, GasBaselineEstimate, ScenarioStep } from '../utils/heatPumpScenarios';
-import type { WaterfallBillingResults, ScenarioBillingResult } from '../utils/heatPumpBilling';
+import type {
+  WaterfallResult,
+  SolarMaxResult,
+  GasBaselineEstimate,
+  ScenarioStep,
+  PackagesResult,
+  PackageScenario,
+} from '../utils/heatPumpScenarios';
+import type { WaterfallBillingResults } from '../utils/heatPumpBilling';
+import { calculateDirectHpBill } from '../utils/heatPumpBilling';
 import { formatCurrency } from '../utils/format';
 
 // ---------------------------------------------------------------------------
@@ -21,6 +30,7 @@ import { formatCurrency } from '../utils/format';
 interface HeatPumpResultsProps {
   waterfall: WaterfallResult;
   solarMax: SolarMaxResult;
+  packages: PackagesResult;
   billing: WaterfallBillingResults;
   baseline: GasBaselineEstimate;
   floorAreaM2: number;
@@ -30,7 +40,6 @@ interface HeatPumpResultsProps {
   dhwSchedule: 'draw-time' | 'night-boost';
 }
 
-// Stored in sessionStorage so the main wizard can pick it up
 export interface HpHandoff {
   hpProfileKwh: number[];
   location: string;
@@ -67,6 +76,7 @@ function fmtPayback(savingPerYear: number, cost: number): string {
 export function HeatPumpResults({
   waterfall,
   solarMax,
+  packages,
   billing,
   baseline,
   solarDataLoaded,
@@ -75,38 +85,20 @@ export function HeatPumpResults({
   dhwSchedule,
 }: HeatPumpResultsProps) {
   const navigate = useNavigate();
-  const gasAnnualBill = baseline.annualBillEur;
+  void solarMax; // solar max is now part of packages
   const fuelLabel = baseline.fuelType === 'gas' ? 'gas' : 'oil';
+  // Total saving includes standing charge elimination
+  const totalGasBaseline = baseline.annualBillEur + baseline.standingChargeEur;
 
-  function handleContinueInWizard(step: ScenarioStep, bill: ScenarioBillingResult) {
+  function handleContinueInWizard(step: ScenarioStep | PackageScenario, totalKwh: number, label: string) {
     const handoff: HpHandoff = {
       hpProfileKwh: step.hpProfileKwh,
       location,
       tariffId: tariff.id,
-      totalKwh: bill.annualHpElecKwh,
-      label: `HP profile: ${step.label}`,
+      totalKwh,
+      label: `HP: ${label}`,
     };
-    try {
-      sessionStorage.setItem(HP_HANDOFF_KEY, JSON.stringify(handoff));
-    } catch {
-      // sessionStorage full or unavailable — navigate anyway, wizard will start fresh
-    }
-    navigate('/full-model');
-  }
-
-  function handleContinueSolarMax() {
-    const handoff: HpHandoff = {
-      hpProfileKwh: solarMax.hpProfileKwh,
-      location,
-      tariffId: tariff.id,
-      totalKwh: billing.solarMax.annualHpElecKwh,
-      label: `HP profile: Solar maximalist (${solarMax.archetypeLabel})`,
-    };
-    try {
-      sessionStorage.setItem(HP_HANDOFF_KEY, JSON.stringify(handoff));
-    } catch {
-      // sessionStorage full or unavailable
-    }
+    try { sessionStorage.setItem(HP_HANDOFF_KEY, JSON.stringify(handoff)); } catch { /* */ }
     navigate('/full-model');
   }
 
@@ -117,35 +109,105 @@ export function HeatPumpResults({
         <h2 className="text-sm font-semibold text-amber-900 uppercase tracking-wide mb-3">
           Current {fuelLabel} baseline
         </h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           <Stat label="Annual fuel bill" value={fmt(baseline.annualBillEur)} />
-          <Stat label="Annual fuel use" value={fmtKwh(baseline.annualFuelKwh)} />
+          <Stat label={`${fuelLabel} standing charge`} value={fmt(baseline.standingChargeEur) + '/yr'}
+            note="eliminated with HP" />
+          <Stat label="Carbon tax component" value={fmt(baseline.annualCarbonTaxEur) + '/yr'}
+            note="Finance Act 2020 S.40" />
+          <Stat label="Projected 2030 bill" value={fmt(baseline.projectedBill2030Eur) + '/yr'}
+            note={`carbon tax → €100/t`} />
           <Stat label="Annual CO₂" value={`${Math.round(baseline.annualCo2Kg)} kg`} />
-          <Stat label="vs heat pump" value={`−${Math.round(baseline.annualCo2Kg * 0.65)} kg est.`} note="≈65% CO₂ reduction" />
         </div>
       </div>
 
-      {/* DHW schedule notice */}
-      <div className={`rounded-lg border px-4 py-3 text-sm ${dhwSchedule === 'night-boost' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-        {dhwSchedule === 'night-boost'
-          ? 'Night-rate DHW: hot water cylinder is recharged during cheap overnight slots (01:00–07:00) only — the tank covers the day\'s draw. Electricity cost reflects the night rate.'
-          : 'Flat-rate DHW: hot water electricity billed at draw time (morning/evening peaks). Switch to a night-rate tariff to shift this load to cheaper overnight slots.'}
+      {/* DHW schedule + solar data notices */}
+      <div className="flex flex-col gap-2">
+        <div className={`rounded-lg border px-4 py-2 text-sm ${dhwSchedule === 'night-boost' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+          {dhwSchedule === 'night-boost'
+            ? 'Night-rate DHW: cylinder recharged overnight (01:00–07:00). Bills reflect the night rate.'
+            : 'Flat-rate DHW: hot water billed at draw time. A night-rate tariff would shift this to cheaper slots.'}
+        </div>
+        {!solarDataLoaded && (
+          <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-800">
+            Solar data unavailable — solar steps show HP-only cost.
+          </div>
+        )}
       </div>
 
-      {/* Solar data notice */}
-      {!solarDataLoaded && (
-        <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
-          Solar data unavailable for this location — solar steps show HP electricity cost only (no solar savings modelled).
-        </div>
-      )}
-
-      {/* Waterfall table */}
+      {/* ================================================================= */}
+      {/* PACKAGES — side-by-side comparison                                */}
+      {/* ================================================================= */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-900">Waterfall — each upgrade builds on the last</h2>
+          <h2 className="text-base font-semibold text-slate-900">Recommended packages</h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            HP annual electricity cost vs {fuelLabel} baseline of {fmt(gasAnnualBill)}/yr.
-            {solarDataLoaded && ' Solar steps use real irradiance data (same engine as solar calculator).'}
+            All include a properly installed heat pump. Compare total cost vs annual saving.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+          {packages.packages.map((pkg) => {
+            const bill = calculateDirectHpBill(pkg.hpProfileKwh, tariff);
+            const savingVsGas = totalGasBaseline - bill.annualBillEur;
+            const payback = savingVsGas > 0 ? pkg.totalCostEur / savingVsGas : -1;
+
+            return (
+              <div key={pkg.id} className="p-4 flex flex-col">
+                <h3 className="text-sm font-semibold text-slate-900">{pkg.label}</h3>
+                <p className="text-xs text-slate-400 mt-1 flex-grow">{pkg.description}</p>
+                <div className="mt-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Total cost</span>
+                    <span className="font-medium text-slate-800">{fmt(pkg.totalCostEur)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Annual HP bill</span>
+                    <span className="font-medium text-slate-800">{fmt(bill.annualBillEur)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Saving vs {fuelLabel}</span>
+                    <span className="font-medium text-green-700">{fmt(savingVsGas)}/yr</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">Payback</span>
+                    <span className="font-medium text-slate-800">
+                      {payback > 0 && payback <= 50 ? `${payback.toFixed(1)} yrs` : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500">SCOP</span>
+                    <span className="text-slate-600">{pkg.estimatedSCOP.toFixed(2)}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleContinueInWizard(pkg, bill.annualHpElecKwh, pkg.label)}
+                  className="mt-3 w-full text-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  Solar model →
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ================================================================= */}
+      {/* WATERFALL — marginal value of every addition                      */}
+      {/* ================================================================= */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h2 className="text-base font-semibold text-slate-900">Waterfall — marginal value of each upgrade</h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Starting from a poorly-installed heat pump. Each step adds to the previous.
+            {baseline.standingChargeEur > 0 && ` "vs ${fuelLabel}" includes ${fmt(baseline.standingChargeEur)}/yr standing charge saving.`}
+          </p>
+          <p className="text-xs text-amber-700 bg-amber-50 rounded px-3 py-2 mt-2">
+            Many heat pump installs in Ireland are poor — undersized radiators, no weather compensation,
+            fixed high flow temperatures. Field trials (EST RHPP, BEIS Electrification of Heat) show
+            SCOP 2.5–3.0 for these installs vs 3.5+ with proper commissioning. The first row shows the
+            cost of a bad install; the second shows what a proper one saves.
           </p>
         </div>
 
@@ -168,19 +230,46 @@ export function HeatPumpResults({
                 const bill = billing.steps[i];
                 if (!bill) return null;
 
-                const savingVsGas = gasAnnualBill - bill.annualBillEur;
-                const prevBill = billing.steps[i - 1]?.annualBillEur ?? gasAnnualBill;
-                const savingVsPrev = prevBill - bill.annualBillEur;
+                const savingVsGas = totalGasBaseline - bill.annualBillEur;
+                const isAlternative = !!step.alternativeTo;
+                const isHpPoor = step.id === 'hp_poor';
+
+                // For payback: use saving vs previous main step (skip alternatives)
+                let savingVsPrev = 0;
+                if (!isHpPoor && !isAlternative) {
+                  const prevMainSteps = waterfall.steps.slice(0, i).filter((s) => !s.alternativeTo);
+                  const prevMain = prevMainSteps[prevMainSteps.length - 1];
+                  const prevIdx = prevMain ? waterfall.steps.indexOf(prevMain) : -1;
+                  const prevBill = prevIdx >= 0 ? billing.steps[prevIdx]?.annualBillEur : totalGasBaseline;
+                  savingVsPrev = (prevBill ?? totalGasBaseline) - bill.annualBillEur;
+                } else if (isAlternative) {
+                  // Alternative: saving vs the step BEFORE the one it replaces
+                  const replacedIdx = waterfall.steps.findIndex((s) => s.id === step.alternativeTo);
+                  const baseIdx = replacedIdx > 0 ? replacedIdx - 1 : 0;
+                  const baseBill = billing.steps[baseIdx]?.annualBillEur ?? totalGasBaseline;
+                  savingVsPrev = baseBill - bill.annualBillEur;
+                }
+
                 const isSolarStep = step.solarKwp > 0;
                 const isBetter = savingVsGas > 0;
 
                 return (
-                  <tr key={step.id} className={isSolarStep ? 'bg-green-50/50' : ''}>
+                  <tr key={step.id} className={`${isAlternative ? 'bg-purple-50/50' : ''} ${isSolarStep ? 'bg-green-50/50' : ''}`}>
                     <td className="px-4 py-3">
+                      {isAlternative && (
+                        <span className="text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded mr-2">
+                          OR
+                        </span>
+                      )}
                       <span className="font-medium text-slate-800">{step.label}</span>
                       {isSolarStep && (
                         <span className="ml-2 text-xs text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
                           {step.solarKwp} kWp{step.batteryKwh > 0 ? ` + ${step.batteryKwh} kWh` : ''}
+                        </span>
+                      )}
+                      {!isSolarStep && step.batteryKwh > 0 && (
+                        <span className="ml-2 text-xs text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                          {step.batteryKwh} kWh EV rate arbitrage
                         </span>
                       )}
                       {isSolarStep && bill.annualSelfConsumptionKwh > 0 && (
@@ -206,16 +295,17 @@ export function HeatPumpResults({
                       {step.incrementalCostEur > 0 ? fmt(step.incrementalCostEur) : '—'}
                     </td>
                     <td className="px-4 py-3 text-right text-slate-500 tabular-nums">
-                      {step.incrementalCostEur > 0
-                        ? fmtPayback(savingVsPrev, step.incrementalCostEur)
-                        : '—'}
+                      {isHpPoor
+                        ? '—'
+                        : step.incrementalCostEur > 0
+                          ? fmtPayback(savingVsPrev, step.incrementalCostEur)
+                          : '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
-                        onClick={() => handleContinueInWizard(step, bill)}
+                        onClick={() => handleContinueInWizard(step, bill.annualHpElecKwh, step.label)}
                         className="text-xs text-blue-600 hover:text-blue-800 hover:underline whitespace-nowrap"
-                        title="Open this HP profile in the solar calculator"
                       >
                         Solar model →
                       </button>
@@ -228,61 +318,24 @@ export function HeatPumpResults({
         </div>
 
         <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-400">
-          Payback = step cost ÷ additional saving vs previous step. Bill includes electricity standing charge.
-          HLI starts at {waterfall.steps[0]?.effectiveHLI.toFixed(2)} W/K/m² (archetype: {waterfall.archetypeLabel}).
+          Payback = step cost ÷ saving vs previous step. HP row has no payback (sunk cost).
+          "vs {fuelLabel}" includes {fmt(baseline.standingChargeEur)}/yr standing charge saving.
+          Grants: SEAI Feb 2026 (HP €12,500, attic €1,500, cavity €1,300, EWI €6,000, drylining €3,500, solar €1,800).
+          Carbon tax: €63.50/t CO₂ (2026), rising to €100/t by 2030 (Finance Act 2020 S.40).
+          Export rate: {fmt(tariff.exportRate)}/kWh ({tariff.supplier}).
         </div>
       </div>
 
-      {/* Solar max scenario */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-900">Solar maximalist scenario</h2>
-          <p className="text-sm text-slate-500 mt-0.5">
-            Minimum insulation (attic + cavity + air sealing) + good install + 10 kWp solar + 10 kWh battery.
-          </p>
-        </div>
-        <div className="p-5">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <Stat label="Estimated SCOP" value={solarMax.estimatedSCOP.toFixed(2)} />
-            <Stat label="HP electricity" value={fmtKwh(billing.solarMax.annualHpElecKwh)} />
-            <Stat label="Annual bill" value={fmt(billing.solarMax.annualBillEur)}
-              note={solarDataLoaded ? 'after solar savings' : 'HP only, no solar'} />
-            <Stat label="System cost" value={fmt(solarMax.cumulativeCostEur)} note="after grants" />
-          </div>
-          {solarDataLoaded && billing.solarMax.annualSelfConsumptionKwh > 0 && (
-            <div className="mt-3 text-sm text-green-700">
-              {fmtKwh(billing.solarMax.annualSelfConsumptionKwh)} self-consumed ·{' '}
-              {fmt(billing.solarMax.annualExportRevenueEur)} export revenue
-            </div>
-          )}
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleContinueSolarMax}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-            >
-              Continue in solar calculator →
-            </button>
-            <span className="text-xs text-slate-400">
-              Loads this HP profile as your consumption — add your solar system in Step 2
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Methodology note */}
+      {/* Methodology */}
       <div className="text-xs text-slate-400 px-1 space-y-1">
         <p>
-          Heat pump model: Carnot-based COP (η = 0.52, condenser +3K, evaporator −6K), weather compensation
-          calibrated against EN14511/Keymark data and real Irish meter readings.
+          COP: Carnot-based (η=0.52, condenser +3K, evaporator −6K). Poor install = fixed flow temp (no weather comp).
+          Good/heatgeek = weather compensation curve. Calibrated against EN14511/Keymark + real Irish meter data.
         </p>
         <p>
-          Gas baseline: degree-day method, HDD 2,150 (base 15.5°C), boiler efficiency 90%, gas €0.137/kWh, oil €0.105/kWh.
-          CO₂: SEAI emission factors (gas 0.203 kg/kWh, oil 0.264 kg/kWh).
-        </p>
-        <p>
-          Weather: Met Éireann regional climate normals — verify against station data before publishing.
-          SEAI grants: heat pump €12,500, solar €1,800 (≤4 kWp). All costs are post-grant net figures.
+          Gas baseline: HDD 2,150, boiler 90%. Gas €0.137/kWh, oil €0.105/kWh.
+          CO₂: SEAI factors (gas 0.203, oil 0.264 kg/kWh).
+          Carbon tax: Finance Act 2020 S.40 — €7.50/tonne/yr to €100 by 2030.
         </p>
       </div>
     </div>
