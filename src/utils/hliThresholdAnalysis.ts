@@ -369,7 +369,6 @@ export function compareRetrofitPaths(
 
   const deepLines: PathCostLine[] = [
     { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 64 },
-    { label: 'Good install (survey + radiators)', grossEur: 4500,  grantEur: 2000,  netEur: 2500,  workerHours: 40 },
     { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 16 },
     { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 16 },
     { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 24 },
@@ -379,6 +378,8 @@ export function compareRetrofitPaths(
     { label: 'Floor insulation',                  grossEur: 3000,  grantEur: 1500,  netEur: 1500,  workerHours: 40 },
   ];
 
+  // With HLI ~0.3-0.5 after full insulation, standard radiators work fine
+  // at low flow temps — no radiator upgrades needed
   const deepProfileParams = {
     archetypeId: '1980s_semi', hliOverride: deepHli, floorAreaM2,
     insulation: deepInsulation, installQuality: 'good' as const,
@@ -418,7 +419,7 @@ export function compareRetrofitPaths(
   return [
     buildPath('pragmatic', 'Pragmatic', 'Basic insulation + 8 kWp solar + good HP', 'C3',
       pragmaticHli, pragmaticLines, pragmaticBillEur, pragmaticSelfConsumption, pragmaticExportRevenue, pragmaticScop),
-    buildPath('deep_retrofit', 'Deep Retrofit', 'Full insulation to A rating + HP, no solar', 'A2–A3',
+    buildPath('deep_retrofit', 'Deep Retrofit', 'Full insulation to A rating + standard HP, no solar', 'A2–A3',
       deepHli, deepLines, deepBill.annualBillEur, 0, 0, deepScop),
   ];
 }
