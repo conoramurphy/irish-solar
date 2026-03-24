@@ -27,7 +27,9 @@ import {
   sweepHli,
   analyseThresholdCrossing,
   comparePolicies,
+  compareRetrofitPaths,
   POLICY_SCENARIOS,
+  type PathComparison,
 } from '../utils/hliThresholdAnalysis';
 
 const DEFAULT_TARIFF = domesticTariffs.find((t) => t.type === '24-hour' || t.id?.includes('standard')) ?? domesticTariffs[0];
@@ -57,6 +59,12 @@ export function HliThresholdReport() {
   const crossing25 = useMemo(() => analyseThresholdCrossing(2.5), []);
   const crossing30 = useMemo(() => analyseThresholdCrossing(3.0), []);
   const crossing35 = useMemo(() => analyseThresholdCrossing(3.5), []);
+
+  // Path comparison: pragmatic vs deep retrofit
+  const paths = useMemo(() => {
+    if (!tariff) return [] as PathComparison[];
+    return compareRetrofitPaths(tariff);
+  }, [tariff]);
 
   if (!tariff || sweep.length === 0) return <div className="p-8">Loading...</div>;
 
@@ -309,7 +317,133 @@ export function HliThresholdReport() {
         </section>
 
         {/* ============================================================= */}
-        {/* SECTION 4: ALTERNATIVE POLICIES                               */}
+        {/* SECTION 4: TWO PATHS COMPARED                                 */}
+        {/* ============================================================= */}
+        {paths.length === 2 && (
+        <section>
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Two paths, same house</h2>
+          <p className="text-base text-slate-700 mb-6">
+            Take a typical 1980s semi-detached (HLI 2.5, 108 m²). Two ways to decarbonise it.
+            One spends on generation, the other on fabric. Same heat pump in both.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {paths.map((path) => (
+              <div key={path.id} className={`rounded-xl border-2 p-5 ${path.id === 'pragmatic' ? 'border-blue-300 bg-blue-50/30' : 'border-amber-300 bg-amber-50/30'}`}>
+                <h3 className="text-lg font-bold text-slate-900">{path.label}</h3>
+                <p className="text-sm text-slate-500 mt-1">{path.subtitle}</p>
+                <p className="text-xs text-slate-400 mt-1">BER after: {path.berRating} · HLI: {path.hliAfter.toFixed(2)}</p>
+
+                {/* Summary stats */}
+                <div className="grid grid-cols-3 gap-3 mt-4">
+                  <div>
+                    <p className="text-xs text-slate-500">Gross cost</p>
+                    <p className="text-lg font-bold text-slate-900">{fmt(path.totalGross)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Total grants</p>
+                    <p className="text-lg font-bold text-green-700">-{fmt(path.totalGrant)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">You pay</p>
+                    <p className="text-lg font-bold text-slate-900">{fmt(path.totalNet)}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 mt-3">
+                  <div>
+                    <p className="text-xs text-slate-500">Annual bill</p>
+                    <p className="text-base font-semibold text-slate-800">{fmt(path.annualHpBillEur)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">Saving vs gas</p>
+                    <p className="text-base font-semibold text-green-700">{fmt(path.annualSavingEur)}/yr</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">SCOP</p>
+                    <p className="text-base font-semibold text-slate-800">{path.scop.toFixed(2)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-500">Worker hours: </span>
+                    <span className="font-semibold text-slate-800">{path.totalWorkerHours}</span>
+                    <span className="text-slate-400"> (~{Math.round(path.totalWorkerHours / 8)} work days)</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Payback: </span>
+                    <span className="font-semibold text-slate-800">
+                      {path.annualSavingEur > 0 ? `${(path.totalNet / path.annualSavingEur).toFixed(1)} yrs` : '—'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Itemised breakdown */}
+                <details className="mt-4">
+                  <summary className="text-xs font-medium text-slate-600 cursor-pointer hover:text-slate-900">
+                    Show itemised costs
+                  </summary>
+                  <div className="mt-2 text-xs">
+                    <div className="grid grid-cols-5 gap-1 text-slate-400 font-medium border-b border-slate-200 pb-1 mb-1">
+                      <span className="col-span-2">Item</span>
+                      <span className="text-right">Gross</span>
+                      <span className="text-right">Grant</span>
+                      <span className="text-right">Hours</span>
+                    </div>
+                    {path.lines.map((line, i) => (
+                      <div key={i} className="grid grid-cols-5 gap-1 text-slate-600 py-0.5">
+                        <span className="col-span-2 truncate" title={line.label}>{line.label}</span>
+                        <span className="text-right tabular-nums">{fmt(line.grossEur)}</span>
+                        <span className="text-right tabular-nums text-green-600">
+                          {line.grantEur > 0 ? fmt(line.grantEur) : '—'}
+                        </span>
+                        <span className="text-right tabular-nums">{line.workerHours}</span>
+                      </div>
+                    ))}
+                    <div className="grid grid-cols-5 gap-1 font-semibold text-slate-800 border-t border-slate-200 pt-1 mt-1">
+                      <span className="col-span-2">Total</span>
+                      <span className="text-right tabular-nums">{fmt(path.totalGross)}</span>
+                      <span className="text-right tabular-nums text-green-700">{fmt(path.totalGrant)}</span>
+                      <span className="text-right tabular-nums">{path.totalWorkerHours}</span>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            ))}
+          </div>
+
+          {/* The punchline */}
+          {paths.length === 2 && (() => {
+            const [pragmatic, deep] = paths;
+            const costDiff = deep.totalNet - pragmatic.totalNet;
+            const hoursDiff = deep.totalWorkerHours - pragmatic.totalWorkerHours;
+            const savingDiff = pragmatic.annualSavingEur - deep.annualSavingEur;
+            return (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+                <p>
+                  <strong>The pragmatic path costs {fmt(costDiff)} less</strong>, takes {hoursDiff} fewer worker hours
+                  (~{Math.round(hoursDiff / 8)} fewer work days), and
+                  {savingDiff > 0
+                    ? ` saves ${fmt(savingDiff)}/yr more on bills`
+                    : ` saves ${fmt(Math.abs(savingDiff))}/yr less on bills`
+                  } — before solar self-consumption is counted.
+                </p>
+                <p className="mt-2">
+                  The deep retrofit achieves a better BER ({deep.berRating} vs {pragmatic.berRating}) and better comfort.
+                  But for a homeowner comparing payback periods, the numbers point clearly in one direction.
+                  The policy question is whether EWI + windows + floor insulation is a good use of
+                  €{Math.round(costDiff / 1000)}k of a homeowner's money when the same outcome (or better) can
+                  be achieved with €{Math.round(pragmatic.totalNet / 1000)}k and a solar array.
+                </p>
+              </div>
+            );
+          })()}
+        </section>
+        )}
+
+        {/* ============================================================= */}
+        {/* SECTION 5: ALTERNATIVE POLICIES                               */}
         {/* ============================================================= */}
         <section>
           <h2 className="text-xl font-bold text-slate-900 mb-4">What if the policy were different?</h2>

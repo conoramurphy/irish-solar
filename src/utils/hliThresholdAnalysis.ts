@@ -218,6 +218,130 @@ export function analyseThresholdCrossing(
 }
 
 // ---------------------------------------------------------------------------
+// Path comparison: Pragmatic (C3 + solar + good HP) vs Deep Retrofit (A + HP)
+// ---------------------------------------------------------------------------
+
+export interface PathCostLine {
+  label: string;
+  grossEur: number;
+  grantEur: number;
+  netEur: number;
+  workerHours: number;
+}
+
+export interface PathComparison {
+  id: string;
+  label: string;
+  subtitle: string;
+  hliAfter: number;
+  berRating: string;
+  lines: PathCostLine[];
+  totalGross: number;
+  totalGrant: number;
+  totalNet: number;
+  totalWorkerHours: number;
+  annualHpBillEur: number;
+  annualGasBillEur: number;
+  annualSavingEur: number;
+  scop: number;
+}
+
+/**
+ * Compare two retrofit paths for a typical 1980s semi (HLI 2.5, 108m²):
+ * 1. Pragmatic: basic insulation (C3), 8 kWp solar, good HP — spend on generation not fabric
+ * 2. Deep retrofit: full insulation to A rating, OK HP, no solar — fabric first
+ */
+export function compareRetrofitPaths(
+  tariff: import('../types').Tariff,
+  floorAreaM2 = 108,
+  startingHli = 2.5,
+): PathComparison[] {
+
+  const baseGas = estimateFuelBaseline('1980s_semi', 'gas', floorAreaM2, startingHli);
+  const totalGasBaseline = baseGas.annualBillEur + baseGas.standingChargeEur;
+
+  // --- Path A: Pragmatic (C3 + solar + good HP) ---
+  const pragmaticInsulation: InsulationMeasure[] = ['attic', 'cavity', 'airSealing'];
+  const pragmaticHli = applyInsulationMeasures(startingHli, pragmaticInsulation, true);
+
+  const pragmaticLines: PathCostLine[] = [
+    { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 64 },
+    { label: 'Good install (survey + radiators)', grossEur: 4500,  grantEur: 2000,  netEur: 2500,  workerHours: 40 },
+    { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 16 },
+    { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 16 },
+    { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 24 },
+    { label: 'Solar PV 8 kWp',                    grossEur: 7500,  grantEur: 1800,  netEur: 5700,  workerHours: 40 },
+  ];
+
+  const pragmaticProfile = generateHeatPumpProfile({
+    archetypeId: '1980s_semi', hliOverride: pragmaticHli, floorAreaM2,
+    insulation: pragmaticInsulation, installQuality: 'good',
+    location: 'Dublin', year: 2025,
+  });
+  const pragmaticBill = calculateDirectHpBill(pragmaticProfile, tariff);
+  const pragmaticScop = estimateSCOP({
+    archetypeId: '1980s_semi', hliOverride: pragmaticHli, floorAreaM2,
+    insulation: pragmaticInsulation, installQuality: 'good',
+    location: 'Dublin', year: 2025,
+  });
+
+  // --- Path B: Deep Retrofit (A rating, no solar) ---
+  const deepInsulation: InsulationMeasure[] = ['attic', 'cavity', 'airSealing', 'ewi', 'windows', 'doors', 'floor'];
+  const deepHli = applyInsulationMeasures(startingHli, deepInsulation, true);
+
+  const deepLines: PathCostLine[] = [
+    { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 64 },
+    { label: 'Good install (survey + radiators)', grossEur: 4500,  grantEur: 2000,  netEur: 2500,  workerHours: 40 },
+    { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 16 },
+    { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 16 },
+    { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 24 },
+    { label: 'External wall insulation (EWI)',    grossEur: 20000, grantEur: 6000,  netEur: 14000, workerHours: 480 },
+    { label: 'Windows (triple glazing)',          grossEur: 8000,  grantEur: 3000,  netEur: 5000,  workerHours: 40 },
+    { label: 'Front & back doors',                grossEur: 2800,  grantEur: 1600,  netEur: 1200,  workerHours: 16 },
+    { label: 'Floor insulation',                  grossEur: 3000,  grantEur: 1500,  netEur: 1500,  workerHours: 40 },
+  ];
+
+  const deepProfile = generateHeatPumpProfile({
+    archetypeId: '1980s_semi', hliOverride: deepHli, floorAreaM2,
+    insulation: deepInsulation, installQuality: 'good',
+    location: 'Dublin', year: 2025,
+  });
+  const deepBill = calculateDirectHpBill(deepProfile, tariff);
+  const deepScop = estimateSCOP({
+    archetypeId: '1980s_semi', hliOverride: deepHli, floorAreaM2,
+    insulation: deepInsulation, installQuality: 'good',
+    location: 'Dublin', year: 2025,
+  });
+
+  function buildPath(
+    id: string, label: string, subtitle: string, ber: string,
+    hli: number, lines: PathCostLine[],
+    billResult: { annualHpElecKwh: number; annualBillEur: number },
+    scop: number,
+  ): PathComparison {
+    const totalGross = lines.reduce((s, l) => s + l.grossEur, 0);
+    const totalGrant = lines.reduce((s, l) => s + l.grantEur, 0);
+    const totalNet = lines.reduce((s, l) => s + l.netEur, 0);
+    const totalWorkerHours = lines.reduce((s, l) => s + l.workerHours, 0);
+    return {
+      id, label, subtitle, hliAfter: hli, berRating: ber, lines,
+      totalGross, totalGrant, totalNet, totalWorkerHours,
+      annualHpBillEur: billResult.annualBillEur,
+      annualGasBillEur: totalGasBaseline,
+      annualSavingEur: totalGasBaseline - billResult.annualBillEur,
+      scop,
+    };
+  }
+
+  return [
+    buildPath('pragmatic', 'Pragmatic', 'Basic insulation + 8 kWp solar + good HP', 'C3',
+      pragmaticHli, pragmaticLines, pragmaticBill, pragmaticScop),
+    buildPath('deep_retrofit', 'Deep Retrofit', 'Full insulation to A rating + HP, no solar', 'A2–A3',
+      deepHli, deepLines, deepBill, deepScop),
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Policy alternatives
 // ---------------------------------------------------------------------------
 
