@@ -452,6 +452,13 @@ export function buildSolarMaxScenario(
 // Packages — side-by-side comparison of complete bundles
 // ---------------------------------------------------------------------------
 
+export interface PackageCostLine {
+  label: string;
+  grossCostEur: number;
+  grantEur: number;
+  netCostEur: number;
+}
+
 export interface PackageScenario {
   id: string;
   label: string;
@@ -462,6 +469,8 @@ export interface PackageScenario {
   batteryKwh: number;
   /** Total net cost of this package (€, after all grants) */
   totalCostEur: number;
+  /** Itemised cost breakdown (gross, grant, net per line) */
+  costBreakdown: PackageCostLine[];
   hpProfileKwh: number[];
   effectiveHLI: number;
   estimatedSCOP: number;
@@ -563,6 +572,30 @@ export function buildPackageScenarios(
     },
   ];
 
+  // Gross costs and grants for the cost breakdown
+  const HP_GROSS = 14000;
+  const HP_GRANT = 12500;
+  const GOOD_INSTALL_GROSS = 4500;
+  const GOOD_INSTALL_GRANT = 2000; // central heating component of HP grant
+  const SOLAR_4KWP_GROSS = 5200;
+  const SOLAR_4KWP_GRANT = 1800;
+  const SOLAR_10KWP_GROSS = 9000;
+  const SOLAR_10KWP_GRANT = 1800; // same cap
+  const BATTERY_10KWH_GROSS = 3500;
+  const BATTERY_10KWH_GRANT = 0;
+
+  // Insulation gross costs (net + grant) — grants are per SEAI Feb 2026 semi-d
+  const INSULATION_GRANTS: Partial<Record<InsulationMeasure, { gross: number; grant: number }>> = {
+    attic:      { gross: 2300, grant: 1500 },
+    cavity:     { gross: 1700, grant: 1300 },
+    drylining:  { gross: 9500, grant: 3500 },
+    airSealing: { gross: 450,  grant: 0 },
+    ewi:        { gross: 20000, grant: 6000 },
+    windows:    { gross: 8000, grant: 3000 },
+    doors:      { gross: 2800, grant: 1600 },
+    floor:      { gross: 3000, grant: 1500 },
+  };
+
   const packages: PackageScenario[] = packageDefs.map((def) => {
     const profileParams: HeatPumpProfileParams = {
       ...baseProfileParams,
@@ -571,12 +604,71 @@ export function buildPackageScenarios(
     };
 
     const effectiveHLI = applyInsulationMeasures(baseHLI, def.insulation, archetype.hasCavity);
-    const insulationCost = insulationMeasuresCost(def.insulation, archetype.hasCavity);
-    const totalCost =
-      HEAT_PUMP_NET_COST_EUR +
-      INSTALL_QUALITY['good'].incrementalCostEur +
-      insulationCost +
-      def.extraCostEur;
+
+    // Build itemised cost breakdown
+    const costBreakdown: PackageCostLine[] = [];
+
+    // Heat pump
+    costBreakdown.push({
+      label: 'Heat pump (install + unit)',
+      grossCostEur: HP_GROSS,
+      grantEur: HP_GRANT,
+      netCostEur: HP_GROSS - HP_GRANT,
+    });
+
+    // Good installation upgrade
+    costBreakdown.push({
+      label: 'Good install (survey + radiators + commissioning)',
+      grossCostEur: GOOD_INSTALL_GROSS,
+      grantEur: GOOD_INSTALL_GRANT,
+      netCostEur: GOOD_INSTALL_GROSS - GOOD_INSTALL_GRANT,
+    });
+
+    // Insulation measures
+    for (const measure of def.insulation) {
+      const data = INSULATION_MEASURES[measure];
+      if (data.requiresCavity && !archetype.hasCavity) continue;
+      const grantInfo = INSULATION_GRANTS[measure] ?? { gross: data.netCostEur, grant: 0 };
+      costBreakdown.push({
+        label: data.label,
+        grossCostEur: grantInfo.gross,
+        grantEur: grantInfo.grant,
+        netCostEur: grantInfo.gross - grantInfo.grant,
+      });
+    }
+
+    // Solar
+    if (def.solarKwp > 0) {
+      const isLarge = def.solarKwp >= 10;
+      costBreakdown.push({
+        label: `Solar PV ${def.solarKwp} kWp`,
+        grossCostEur: isLarge ? SOLAR_10KWP_GROSS : SOLAR_4KWP_GROSS,
+        grantEur: isLarge ? SOLAR_10KWP_GRANT : SOLAR_4KWP_GRANT,
+        netCostEur: isLarge ? SOLAR_10KWP_GROSS - SOLAR_10KWP_GRANT : SOLAR_4KWP_GROSS - SOLAR_4KWP_GRANT,
+      });
+    }
+
+    // Battery
+    if (def.batteryKwh > 0) {
+      costBreakdown.push({
+        label: `Battery ${def.batteryKwh} kWh`,
+        grossCostEur: BATTERY_10KWH_GROSS,
+        grantEur: BATTERY_10KWH_GRANT,
+        netCostEur: BATTERY_10KWH_GROSS - BATTERY_10KWH_GRANT,
+      });
+    }
+
+    const totalCost = costBreakdown.reduce((sum, line) => sum + line.netCostEur, 0);
+    const totalGrant = costBreakdown.reduce((sum, line) => sum + line.grantEur, 0);
+    const totalGross = costBreakdown.reduce((sum, line) => sum + line.grossCostEur, 0);
+
+    // Add totals line
+    costBreakdown.push({
+      label: 'Total',
+      grossCostEur: totalGross,
+      grantEur: totalGrant,
+      netCostEur: totalCost,
+    });
 
     return {
       id: def.id,
@@ -587,6 +679,7 @@ export function buildPackageScenarios(
       solarKwp: def.solarKwp,
       batteryKwh: def.batteryKwh,
       totalCostEur: totalCost,
+      costBreakdown,
       hpProfileKwh: generateHeatPumpProfile(profileParams),
       effectiveHLI,
       estimatedSCOP: estimateSCOP(profileParams),

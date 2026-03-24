@@ -9,6 +9,7 @@
  * and 2030 projection.
  */
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Tariff } from '../types';
 import type {
@@ -147,49 +148,16 @@ export function HeatPumpResults({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-          {packages.packages.map((pkg) => {
-            const bill = calculateDirectHpBill(pkg.hpProfileKwh, tariff);
-            const savingVsGas = totalGasBaseline - bill.annualBillEur;
-            const payback = savingVsGas > 0 ? pkg.totalCostEur / savingVsGas : -1;
-
-            return (
-              <div key={pkg.id} className="p-4 flex flex-col">
-                <h3 className="text-sm font-semibold text-slate-900">{pkg.label}</h3>
-                <p className="text-xs text-slate-400 mt-1 flex-grow">{pkg.description}</p>
-                <div className="mt-3 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Total cost</span>
-                    <span className="font-medium text-slate-800">{fmt(pkg.totalCostEur)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Annual HP bill</span>
-                    <span className="font-medium text-slate-800">{fmt(bill.annualBillEur)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Saving vs {fuelLabel}</span>
-                    <span className="font-medium text-green-700">{fmt(savingVsGas)}/yr</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Payback</span>
-                    <span className="font-medium text-slate-800">
-                      {payback > 0 && payback <= 50 ? `${payback.toFixed(1)} yrs` : '—'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">SCOP</span>
-                    <span className="text-slate-600">{pkg.estimatedSCOP.toFixed(2)}</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleContinueInWizard(pkg, bill.annualHpElecKwh, pkg.label)}
-                  className="mt-3 w-full text-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
-                >
-                  Solar model →
-                </button>
-              </div>
-            );
-          })}
+          {packages.packages.map((pkg) => (
+            <PackageCard
+              key={pkg.id}
+              pkg={pkg}
+              tariff={tariff}
+              totalGasBaseline={totalGasBaseline}
+              fuelLabel={fuelLabel}
+              onContinue={(totalKwh) => handleContinueInWizard(pkg, totalKwh, pkg.label)}
+            />
+          ))}
         </div>
       </div>
 
@@ -338,6 +306,104 @@ export function HeatPumpResults({
           Carbon tax: Finance Act 2020 S.40 — €7.50/tonne/yr to €100 by 2030.
         </p>
       </div>
+    </div>
+  );
+}
+
+function PackageCard({
+  pkg,
+  tariff,
+  totalGasBaseline,
+  fuelLabel,
+  onContinue,
+}: {
+  pkg: PackageScenario;
+  tariff: Tariff;
+  totalGasBaseline: number;
+  fuelLabel: string;
+  onContinue: (totalKwh: number) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const bill = calculateDirectHpBill(pkg.hpProfileKwh, tariff);
+  const savingVsGas = totalGasBaseline - bill.annualBillEur;
+  const payback = savingVsGas > 0 ? pkg.totalCostEur / savingVsGas : -1;
+
+  // Cost breakdown without totals row (last item)
+  const itemLines = pkg.costBreakdown.slice(0, -1);
+  const totalsLine = pkg.costBreakdown[pkg.costBreakdown.length - 1];
+
+  return (
+    <div className="p-4 flex flex-col">
+      <h3 className="text-sm font-semibold text-slate-900">{pkg.label}</h3>
+      <p className="text-xs text-slate-400 mt-1 flex-grow">{pkg.description}</p>
+      <div className="mt-3 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Total cost</span>
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="font-medium text-slate-800 hover:text-blue-600 underline decoration-dotted cursor-pointer"
+          >
+            {fmt(pkg.totalCostEur)}
+          </button>
+        </div>
+
+        {/* Expandable cost breakdown */}
+        {expanded && (
+          <div className="bg-slate-50 rounded-lg p-3 -mx-1 text-xs space-y-1.5">
+            <div className="grid grid-cols-4 gap-1 text-slate-400 font-medium border-b border-slate-200 pb-1">
+              <span className="col-span-1">Item</span>
+              <span className="text-right">Gross</span>
+              <span className="text-right">Grant</span>
+              <span className="text-right">Net</span>
+            </div>
+            {itemLines.map((line, i) => (
+              <div key={i} className="grid grid-cols-4 gap-1 text-slate-600">
+                <span className="col-span-1 truncate" title={line.label}>{line.label}</span>
+                <span className="text-right tabular-nums">{fmt(line.grossCostEur)}</span>
+                <span className="text-right tabular-nums text-green-600">
+                  {line.grantEur > 0 ? `-${fmt(line.grantEur)}` : '—'}
+                </span>
+                <span className="text-right tabular-nums font-medium">{fmt(line.netCostEur)}</span>
+              </div>
+            ))}
+            {totalsLine && (
+              <div className="grid grid-cols-4 gap-1 text-slate-800 font-semibold border-t border-slate-200 pt-1">
+                <span className="col-span-1">Total</span>
+                <span className="text-right tabular-nums">{fmt(totalsLine.grossCostEur)}</span>
+                <span className="text-right tabular-nums text-green-700">-{fmt(totalsLine.grantEur)}</span>
+                <span className="text-right tabular-nums">{fmt(totalsLine.netCostEur)}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Annual HP bill</span>
+          <span className="font-medium text-slate-800">{fmt(bill.annualBillEur)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Saving vs {fuelLabel}</span>
+          <span className="font-medium text-green-700">{fmt(savingVsGas)}/yr</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">Payback</span>
+          <span className="font-medium text-slate-800">
+            {payback > 0 && payback <= 50 ? `${payback.toFixed(1)} yrs` : '—'}
+          </span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-500">SCOP</span>
+          <span className="text-slate-600">{pkg.estimatedSCOP.toFixed(2)}</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onContinue(bill.annualHpElecKwh)}
+        className="mt-3 w-full text-center text-xs text-blue-600 hover:text-blue-800 hover:underline"
+      >
+        Solar model →
+      </button>
     </div>
   );
 }
