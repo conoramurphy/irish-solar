@@ -38,6 +38,22 @@ const DEFAULT_TARIFF = domesticTariffs.find((t) => t.type === '24-hour' || t.id?
 
 function fmt(n: number) { return formatCurrency(n); }
 
+/** Map HLI to approximate BER rating for the secondary x-axis label */
+function hliBerLabel(hli: number): string {
+  if (hli <= 0.8) return 'A1';
+  if (hli <= 1.0) return 'A2';
+  if (hli <= 1.3) return 'A3';
+  if (hli <= 1.5) return 'B1';
+  if (hli <= 1.8) return 'B2';
+  if (hli <= 2.0) return 'B3';
+  if (hli <= 2.3) return 'C1';
+  if (hli <= 2.5) return 'C2';
+  if (hli <= 2.8) return 'C3';
+  if (hli <= 3.0) return 'D1';
+  if (hli <= 3.3) return 'D2';
+  return 'E1';
+}
+
 export function HliThresholdReport() {
   const tariff = DEFAULT_TARIFF;
 
@@ -147,14 +163,21 @@ export function HliThresholdReport() {
           {/* Chart A: Annual HP bill vs HLI */}
           <div className="mb-10">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">Annual heat pump electricity cost</h3>
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={sweep} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+            <ResponsiveContainer width="100%" height={340}>
+              <LineChart data={sweep} margin={{ top: 5, right: 20, bottom: 30, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="hli" label={{ value: 'HLI (W/K/m²)', position: 'insideBottom', offset: -3, fontSize: 12 }} tick={{ fontSize: 11 }} />
+                <XAxis dataKey="hli" tick={{ fontSize: 11 }} xAxisId="hli" />
+                <XAxis dataKey="hli" xAxisId="ber" orientation="bottom" axisLine={false} tickLine={false}
+                  tick={{ fontSize: 9, fill: '#94a3b8' }}
+                  tickFormatter={hliBerLabel}
+                  interval={2}
+                  dy={14}
+                />
                 <YAxis tickFormatter={(v: number) => `€${v}`} tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <ReferenceLine x={2.0} stroke="#dc2626" strokeDasharray="6 3" label={{ value: 'Grant threshold', fill: '#dc2626', fontSize: 11, position: 'top' }} />
-                <Line type="monotone" dataKey="annualHpBillEur" stroke="#2563eb" strokeWidth={2.5} dot={false} name="HP electricity cost" />
+                <ReferenceLine x={2.0} stroke="#dc2626" strokeDasharray="6 3" xAxisId="hli"
+                  label={{ value: 'Grant threshold', fill: '#dc2626', fontSize: 11, position: 'top' }} />
+                <Line type="monotone" dataKey="annualHpBillEur" stroke="#2563eb" strokeWidth={2.5} dot={false} name="HP electricity cost" xAxisId="hli" />
               </LineChart>
             </ResponsiveContainer>
             <p className="text-sm text-slate-500 mt-2">
@@ -163,34 +186,25 @@ export function HliThresholdReport() {
             </p>
           </div>
 
-          {/* Chart B: SCOP vs HLI */}
-          <div className="mb-10">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">Seasonal COP (efficiency)</h3>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={sweep} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="hli" tick={{ fontSize: 11 }} />
-                <YAxis domain={[2, 5]} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <ReferenceLine x={2.0} stroke="#dc2626" strokeDasharray="6 3" />
-                <Line type="monotone" dataKey="scop" stroke="#059669" strokeWidth={2.5} dot={false} name="SCOP" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Chart C: 10-year net saving with/without grant */}
+          {/* Chart B: 10-year net saving with/without grant */}
           <div className="mb-10">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">10-year net saving vs gas boiler</h3>
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={sweep} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
+            <ResponsiveContainer width="100%" height={340}>
+              <LineChart data={sweep} margin={{ top: 5, right: 20, bottom: 30, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="hli" tick={{ fontSize: 11 }} />
+                <XAxis dataKey="hli" tick={{ fontSize: 11 }} xAxisId="hli" />
+                <XAxis dataKey="hli" xAxisId="ber" orientation="bottom" axisLine={false} tickLine={false}
+                  tick={{ fontSize: 9, fill: '#94a3b8' }}
+                  tickFormatter={hliBerLabel}
+                  interval={2}
+                  dy={14}
+                />
                 <YAxis tickFormatter={(v: number) => `€${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <ReferenceLine x={2.0} stroke="#dc2626" strokeDasharray="6 3" />
+                <ReferenceLine x={2.0} stroke="#dc2626" strokeDasharray="6 3" xAxisId="hli" />
                 <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
-                <Line type="monotone" dataKey="tenYearNetWithGrant" stroke="#2563eb" strokeWidth={2} dot={false} name="With grant" />
-                <Line type="monotone" dataKey="tenYearNetNoGrant" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" dot={false} name="Without grant" />
+                <Line type="monotone" dataKey="tenYearNetWithGrant" stroke="#2563eb" strokeWidth={2} dot={false} name="With grant" xAxisId="hli" />
+                <Line type="monotone" dataKey="tenYearNetNoGrant" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" dot={false} name="Without grant" xAxisId="hli" />
                 <Legend />
               </LineChart>
             </ResponsiveContainer>
