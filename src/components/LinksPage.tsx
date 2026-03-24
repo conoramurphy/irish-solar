@@ -5,6 +5,7 @@ const links = [
   { path: '/', description: 'Homepage' },
   { path: '/full-model', description: 'Solar & Battery Modeller' },
   { path: '/tariffs', description: 'Tariff Modeller' },
+  { path: '/heat-pump', description: 'Heat Pump ROI Calculator' },
   { path: '/r', description: 'All Reports' },
   { path: '/links', description: 'Sitemap' },
 ];
