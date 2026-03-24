@@ -62,32 +62,25 @@ export function calculateCOP(T_out_C: number, T_flow_C: number): number {
 /**
  * Returns the flow temperature (°C) for a given outdoor temperature.
  *
- * - `poor`: fixed flow temperature = design temp + offset, regardless of outdoor temp.
- *           Models real-world "no weather compensation" installs that run hot year-round.
- *           This is the primary reason poor installs achieve SPF ~2.5–3.0 in field trials.
+ * All installs use a linear weather compensation curve from
+ * (T_flow_design + offset) at design outdoor temp (-3°C) down to 25°C
+ * at heating cutoff (15.5°C). The offset shifts the curve up (poor install,
+ * no radiator upgrades) or down (Heat Geek optimised).
  *
- * - `good` / `heatgeek`: linear weather compensation curve from T_flow_design at -3°C
- *           down to 25°C at 15.5°C. Quality offset shifts the design-point temp.
- *
- * @param T_out_C         - Outdoor temperature (°C)
- * @param T_flow_design_C - Design flow temperature (°C) from getDesignFlowTempC()
- * @param installQuality  - Installation quality tier
+ * @param T_out_C          - Outdoor temperature (°C)
+ * @param T_flow_design_C  - Design flow temperature (°C) from getDesignFlowTempC()
+ * @param flowTempOffsetC  - Continuous offset (°C). Positive = hotter flow = lower COP.
+ *                           Typical range: -5 (Heat Geek) to +10 (poor install).
  */
 export function getFlowTempC(
   T_out_C: number,
   T_flow_design_C: number,
-  installQuality: InstallQuality,
+  flowTempOffsetC: number,
 ): number {
   const T_flow_min = 25;
-  const qualityOffset = INSTALL_QUALITY[installQuality].flowTempOffsetC;
-  const T_flow_design_actual = T_flow_design_C + qualityOffset;
+  const T_flow_design_actual = T_flow_design_C + flowTempOffsetC;
 
-  // Poor install: no weather compensation — fixed high flow temp year-round
-  if (installQuality === 'poor') {
-    return T_flow_design_actual;
-  }
-
-  // Good / Heat Geek: weather compensation curve
+  // Weather compensation curve for all installs
   const range = HEATING_CUTOFF_TEMP_C - DESIGN_OUTDOOR_TEMP_C; // 18.5°C
   const slope = (T_flow_design_actual - T_flow_min) / range;
   const T_flow = T_flow_design_actual - slope * (T_out_C - DESIGN_OUTDOOR_TEMP_C);
@@ -153,6 +146,12 @@ export interface HeatPumpProfileParams {
   insulation: InsulationMeasure[];
   /** Installation quality tier */
   installQuality: InstallQuality;
+  /**
+   * Continuous flow temperature offset (°C). Positive = hotter flow = lower COP.
+   * Overrides the installQuality preset when provided.
+   * Typical range: -5 (Heat Geek) to +10 (poor install, no radiator upgrades).
+   */
+  flowTempOffsetC?: number;
   /** Location name (e.g. 'Dublin', 'Cork'). Falls back to Dublin. */
   location: string;
   /** Number of occupants (drives DHW demand). Defaults to floor_area / 30, clamped 1–6. */
@@ -203,6 +202,9 @@ export function generateHeatPumpProfile(params: HeatPumpProfileParams): number[]
   // Design flow temperature at design outdoor temp (-3°C), before quality offset
   const designFlowTempC = getDesignFlowTempC(effectiveHLI);
 
+  // Resolve flow temp offset: explicit override wins, else use install quality preset
+  const resolvedOffset = params.flowTempOffsetC ?? INSTALL_QUALITY[installQuality].flowTempOffsetC;
+
   // Annual DHW thermal demand (kWh)
   const dailyDhwThermalKwh = DHW_KWH_THERMAL_PER_OCCUPANT_PER_DAY * occupants;
 
@@ -231,7 +233,7 @@ export function generateHeatPumpProfile(params: HeatPumpProfileParams): number[]
       const spaceHeatThermalKwh = (hlcWperK * deltaT * 0.5) / 1000; // W × h → kWh (0.5h slot)
 
       // Flow temperature from weather compensation curve
-      const T_flow = getFlowTempC(T_out, designFlowTempC, installQuality);
+      const T_flow = getFlowTempC(T_out, designFlowTempC, resolvedOffset);
 
       // COP at this operating point
       const cop = calculateCOP(T_out, T_flow);
@@ -278,6 +280,7 @@ export function estimateSCOP(params: HeatPumpProfileParams): number {
   );
 
   const designFlowTempC = getDesignFlowTempC(effectiveHLI);
+  const resolvedOffset = params.flowTempOffsetC ?? INSTALL_QUALITY[params.installQuality].flowTempOffsetC;
   const dailyDhwThermalKwh = DHW_KWH_THERMAL_PER_OCCUPANT_PER_DAY * occupants;
 
   let totalThermal = 0;
@@ -293,7 +296,7 @@ export function estimateSCOP(params: HeatPumpProfileParams): number {
     if (T_out < HEATING_CUTOFF_TEMP_C) {
       const deltaT = Math.max(0, 21 - T_out);
       spaceHeatThermal = (hlcWperK * deltaT * 0.5) / 1000;
-      const T_flow = getFlowTempC(T_out, designFlowTempC, params.installQuality);
+      const T_flow = getFlowTempC(T_out, designFlowTempC, resolvedOffset);
       const cop = calculateCOP(T_out, T_flow);
       spaceHeatElec = spaceHeatThermal / cop;
     }

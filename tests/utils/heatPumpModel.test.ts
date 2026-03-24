@@ -60,36 +60,36 @@ describe('calculateCOP', () => {
 // ---------------------------------------------------------------------------
 
 describe('getFlowTempC', () => {
-  it('at design outdoor temp (-3°C) returns approximately the design flow temp (good install)', () => {
-    const result = getFlowTempC(-3, 45, 'good');
+  it('at design outdoor temp (-3°C) returns approximately the design flow temp (offset 0)', () => {
+    const result = getFlowTempC(-3, 45, 0);
     expect(result).toBeCloseTo(45, 0);
   });
 
-  it('at heating cutoff (15.5°C) returns approximately 25°C min (good install)', () => {
-    const result = getFlowTempC(15.5, 45, 'good');
+  it('at heating cutoff (15.5°C) returns approximately 25°C min (offset 0)', () => {
+    const result = getFlowTempC(15.5, 45, 0);
     expect(result).toBeCloseTo(25, 1);
   });
 
-  it('poor install adds 10°C offset at design point', () => {
-    const good = getFlowTempC(-3, 45, 'good');
-    const poor = getFlowTempC(-3, 45, 'poor');
+  it('positive offset (+10) adds 10°C at design point', () => {
+    const good = getFlowTempC(-3, 45, 0);
+    const poor = getFlowTempC(-3, 45, 10);
     expect(poor).toBeCloseTo(good + 10, 0);
   });
 
-  it('heatgeek install subtracts 5°C offset at design point', () => {
-    const good = getFlowTempC(-3, 45, 'good');
-    const hg = getFlowTempC(-3, 45, 'heatgeek');
+  it('negative offset (-5) subtracts 5°C at design point', () => {
+    const good = getFlowTempC(-3, 45, 0);
+    const hg = getFlowTempC(-3, 45, -5);
     expect(hg).toBeCloseTo(good - 5, 0);
   });
 
   it('flow temp is never below 25°C even in summer', () => {
-    const result = getFlowTempC(20, 40, 'good');
+    const result = getFlowTempC(20, 40, 0);
     expect(result).toBeGreaterThanOrEqual(25);
   });
 
   it('flow temp is never above design + offset', () => {
     // At very cold outdoor temp it should be clamped at design flow
-    const result = getFlowTempC(-15, 45, 'good');
+    const result = getFlowTempC(-15, 45, 0);
     expect(result).toBeLessThanOrEqual(45);
   });
 });
@@ -270,7 +270,7 @@ describe('estimateSCOP — calibration', () => {
     expect(scop).toBeLessThanOrEqual(4.8);
   });
 
-  it('1980s semi + poor install: SCOP in range 2.0–2.9', () => {
+  it('1980s semi + poor install (+10°C offset, weather comp): SCOP in range 3.0–4.5', () => {
     const scop = estimateSCOP({
       archetypeId: '1980s_semi',
       insulation: [],
@@ -278,8 +278,8 @@ describe('estimateSCOP — calibration', () => {
       location: 'Dublin',
       year: 2025,
     });
-    expect(scop).toBeGreaterThanOrEqual(2.0);
-    expect(scop).toBeLessThanOrEqual(2.9);
+    expect(scop).toBeGreaterThanOrEqual(3.0);
+    expect(scop).toBeLessThanOrEqual(4.5);
   });
 
   it('1980s semi + good install + attic + cavity: SCOP improves vs poor install', () => {

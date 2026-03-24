@@ -212,8 +212,9 @@ const WATERFALL_STEP_DEFS: WaterfallStepDef[] = [
  * @param location     - Location name for weather profiles
  * @param year         - Calendar year (determines slot count)
  * @param floorAreaM2  - Override floor area (m²). Defaults to archetype value.
- * @param hliOverride  - Direct HLI from BER certificate. If omitted, uses archetype default.
- * @param occupants    - Number of occupants. Defaults to floor_area / 30.
+ * @param hliOverride       - Direct HLI from BER certificate. If omitted, uses archetype default.
+ * @param occupants         - Number of occupants. Defaults to floor_area / 30.
+ * @param realTemperaturesC - Optional real half-hourly outdoor temperatures (°C) from weatherDataLoader.
  */
 export function buildWaterfallScenarios(
   archetypeId: string,
@@ -222,6 +223,7 @@ export function buildWaterfallScenarios(
   floorAreaM2?: number,
   hliOverride?: number,
   occupants?: number,
+  realTemperaturesC?: number[],
 ): WaterfallResult {
   const archetype = getArchetype(archetypeId);
   const resolvedFloorArea = floorAreaM2 ?? archetype.floorAreaM2;
@@ -233,6 +235,7 @@ export function buildWaterfallScenarios(
     location,
     year,
     occupants,
+    realTemperaturesC,
   };
 
   let cumulativeCost = 0;
@@ -305,6 +308,7 @@ export function buildSolarMaxScenario(
   floorAreaM2?: number,
   hliOverride?: number,
   occupants?: number,
+  realTemperaturesC?: number[],
 ): SolarMaxResult {
   const archetype = getArchetype(archetypeId);
   const resolvedFloorArea = floorAreaM2 ?? archetype.floorAreaM2;
@@ -322,6 +326,7 @@ export function buildSolarMaxScenario(
     location,
     year,
     occupants,
+    realTemperaturesC,
   };
 
   const baseHLI = hliOverride ?? archetype.defaultHLI;
