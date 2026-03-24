@@ -96,35 +96,47 @@ export function HliThresholdReport() {
     ? Math.abs(at21.annualHpBillEur - at19.annualHpBillEur)
     : 0;
 
+  const GRID_DARK: React.CSSProperties = {
+    backgroundImage: [
+      'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px)',
+      'linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)',
+    ].join(', '),
+    backgroundSize: '48px 48px',
+  };
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="border-b border-slate-200 bg-slate-50 px-4 py-6">
-        <div className="mx-auto max-w-3xl">
-          <Link to="/heat-pump" className="text-sm text-slate-500 hover:text-slate-800">
+    <div className="min-h-screen" style={{ backgroundColor: '#FFFBF0' }}>
+      {/* Hero — amber theme from Landing heat pump section */}
+      <div className="relative py-14 md:py-20" style={{ backgroundColor: '#FEF3C7' }}>
+        <div className="pointer-events-none absolute inset-0" style={GRID_DARK} />
+        <div className="relative z-10 w-full max-w-3xl mx-auto px-5 md:px-8">
+          <Link to="/heat-pump" className="text-xs font-medium" style={{ color: 'rgba(146,64,14,0.5)' }}>
             ← Heat Pump Calculator
           </Link>
-          <h1 className="text-2xl font-bold text-slate-900 mt-3">
+          <h1
+            className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold leading-[1.08] tracking-tight mt-5 mb-5 max-w-2xl"
+            style={{ color: '#78350F' }}
+          >
             A simple, proven way to fix Ireland's domestic decarbonisation
           </h1>
-          <p className="text-lg text-slate-600 mt-2">
-            Why the HLI 2.0 grant threshold is holding us back — and what the numbers say instead
+          <p className="text-lg md:text-xl font-light leading-relaxed max-w-2xl" style={{ color: 'rgba(120,53,15,0.8)' }}>
+            SEAI's heat pump grant requires HLI ≤ 2.0. There is no engineering basis for this number.
+            A sliding scale would unlock decarbonisation at no additional cost to the state.
           </p>
-          <p className="text-xs text-slate-400 mt-3">
-            All figures generated live from a half-hourly heat pump simulation model.
-            Reference: 1980s semi-detached, 108 m², Dublin weather, {tariff.supplier} {tariff.product} tariff.
+          <p className="text-xs mt-5" style={{ color: 'rgba(146,64,14,0.4)' }}>
+            All figures generated live · 1980s semi-d, 108 m², Dublin · {tariff.supplier} {tariff.product}
           </p>
         </div>
       </div>
 
-      <div className="mx-auto max-w-3xl px-4 py-10 space-y-16">
+      <div className="mx-auto max-w-3xl px-5 md:px-8 py-14 space-y-20">
 
         {/* ============================================================= */}
         {/* THE PROBLEM                                                     */}
         {/* ============================================================= */}
         <section>
-          <h2 className="text-xl font-bold text-slate-900 mb-4">The problem</h2>
-          <p className="text-base text-slate-600 leading-relaxed">
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The problem</p>
+          <p className="text-base text-slate-700 leading-relaxed">
             Ireland has committed to retrofitting 500,000 homes to BER B2 by 2030. We are
             not on track. The ESRI's 2026 analysis
             (<a href="https://doi.org/10.26504/QEC2026SPR_SA_Lynch" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Lynch et al.</a>)
@@ -145,7 +157,8 @@ export function HliThresholdReport() {
         {/* ============================================================= */}
         {paths.length === 2 && (
         <section>
-          <h2 className="text-xl font-bold text-slate-900 mb-4">The solution</h2>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The solution</p>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Two paths, same house</h2>
           <p className="text-base text-slate-700 mb-6">
             Take a typical 1980s semi-detached (HLI 2.5, 108 m²). Two ways to decarbonise it.
             One spends on generation, the other on fabric. Same heat pump in both.
@@ -253,21 +266,20 @@ export function HliThresholdReport() {
             const hoursDiff = deep.totalWorkerHours - pragmatic.totalWorkerHours;
             const savingDiff = pragmatic.annualSavingEur - deep.annualSavingEur;
             return (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
-                <p>
+              <div className="border-l-4 bg-white rounded-r-xl p-5 shadow-sm" style={{ borderColor: '#92400E' }}>
+                <p className="text-sm text-slate-800">
                   <strong>The pragmatic path costs {fmt(costDiff)} less</strong>, takes {hoursDiff} fewer worker hours
                   (~{Math.round(hoursDiff / 8)} fewer work days), and
                   {savingDiff > 0
                     ? ` saves ${fmt(savingDiff)}/yr more`
                     : ` saves ${fmt(Math.abs(savingDiff))}/yr less`
-                  } on total household bills (including solar self-consumption and export).
+                  } on total household bills — including solar self-consumption and export revenue.
                 </p>
-                <p className="mt-2">
+                <p className="text-sm text-slate-700 mt-3">
                   The deep retrofit achieves a better BER ({deep.berRating} vs {pragmatic.berRating}) and better comfort.
-                  But for a homeowner comparing payback periods, the numbers point clearly in one direction.
-                  The policy question is whether EWI + windows + floor insulation is a good use of
-                  €{Math.round(costDiff / 1000)}k of a homeowner's money when the same outcome (or better) can
-                  be achieved with €{Math.round(pragmatic.totalNet / 1000)}k and a solar array.
+                  But EWI, windows, and floor insulation costing €{Math.round(costDiff / 1000)}k does not deliver
+                  better decarbonisation outcomes than a €{Math.round(pragmatic.totalNet / 1000)}k heat pump with solar.
+                  The current grant structure rewards the more expensive, slower path.
                 </p>
               </div>
             );
@@ -279,26 +291,30 @@ export function HliThresholdReport() {
         {/* SECTION 1: THE CLIFF                                          */}
         {/* ============================================================= */}
         <section>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The cliff</p>
           <p className="text-lg text-slate-700 leading-relaxed">
             If your home's Heat Loss Indicator is 2.0 or below, SEAI gives you <strong>€6,500</strong> towards
             a heat pump. At 2.1, you get <strong>nothing</strong>.
           </p>
-          <p className="text-lg text-slate-700 leading-relaxed mt-4">
-            The difference in actual running cost between those two homes
-            is <strong>{fmt(costDiff)}/year</strong> — less than €1/week. This page asks:
-            does that cutoff make any engineering sense?
-          </p>
+          <div className="my-8 py-6 border-y-2" style={{ borderColor: '#92400E' }}>
+            <p className="text-2xl md:text-3xl font-serif font-bold text-center leading-tight" style={{ color: '#78350F' }}>
+              The difference in running cost between HLI 1.9 and 2.1 is {fmt(costDiff)}/year.
+              <br />
+              <span className="text-lg md:text-xl font-light">Less than €1 per week. The data shows the cutoff has no engineering basis.</span>
+            </p>
+          </div>
         </section>
 
         {/* ============================================================= */}
         {/* SECTION 2: WHAT THE NUMBERS SHOW                              */}
         {/* ============================================================= */}
         <section>
-          <h2 className="text-xl font-bold text-slate-900 mb-6">What the numbers actually show</h2>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The evidence</p>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Heat pump costs rise smoothly. There is no cliff at HLI 2.0.</h2>
 
           {/* Chart A: Annual HP bill vs HLI */}
           <div className="mb-10">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">Annual heat pump electricity cost</h3>
+            <h3 className="text-base font-serif font-semibold mb-3" style={{ color: '#78350F' }}>Annual heat pump electricity cost</h3>
             <ResponsiveContainer width="100%" height={340}>
               <LineChart data={sweep} margin={{ top: 5, right: 20, bottom: 30, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -324,7 +340,7 @@ export function HliThresholdReport() {
 
           {/* Chart B: 10-year net saving with/without grant */}
           <div className="mb-10">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">10-year net saving vs gas boiler</h3>
+            <h3 className="text-base font-serif font-semibold mb-3" style={{ color: '#78350F' }}>The grant creates the cliff, not the engineering</h3>
             <ResponsiveContainer width="100%" height={340}>
               <LineChart data={sweep} margin={{ top: 5, right: 20, bottom: 30, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -395,7 +411,8 @@ export function HliThresholdReport() {
         {/* SECTION 3: THE INSULATION TRAP / GRANT CLIFF                  */}
         {/* ============================================================= */}
         <section>
-          <h2 className="text-xl font-bold text-slate-900 mb-4">The grant cliff: can you get there cheaply?</h2>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The insulation trap</p>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Can you cross the threshold cheaply?</h2>
           <p className="text-base text-slate-700 mb-6">
             If your HLI is above 2.0, SEAI says: insulate first, then apply for the heat pump grant.
             But what does that actually cost? And for houses that start higher, is it even possible
@@ -498,7 +515,8 @@ export function HliThresholdReport() {
         {/* SECTION 5: ALTERNATIVE POLICIES                               */}
         {/* ============================================================= */}
         <section>
-          <h2 className="text-xl font-bold text-slate-900 mb-4">What if the policy were different?</h2>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>Policy alternatives</p>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>The cliff disappears under every alternative</h2>
           <p className="text-base text-slate-700 mb-6">
             The same model, same house, same weather — but four different grant designs.
             The cliff disappears under every alternative.
@@ -565,7 +583,8 @@ export function HliThresholdReport() {
         {/* SECTION 5: CONCLUSION                                         */}
         {/* ============================================================= */}
         <section className="border-t border-slate-200 pt-10">
-          <h2 className="text-xl font-bold text-slate-900 mb-4">Conclusion</h2>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>Conclusion</p>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Move the line, or remove it</h2>
           <ol className="list-decimal list-inside space-y-3 text-base text-slate-700">
             <li>
               <strong>The HLI 2.0 threshold has no basis in heat pump engineering.</strong> Performance
@@ -592,7 +611,8 @@ export function HliThresholdReport() {
         {/* SOURCES                                                        */}
         {/* ============================================================= */}
         <section className="border-t border-slate-200 pt-10">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">Sources and methodology</h2>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>References</p>
+          <h2 className="text-2xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Sources and methodology</h2>
 
           <p className="text-sm text-slate-600 mb-6">
             All figures on this page are generated live from a half-hourly simulation model.
