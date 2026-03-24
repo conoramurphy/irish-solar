@@ -362,6 +362,9 @@ export function HliThresholdReport() {
                   <div>
                     <p className="text-xs text-slate-500">Annual bill</p>
                     <p className="text-base font-semibold text-slate-800">{fmt(path.annualBillEur)}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      incl. base house load of {path.baseLoadKwh.toLocaleString()} kWh/yr
+                    </p>
                     {path.selfConsumptionKwh > 0 && (
                       <p className="text-xs text-green-600 mt-0.5">
                         after solar: {Math.round(path.selfConsumptionKwh).toLocaleString()} kWh self-consumed,
@@ -442,9 +445,9 @@ export function HliThresholdReport() {
                   <strong>The pragmatic path costs {fmt(costDiff)} less</strong>, takes {hoursDiff} fewer worker hours
                   (~{Math.round(hoursDiff / 8)} fewer work days), and
                   {savingDiff > 0
-                    ? ` saves ${fmt(savingDiff)}/yr more on bills`
-                    : ` saves ${fmt(Math.abs(savingDiff))}/yr less on bills`
-                  } — before solar self-consumption is counted.
+                    ? ` saves ${fmt(savingDiff)}/yr more`
+                    : ` saves ${fmt(Math.abs(savingDiff))}/yr less`
+                  } on total household bills (including solar self-consumption and export).
                 </p>
                 <p className="mt-2">
                   The deep retrofit achieves a better BER ({deep.berRating} vs {pragmatic.berRating}) and better comfort.
@@ -553,27 +556,138 @@ export function HliThresholdReport() {
           </p>
         </section>
 
-        {/* Methodology */}
-        <div className="text-xs text-slate-400 border-t border-slate-100 pt-6 space-y-1">
+        {/* ============================================================= */}
+        {/* SOURCES                                                        */}
+        {/* ============================================================= */}
+        <section className="border-t border-slate-200 pt-10">
+          <h2 className="text-xl font-bold text-slate-900 mb-6">Sources and methodology</h2>
+
+          <p className="text-sm text-slate-600 mb-6">
+            All figures on this page are generated live from a half-hourly simulation model.
+            The sources below were used to calibrate the model and inform the policy analysis.
+            Tariff used: {tariff.supplier} {tariff.product}.
+          </p>
+
+          <div className="space-y-5 text-sm">
+            <Source
+              title="SEAI Heat Pump Grants (Feb 2026)"
+              url="https://www.seai.ie/grants/home-energy-grants/individual-grants/heat-pump-systems"
+              used="Grant amounts for HP (€12,500), insulation, solar (€1,800), windows, doors. All net costs in this report use these figures."
+              key_info="HP grant increased to €12,500 in Feb 2026 (€6,500 unit + €2,000 central heating + €4,000 renewable bonus). HLI ≤ 2.0 required."
+            />
+            <Source
+              title="SEAI Insulation & Window Grants (Feb 2026)"
+              url="https://www.seai.ie/grants/home-energy-grants/individual-grants/insulation-grants"
+              used="Net costs for attic (€1,500 grant), cavity (€1,300), EWI (€6,000), drylining (€3,500), windows (€3,000), doors (€1,600). Semi-detached rates."
+              key_info="Grants increased Feb 2026. Windows and doors newly eligible. Second wall measure now permitted (from Mar 2026)."
+            />
+            <Source
+              title="Finance Act 2020, Section 40 — Carbon Tax"
+              url="https://www.irishstatutebook.ie/eli/2020/act/26/section/40/enacted/en/html"
+              used="Carbon tax trajectory (€7.50/tonne/yr to €100 by 2030) applied to gas baseline. Shows escalating cost of staying on fossil fuels."
+              key_info="€63.50/tonne in 2026. Adds ~1.3c/kWh to gas now, rising to ~2.0c/kWh by 2030. Legislated, not discretionary."
+            />
+            <Source
+              title="EN 14511 / Keymark — Heat Pump COP Test Data"
+              url="https://keymark.eu/en/products/heatpumps/certified-products"
+              used="COP model calibrated against EN14511 test points: A7/W35 → 4.48 (Vaillant aroTHERM 5kW), A7/W55 → 3.0, A-7/W45 → 2.83. Carnot efficiency η = 0.52."
+              key_info="Test-point COPs are lab conditions. Real-world SCOP is 15-25% lower (defrost, cycling, standby). This affects absolute numbers but not the threshold argument — the curves are equally smooth at lower SCOP."
+            />
+            <Source
+              title="Heat Geek — Live Heat Pump Performance Dashboard"
+              url="https://www.heatgeek.com/heat-pump-performance-data/"
+              used="Validates that well-commissioned systems with weather compensation achieve SCOP 3.5-4.5 in UK/Irish climates. Confirms the 'good install' tier in our model."
+              key_info="Heat Geek installs consistently show 30-50% higher SCOP than average UK installs. Key driver: proper weather compensation + radiator sizing — exactly what the 'good install' upgrade represents."
+            />
+            <Source
+              title="EST Renewable Heat Premium Payment (RHPP) Field Trial"
+              url="https://www.gov.uk/government/publications/rhpp-heat-pump-monitoring"
+              used="Median field SPF of 2.65 across 700+ UK ASHP installs. Used to anchor the 'poor install' SCOP in the model."
+              key_info="Median SPF_H4 = 2.44, SPF_H2 = 2.82. Systems without weather comp performed worst. Confirms the SCOP 2.5-3.0 range for poor installs."
+            />
+            <Source
+              title="BEIS Electrification of Heat Demonstration Project (2023)"
+              url="https://www.gov.uk/government/publications/electrification-of-heat-demonstration-project"
+              used="Median SPF_H2 of 2.82, best quartile ~3.3. Validates that even recent UK installs underperform lab COP by 15-25%."
+              key_info="750 heat pumps monitored 2020-2022. Key finding: installer quality and system design are the dominant factors, not the heat pump hardware."
+            />
+            <Source
+              title="ESRI — The Cost of Decarbonising Residential Heat in Ireland (Lynch et al., 2026)"
+              url="https://doi.org/10.26504/QEC2026SPR_SA_Lynch"
+              used="Provides the economic framework for comparing retrofit paths. Confirms that fabric-first deep retrofit has long payback vs generation-led approaches."
+              key_info="ESRI analysis of Irish housing stock decarbonisation costs. Finds significant variation in cost-effectiveness across dwelling types. Supports the argument that a blanket HLI threshold is too blunt."
+            />
+            <Source
+              title="RAP — Ireland's HLI Requirements for Heat Pumps (Lowes, 2022)"
+              url="https://www.raponline.org/wp-content/uploads/2023/09/RAP-Lowes-Ireland-HLI-Requirements-2022-Nov-29-FINAL-properties.pdf"
+              used="Directly addresses the HLI threshold debate. Argues the 2.0 cutoff is not well-supported by engineering evidence."
+              key_info="RAP found that heat pumps perform adequately in homes with HLI above 2.0. Recommended a more flexible approach or higher threshold. The SEAI threshold has not changed since."
+            />
+            <Source
+              title="Met Éireann — Climate Normals 1991-2020"
+              url="https://www.met.ie/climate/available-data/climate-normals"
+              used="Monthly mean temperatures for Dublin and regional profiles. Drives the half-hourly outdoor temperature model for COP calculations."
+              key_info="Dublin Jan mean 7.1°C, Jul mean 17.8°C. Daily amplitude ±2.5°C (winter) to ±4.0°C (summer). Ireland's mild, maritime climate means heat pumps operate in a favourable outdoor temperature range year-round."
+            />
+            <Source
+              title="SEAI BER Research Tool"
+              url="https://ndber.seai.ie/BERResearchTool/ber/search.aspx"
+              used="HLI distribution across Irish housing stock. Informs the 'who gets locked out' analysis — homes at HLI 2.0-2.5 are the largest segment."
+              key_info="The BER database shows the majority of 1970s-1990s Irish homes have HLI between 2.0 and 3.5. These are the homes most affected by the threshold."
+            />
+            <Source
+              title="TABULA Ireland — Building Typology (EPISCOPE/Energy Action)"
+              url="https://episcope.eu/fileadmin/tabula/public/docs/brochure/IE_TABULA_TypologyBrochure_EnergyAction.pdf"
+              used="Irish house archetypes (pre-1940 to modern) with default HLI, floor area, and wall construction. Drives the archetype selector."
+              key_info="Five dwelling types cover the Irish stock: pre-1940 solid wall (HLI ~4.5), 1940-78 semi (3.5), 1980s semi (2.5), 1990s semi (2.0), modern (1.2)."
+            />
+            <Source
+              title="MCS MIS 3005-D — Heat Pump Installation Standard (2025)"
+              url="https://mcscertified.com/wp-content/uploads/2025/02/MIS-3005-D-2025-V1.0.pdf"
+              used="Design flow temperature lookup and radiator sizing methodology. Informs the 'good install' upgrade costing."
+              key_info="MCS requires heat loss survey, weather compensation, and adequate emitter sizing. The 'good install' step in our model represents MCS-compliant commissioning."
+            />
+            <Source
+              title="CRU — Clean Export Guarantee (Micro-generation)"
+              url="https://www.cru.ie/professional/energy/energy-policy-and-regulation/micro-generation/"
+              used="Export rate floor (~€0.185/kWh). All supplier tariffs in the model use their actual export rates (currently €0.21/kWh across all suppliers)."
+              key_info="CRU mandates a minimum export payment for domestic micro-generators. Supplier rates are typically at or slightly above this floor."
+            />
+          </div>
+        </section>
+
+        {/* Limitations */}
+        <div className="text-xs text-slate-400 border-t border-slate-100 pt-6 mt-10 space-y-2">
           <p>
-            <strong>Methodology:</strong> Half-hourly heat pump simulation, Carnot COP (η=0.52),
-            Dublin Met Éireann climate normals, good installation with weather compensation.
-            Gas baseline: HDD 2,150, 90% boiler efficiency, €0.137/kWh.
-            Tariff: {tariff.supplier} {tariff.product}. All figures generated live — change any
-            assumption in the model and the charts update.
+            <strong>Limitations:</strong> The COP model uses a Carnot approximation (η = 0.52) calibrated against
+            manufacturer test data. Real-world SCOP is typically 15-25% lower due to defrost cycles, part-load
+            cycling, and standby/pump losses. This affects absolute bill figures but not the shape of the
+            HLI-vs-performance curves — the threshold is equally arbitrary at lower SCOP values.
           </p>
           <p>
-            <strong>Sources:</strong> SEAI grants (Feb 2026), Finance Act 2020 S.40 (carbon tax),
-            EN14511/Keymark (COP validation), Met Éireann (temperature data).
+            Temperature profiles use Met Éireann monthly normals with sinusoidal daily variation. Real weather
+            includes cold snaps (0 to -3°C overnight) not captured by the synthetic model, which slightly
+            underestimates peak demand and overestimates winter COP.
           </p>
           <p>
-            <strong>Limitations:</strong> This model uses a Carnot approximation calibrated against
-            manufacturer data. Real-world SCOP is typically 15-25% lower due to defrost, cycling, and
-            standby losses. This affects the absolute numbers but not the shape of the curves —
-            the threshold is equally arbitrary at lower SCOP values.
+            Solar yield assumes 950 kWh/kWp/yr (standard Irish estimate, south-facing, unshaded). Actual yield
+            varies with orientation, shading, and weather. Self-consumption and export are calculated from
+            real Dublin 2025 half-hourly irradiance data via the same simulation engine used by the main calculator.
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Source({ title, url, used, key_info }: { title: string; url: string; used: string; key_info: string }) {
+  return (
+    <div className="border-l-2 border-slate-200 pl-4">
+      <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-700 hover:underline">
+        {title}
+      </a>
+      <p className="text-xs text-slate-500 mt-1"><strong>How used:</strong> {used}</p>
+      <p className="text-xs text-slate-400 mt-0.5"><strong>Key info:</strong> {key_info}</p>
     </div>
   );
 }

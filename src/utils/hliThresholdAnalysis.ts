@@ -251,6 +251,31 @@ export interface PathComparison {
   /** Solar export revenue (€/yr) — 0 for non-solar paths */
   exportRevenueEur: number;
   scop: number;
+  /** Annual base house electricity (kWh, excl HP) included in bill */
+  baseLoadKwh: number;
+}
+
+// Base house electricity (excl. heating): ~4,000 kWh/yr for a 108m² semi
+// Shaped: slightly higher in morning (06-09) and evening (17-22), lower overnight
+const BASE_LOAD_KWH_PER_YEAR = 4000;
+
+/**
+ * Generate a half-hourly base-load profile (lights, cooking, appliances — excl. heating).
+ * Simple shape: 60% of daily load in 06:00–22:00 (slots 12–43), 40% overnight.
+ */
+export function generateBaseLoadProfile(totalSlots: number): number[] {
+  const profile = new Array(totalSlots).fill(0);
+  const dailyKwh = BASE_LOAD_KWH_PER_YEAR / 365;
+  for (let slot = 0; slot < totalSlots; slot++) {
+    const halfHour = slot % 48;
+    // Simple shape: 60% of daily load in 06:00-22:00 (slots 12-43), 40% overnight
+    const isDay = halfHour >= 12 && halfHour <= 43;
+    const daySlots = 32;
+    const nightSlots = 16;
+    const share = isDay ? (0.6 / daySlots) : (0.4 / nightSlots);
+    profile[slot] = dailyKwh * share;
+  }
+  return profile;
 }
 
 /**
@@ -272,6 +297,9 @@ export function compareRetrofitPaths(
   const totalGasBaseline = baseGas.annualBillEur + baseGas.standingChargeEur;
 
   const SOLAR_KWP = 8;
+  // Standard Dublin yield estimate — same approach as the main wizard.
+  // The solar CSV provides the hourly shape (irradiance weights), not the absolute yield.
+  // 950 kWh/kWp is the accepted figure for an 8 kWp system in Dublin (south-facing, ~35° tilt).
   const SOLAR_YIELD_KWH_PER_KWP = 950;
 
   // --- Path A: Pragmatic (C3 + solar + good HP) ---
@@ -295,13 +323,17 @@ export function compareRetrofitPaths(
   const pragmaticProfile = generateHeatPumpProfile(pragmaticProfileParams);
   const pragmaticScop = estimateSCOP(pragmaticProfileParams);
 
+  // Merge HP profile with base house load (lights, cooking, appliances)
+  const pragmaticBaseLoad = generateBaseLoadProfile(pragmaticProfile.length);
+  const pragmaticTotalConsumption = pragmaticProfile.map((hp, i) => hp + pragmaticBaseLoad[i]);
+
   // Run solar path through the REAL simulation engine
   let pragmaticBillEur: number;
   let pragmaticSelfConsumption = 0;
   let pragmaticExportRevenue = 0;
 
   if (solarData) {
-    const noSolarBill = calculateDirectHpBill(pragmaticProfile, tariff);
+    const noSolarBill = calculateDirectHpBill(pragmaticTotalConsumption, tariff);
     const solarResult = runCalculation(
       {
         annualProductionKwh: SOLAR_KWP * SOLAR_YIELD_KWH_PER_KWP,
@@ -321,13 +353,13 @@ export function compareRetrofitPaths(
       undefined,
       solarData,
       undefined,
-      pragmaticProfile,
+      pragmaticTotalConsumption,
     );
     pragmaticBillEur = Math.max(0, noSolarBill.annualBillEur - solarResult.annualSavings);
     pragmaticSelfConsumption = solarResult.annualSelfConsumption;
     pragmaticExportRevenue = solarResult.annualExportRevenue ?? 0;
   } else {
-    const bill = calculateDirectHpBill(pragmaticProfile, tariff);
+    const bill = calculateDirectHpBill(pragmaticTotalConsumption, tariff);
     pragmaticBillEur = bill.annualBillEur;
   }
 
@@ -353,8 +385,11 @@ export function compareRetrofitPaths(
     location: 'Dublin', year: 2025,
   };
   const deepProfile = generateHeatPumpProfile(deepProfileParams);
+  // Merge HP profile with base house load (same base load as pragmatic path)
+  const deepBaseLoad = generateBaseLoadProfile(deepProfile.length);
+  const deepTotalConsumption = deepProfile.map((hp, i) => hp + deepBaseLoad[i]);
   // No solar — straight tariff billing, slot by slot
-  const deepBill = calculateDirectHpBill(deepProfile, tariff);
+  const deepBill = calculateDirectHpBill(deepTotalConsumption, tariff);
   const deepScop = estimateSCOP(deepProfileParams);
 
   function buildPath(
@@ -376,6 +411,7 @@ export function compareRetrofitPaths(
       selfConsumptionKwh,
       exportRevenueEur,
       scop,
+      baseLoadKwh: BASE_LOAD_KWH_PER_YEAR,
     };
   }
 
