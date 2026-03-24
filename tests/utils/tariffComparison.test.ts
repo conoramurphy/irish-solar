@@ -109,4 +109,144 @@ describe('compareDomesticTariffsForUsage', () => {
     // In the free window the base rate is 0, so min unit rate should be PSO-only.
     expect(freeRow.minUnitRate).toBeCloseTo(0.01, 6);
   });
+
+  it('throws when hourlyConsumption length does not match expected hours for the year', () => {
+    const year = 2023;
+    const expected = expectedHoursInYear(year);
+    const wrongLength = new Array(expected - 10).fill(0);
+
+    const tariff: Tariff = {
+      id: 'flat',
+      supplier: 'Test',
+      product: 'Flat',
+      type: 'flat',
+      standingCharge: 0,
+      rates: [{ period: 'all-day', rate: 0.2 }],
+      exportRate: 0,
+      psoLevy: 0
+    };
+
+    expect(() =>
+      compareDomesticTariffsForUsage({ hourlyConsumption: wrongLength, year, tariffs: [tariff] })
+    ).toThrow(
+      `Usage slot count (${wrongLength.length}) does not match expected ${expected} slots (24/day) for year ${year}.`
+    );
+  });
+
+  it('handles zero consumption (all hours = 0) with Infinity fallback for minUnitRate', () => {
+    const year = 2023;
+    const hourlyConsumption = makeHourlyUsage(year, () => 0);
+
+    const tariff: Tariff = {
+      id: 'flat',
+      supplier: 'Test',
+      product: 'Flat',
+      type: 'flat',
+      standingCharge: 0.5,
+      rates: [{ period: 'all-day', rate: 0.2 }],
+      exportRate: 0,
+      psoLevy: 0.01
+    };
+
+    const rows = compareDomesticTariffsForUsage({ hourlyConsumption, year, tariffs: [tariff] });
+
+    expect(rows).toHaveLength(1);
+    const row = rows[0]!;
+    expect(row.totalKwh).toBe(0);
+    // minUnitRate falls back from Infinity to 0
+    expect(row.minUnitRate).toBe(0);
+    // maxUnitRate falls back from -Infinity to 0
+    expect(row.maxUnitRate).toBe(0);
+    expect(row.rateSpread).toBe(0);
+    expect(row.distinctRateCount).toBe(0);
+    expect(row.effectiveAllInImportRateEurPerKwh).toBe(0);
+    expect(row.pctKwhAtCheapestRate).toBe(0);
+    expect(row.pctKwhAtMaxRate).toBe(0);
+  });
+
+  it('handles half-hourly consumption (17520 slots) for a non-leap year', () => {
+    const year = 2023; // non-leap: 365 * 48 = 17520
+    const hourlyConsumption = new Array(17520).fill(0.5);
+
+    const tariff: Tariff = {
+      id: 'flat-hh',
+      supplier: 'Test',
+      product: 'Flat HH',
+      type: 'flat',
+      standingCharge: 0,
+      rates: [{ period: 'all-day', rate: 0.2 }],
+      exportRate: 0,
+      psoLevy: 0
+    };
+
+    const rows = compareDomesticTariffsForUsage({ hourlyConsumption, year, tariffs: [tariff] });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].totalKwh).toBeCloseTo(17520 * 0.5, 0);
+  });
+
+  it('returns 0 for best cost when tariffs array is empty (sorted[0] is undefined)', () => {
+    const year = 2023;
+    const hourlyConsumption = makeHourlyUsage(year, () => 1);
+
+    // Pass empty tariffs array → sorted[0] is undefined → best = sorted[0]?.annualCostEur ?? 0
+    const rows = compareDomesticTariffsForUsage({ hourlyConsumption, year, tariffs: [] });
+    expect(rows).toHaveLength(0);
+  });
+
+  it('handles safeNumber converting non-numeric psoLevy string to 0', () => {
+    const year = 2023;
+    const hourlyConsumption = makeHourlyUsage(year, () => 1);
+
+    const tariff: Tariff = {
+      id: 'string-pso',
+      supplier: 'Test',
+      product: 'String PSO',
+      type: 'flat',
+      standingCharge: 0,
+      rates: [{ period: 'all-day', rate: 0.2 }],
+      exportRate: 0,
+      psoLevy: 'not-a-number' as unknown as number // triggers safeNumber fallback to 0
+    };
+
+    const rows = compareDomesticTariffsForUsage({ hourlyConsumption, year, tariffs: [tariff] });
+    expect(rows).toHaveLength(1);
+    // psoLevy treated as 0 → rates computed without it
+    expect(rows[0].minUnitRate).toBeCloseTo(0.2, 5);
+  });
+
+  it('sets deltaVsBestPct to 0 when best annual cost is 0', () => {
+    const year = 2023;
+    const hourlyConsumption = makeHourlyUsage(year, () => 0);
+
+    const t1: Tariff = {
+      id: 'zero-a',
+      supplier: 'Test',
+      product: 'Zero A',
+      type: 'flat',
+      standingCharge: 0,
+      rates: [{ period: 'all-day', rate: 0.2 }],
+      exportRate: 0,
+      psoLevy: 0
+    };
+
+    const t2: Tariff = {
+      id: 'zero-b',
+      supplier: 'Test',
+      product: 'Zero B',
+      type: 'flat',
+      standingCharge: 0,
+      rates: [{ period: 'all-day', rate: 0.3 }],
+      exportRate: 0,
+      psoLevy: 0
+    };
+
+    const rows = compareDomesticTariffsForUsage({ hourlyConsumption, year, tariffs: [t1, t2] });
+
+    // Both tariffs have 0 consumption and 0 standing charge → best = 0
+    for (const row of rows) {
+      expect(row.annualCostEur).toBe(0);
+      expect(row.deltaVsBestEur).toBe(0);
+      expect(row.deltaVsBestPct).toBe(0);
+    }
+  });
 });

@@ -181,6 +181,38 @@ describe('calculateMonthlyBill', () => {
   });
 });
 
+  it('uses 0 for slot usage when slot.id is not in tariffSlotUsage (|| 0 fallback)', () => {
+    const slots: TariffSlot[] = [
+      { id: 'known', name: 'Known', startHour: 0, endHour: 24, ratePerKwh: 0.25 },
+      { id: 'unknown-slot', name: 'Unknown', startHour: 0, endHour: 24, ratePerKwh: 0.50 },
+    ];
+    const config: TariffConfiguration = { type: 'custom', customSlots: slots };
+    // tariffSlotUsage only has 'known', not 'unknown-slot'
+    const usage = { known: 0.8 };
+
+    const bill = calculateMonthlyBill(1000, config, usage);
+    // known: 1000 * 0.8 * 0.25 = 200
+    // unknown-slot: tariffSlotUsage['unknown-slot'] is undefined -> || 0 -> contribution = 0
+    expect(bill).toBeCloseTo(200);
+  });
+
+  it('falls back to 30 days when monthIndex is out-of-range (|| 30 fallback)', () => {
+    const config: TariffConfiguration = {
+      type: 'custom',
+      customSlots: [
+        { id: 'flat', name: 'Flat', startHour: 0, endHour: 24, ratePerKwh: 0.20 },
+      ],
+      standingChargePerDay: 1.0,
+    };
+    const usage = { flat: 1.0 };
+
+    // monthIndex=999 is out of daysPerMonth array range -> daysPerMonth[999] is undefined -> || 30
+    const bill = calculateMonthlyBill(500, config, usage, 999);
+    // energy: 500 * 1.0 * 0.20 = 100
+    // standing: 1.0 * 30 = 30
+    expect(bill).toBeCloseTo(130);
+  });
+
 // --- deriveCustomTariffRates ---
 describe('deriveCustomTariffRates', () => {
   it('derives rates from example months with slot usage', () => {

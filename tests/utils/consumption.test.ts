@@ -128,6 +128,56 @@ describe('normalizeSharesToOne', () => {
     expect(result.a).toBeCloseTo(1.0, 6);
     expect(result.b).toBe(0);
   });
+
+  it('returns 0 for equal when bucketKeys is empty (empty {} shares)', () => {
+    // empty bucketKeys → equal = bucketKeys.length > 0 ? ... : 0
+    const result = normalizeSharesToOne({} as Record<TariffBucketKey, number>, []);
+    expect(result).toEqual({});
+  });
+});
+
+// --- normalizeConsumptionProfile ---
+import { normalizeConsumptionProfile } from '../../src/utils/consumption';
+
+describe('normalizeConsumptionProfile', () => {
+  const simpleTariff: Tariff = {
+    name: 'Test',
+    rates: [{ period: 'day', importRate: 0.2, exportRate: 0 }]
+  };
+
+  it('uses idx as monthIndex when month.monthIndex is not a number', () => {
+    const profile = {
+      months: Array.from({ length: 12 }, (_, idx) => ({
+        monthIndex: undefined as unknown as number,
+        totalKwh: 100,
+        bucketShares: { day: 1 }
+      }))
+    };
+    const result = normalizeConsumptionProfile(profile, simpleTariff);
+    result.months.forEach((m, i) => {
+      expect(m.monthIndex).toBe(i);
+    });
+  });
+});
+
+describe('makeDefaultBucketShares - night only', () => {
+  it('handles only night key (no day, no peak) - assigns night full share via normalization', () => {
+    const shares = makeDefaultBucketShares(['night']);
+    // night=0.35 assigned, no peak or day → assigned=0.35, remainingKeys=[]
+    // normalizeSharesToOne({night: 0.35}, ['night']) → night = 1
+    expect(shares.night).toBeCloseTo(1.0, 6);
+  });
+
+  it('handles night + unknown key - distributes remainder to unknown', () => {
+    const shares = makeDefaultBucketShares(['night', 'other']);
+    // night=0.35, no peak/day assigned → assigned=0.35, remainingKeys=['other']
+    // remaining = 1 - 0.35 = 0.65, each = 0.65
+    // shares = {night: 0.35, other: 0.65} → normalizeSharesToOne → already sums to 1
+    expect(shares.night).toBeCloseTo(0.35, 5);
+    expect(shares.other).toBeCloseTo(0.65, 5);
+    const sum = Object.values(shares).reduce((s, v) => s + v, 0);
+    expect(sum).toBeCloseTo(1.0, 6);
+  });
 });
 
 // --- generateSeasonalMonthlyKwh ---

@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   parseSolarTimeseriesCSV,
+  parsePvgisTimeToStamp,
   listSolarTimeseriesYears,
   sliceSolarTimeseriesYear,
   aggregateToDaily,
-  toHourKey
+  toHourKey,
+  normalizeSolarTimeseriesYear,
+  calculateTimeseriesWeights,
+  buildCanonicalStampsForYear
 } from '../../src/utils/solarTimeseriesParser';
-import type { ParsedSolarData, SolarTimestep } from '../../src/utils/solarTimeseriesParser';
+import type { ParsedSolarData, SolarTimestep, HourStamp } from '../../src/utils/solarTimeseriesParser';
 
 describe('parseSolarTimeseriesCSV - CSV format validation', () => {
   const validCSV = `Latitude (decimal degrees):\t53.835
@@ -352,5 +356,224 @@ describe('aggregateToDaily', () => {
 
   it('returns empty array for empty data', () => {
     expect(aggregateToDaily([], makeParsedData([]))).toEqual([]);
+  });
+});
+
+// --- normalizeSolarTimeseriesYear ---
+describe('normalizeSolarTimeseriesYear', () => {
+  function makeFullTimestep(stamp: HourStamp, irradiance: number, sourceIndex = 0): SolarTimestep {
+    return {
+      timestamp: new Date(Date.UTC(stamp.year, stamp.monthIndex, stamp.day, stamp.hour, stamp.minute, 0)),
+      stamp,
+      hourKey: toHourKey(stamp),
+      irradianceWm2: irradiance,
+      sourceIndex
+    };
+  }
+
+  it('should skip rows whose hourKey is not in the canonical set (line 257)', () => {
+    const year = 2020;
+    const canonicalStamps = buildCanonicalStampsForYear(year, 24);
+
+    // Build a full year of valid data
+    const validTimesteps = canonicalStamps.map((s, i) => makeFullTimestep(s, i % 100));
+
+    // Add extra rows with a bogus hourKey not in canonical set (minute=15 never appears)
+    const bogusStamp: HourStamp = { year: 2020, monthIndex: 0, day: 1, hour: 0, minute: 15 };
+    const bogusTimestep = makeFullTimestep(bogusStamp, 999);
+    const allTimesteps = [...validTimesteps, bogusTimestep];
+
+    const data: ParsedSolarData = {
+      location: 'Test',
+      latitude: 53,
+      longitude: -7,
+      elevation: 100,
+      year,
+      slotsPerDay: 24,
+      timesteps: allTimesteps,
+      totalIrradiance: allTimesteps.reduce((s, t) => s + t.irradianceWm2, 0)
+    };
+
+    const { normalized, corrections } = normalizeSolarTimeseriesYear(data, year);
+    // The bogus row should have been skipped — normalized should still have exactly 8784 slots (2020 is leap)
+    expect(normalized.timesteps).toHaveLength(corrections.expectedSlots);
+    // The bogus irradiance (999) should not appear in any timestep
+    expect(normalized.timesteps.every(ts => ts.irradianceWm2 !== 999)).toBe(true);
+  });
+
+  it('should keep first duplicate and skip subsequent with keep-first policy (line 268)', () => {
+    const year = 2020;
+    const canonicalStamps = buildCanonicalStampsForYear(year, 24);
+
+    // Build full year
+    const validTimesteps = canonicalStamps.map((s, i) => makeFullTimestep(s, 10, i));
+
+    // Add a duplicate for the first slot with higher irradiance
+    const dupStamp = canonicalStamps[0]!;
+    const dupTimestep = makeFullTimestep(dupStamp, 999, 99999);
+
+    const allTimesteps = [...validTimesteps, dupTimestep];
+    const data: ParsedSolarData = {
+      location: 'Test',
+      latitude: 53,
+      longitude: -7,
+      elevation: 100,
+      year,
+      slotsPerDay: 24,
+      timesteps: allTimesteps,
+      totalIrradiance: allTimesteps.reduce((s, t) => s + t.irradianceWm2, 0)
+    };
+
+    const { normalized, corrections } = normalizeSolarTimeseriesYear(data, year, 'keep-first');
+    expect(corrections.duplicatesDropped).toBe(1);
+    // Should have kept the first (irradiance=10), not the duplicate (irradiance=999)
+    expect(normalized.timesteps[0].irradianceWm2).toBe(10);
+  });
+
+  it('falls back to slotsPerDay=24 when data.slotsPerDay is undefined (line 243 ?? 24)', () => {
+    const year = 2023;
+    const canonicalStamps = buildCanonicalStampsForYear(year, 24);
+    const validTimesteps = canonicalStamps.map((s, i) => makeFullTimestep(s, i % 100, i));
+    const data = {
+      location: 'Test', latitude: 53, longitude: -7, elevation: 100,
+      year,
+      slotsPerDay: undefined as unknown as 24 | 48, // triggers ?? 24
+      timesteps: validTimesteps,
+      totalIrradiance: 100
+    };
+    const { normalized } = normalizeSolarTimeseriesYear(data, year);
+    expect(normalized.slotsPerDay).toBe(24);
+    expect(normalized.timesteps).toHaveLength(8760);
+  });
+
+  it('uses ?? 0 fallback when irradianceWm2 is undefined in duplicate comparison (line 271)', () => {
+    const year = 2023;
+    const canonicalStamps = buildCanonicalStampsForYear(year, 24);
+    const validTimesteps = canonicalStamps.map((s, i) => makeFullTimestep(s, 10, i));
+    // Duplicate with irradianceWm2 undefined — triggers ?? 0 in the comparison
+    const dupStamp = canonicalStamps[0]!;
+    const dupTimestep: SolarTimestep = {
+      timestamp: new Date(Date.UTC(dupStamp.year, dupStamp.monthIndex, dupStamp.day, dupStamp.hour, dupStamp.minute, 0)),
+      stamp: dupStamp,
+      hourKey: toHourKey(dupStamp),
+      irradianceWm2: undefined as unknown as number,
+      sourceIndex: 99999
+    };
+    const data: ParsedSolarData = {
+      location: 'Test', latitude: 53, longitude: -7, elevation: 100,
+      year, slotsPerDay: 24,
+      timesteps: [...validTimesteps, dupTimestep],
+      totalIrradiance: 100
+    };
+    // keep-max-irradiance: undefined ?? 0 = 0, which is not > 10, so original is kept
+    const { normalized, corrections } = normalizeSolarTimeseriesYear(data, year, 'keep-max-irradiance');
+    expect(corrections.duplicatesDropped).toBe(1);
+    expect(normalized.timesteps[0].irradianceWm2).toBe(10);
+  });
+
+  it('uses ?? 0 fallback when irradianceWm2 is undefined in totalIrradiance reduce (line 306)', () => {
+    const year = 2023;
+    const canonicalStamps = buildCanonicalStampsForYear(year, 24);
+    const validTimesteps = canonicalStamps.map((s, i) => ({
+      timestamp: new Date(Date.UTC(s.year, s.monthIndex, s.day, s.hour, s.minute, 0)),
+      stamp: s,
+      hourKey: toHourKey(s),
+      irradianceWm2: (i === 0 ? undefined : 5) as unknown as number, // first slot undefined
+      sourceIndex: i
+    } satisfies SolarTimestep));
+    const data: ParsedSolarData = {
+      location: 'Test', latitude: 53, longitude: -7, elevation: 100,
+      year, slotsPerDay: 24, timesteps: validTimesteps, totalIrradiance: 0
+    };
+    const { normalized } = normalizeSolarTimeseriesYear(data, year);
+    // totalIrradiance should be computed without NaN (undefined ?? 0 = 0)
+    expect(Number.isFinite(normalized.totalIrradiance)).toBe(true);
+  });
+});
+
+// --- parsePvgisTimeToStamp ---
+describe('parsePvgisTimeToStamp', () => {
+  it('returns null for empty/non-string input', () => {
+    expect(parsePvgisTimeToStamp('', false)).toBeNull();
+    expect(parsePvgisTimeToStamp(null as unknown as string, false)).toBeNull();
+  });
+
+  it('returns null for string shorter than 13 chars', () => {
+    expect(parsePvgisTimeToStamp('20200101:00', false)).toBeNull();
+  });
+
+  it('returns null when monthIndex < 0 (month "00")', () => {
+    // month "00" → monthIndex = 0 - 1 = -1 → fails < 0 check
+    expect(parsePvgisTimeToStamp('20200001:0011', false)).toBeNull();
+  });
+
+  it('returns null when monthIndex > 11 (month "13")', () => {
+    expect(parsePvgisTimeToStamp('20201301:0011', false)).toBeNull();
+  });
+
+  it('returns null when day < 1 (day "00")', () => {
+    expect(parsePvgisTimeToStamp('20200100:0011', false)).toBeNull();
+  });
+
+  it('returns null when hour > 23 (hour "25")', () => {
+    expect(parsePvgisTimeToStamp('20200101:2511', false)).toBeNull();
+  });
+
+  it('returns null when rawMinute > 59 (minute "61")', () => {
+    expect(parsePvgisTimeToStamp('20200101:0061', false)).toBeNull();
+  });
+
+  it('snaps minute to 30 for halfHourly when rawMinute >= 15', () => {
+    const stamp = parsePvgisTimeToStamp('20200101:0030', true);
+    expect(stamp).not.toBeNull();
+    expect(stamp!.minute).toBe(30);
+  });
+
+  it('snaps minute to 0 for halfHourly when rawMinute < 15', () => {
+    const stamp = parsePvgisTimeToStamp('20200101:0000', true);
+    expect(stamp).not.toBeNull();
+    expect(stamp!.minute).toBe(0);
+  });
+
+  it('always snaps minute to 0 for non-halfHourly', () => {
+    const stamp = parsePvgisTimeToStamp('20200101:0011', false);
+    expect(stamp).not.toBeNull();
+    expect(stamp!.minute).toBe(0);
+  });
+});
+
+// --- calculateTimeseriesWeights ---
+describe('calculateTimeseriesWeights', () => {
+  it('should return equal weights when totalIrradiance is 0 (line 348)', () => {
+    const ts: SolarTimestep[] = [];
+    for (let h = 0; h < 24; h++) {
+      const stamp: HourStamp = { year: 2020, monthIndex: 0, day: 1, hour: h, minute: 0 };
+      ts.push({
+        timestamp: new Date(Date.UTC(2020, 0, 1, h, 0, 0)),
+        stamp,
+        hourKey: toHourKey(stamp),
+        irradianceWm2: 0,
+        sourceIndex: h
+      });
+    }
+    const data: ParsedSolarData = {
+      location: 'Test',
+      latitude: 53,
+      longitude: -7,
+      elevation: 100,
+      year: 2020,
+      slotsPerDay: 24,
+      timesteps: ts,
+      totalIrradiance: 0
+    };
+
+    const weights = calculateTimeseriesWeights(data);
+    expect(weights).toHaveLength(24);
+    // Each weight should be 1/24
+    for (const w of weights) {
+      expect(w).toBeCloseTo(1 / 24, 10);
+    }
+    // Sum should be 1
+    expect(weights.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
   });
 });

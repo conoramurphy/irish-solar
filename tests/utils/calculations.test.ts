@@ -329,6 +329,290 @@ describe('runCalculation', () => {
     });
   });
 
+  it('throws when trading is enabled for house mode (line 51)', () => {
+    expect(() =>
+      runCalculation(
+        {
+          annualProductionKwh: 10_000,
+          batterySizeKwh: 0,
+          installationCost: 20_000,
+          location: 'Dublin',
+          businessType: 'house',
+        },
+        [],
+        { equity: 20_000, interestRate: 0, termYears: 0 },
+        tariffsData[0],
+        { enabled: true },
+        historicalSolarData as unknown as Record<string, import('../../src/types').HistoricalSolarData>,
+        historicalTariffData as unknown as import('../../src/types').HistoricalTariffData[],
+        5,
+        undefined,
+        makeSolar()
+      )
+    ).toThrow('Trading cannot be enabled for house mode');
+  });
+
+  it('surfaces price normalization warnings (lines 131-133)', () => {
+    // Create price data for a different year (2020) than solar data (2021)
+    // so normalization fills missing slots and emits warnings.
+    const priceYear = 2020;
+    const priceTimesteps = [];
+    // Only generate 100 hours — the remaining ~8660 will be filled with 0 price, triggering a warning.
+    const priceStart = Date.UTC(priceYear, 0, 1, 0, 0, 0);
+    for (let hour = 0; hour < 100; hour++) {
+      const t = new Date(priceStart + hour * 60 * 60 * 1000);
+      const hourOfDay = t.getUTCHours();
+      const monthIndex = t.getUTCMonth();
+      const day = t.getUTCDate();
+      priceTimesteps.push({
+        timestamp: t,
+        stamp: { year: priceYear, monthIndex, day, hour: hourOfDay },
+        hourKey: `${priceYear}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hourOfDay).padStart(2, '0')}`,
+        priceEur: 50,
+        sourceIndex: hour,
+      });
+    }
+    const priceData = { year: priceYear, timesteps: priceTimesteps };
+
+    const result = runCalculation(
+      {
+        annualProductionKwh: 10_000,
+        batterySizeKwh: 0,
+        installationCost: 20_000,
+        location: 'Dublin',
+        businessType: 'hotel',
+      },
+      [],
+      { equity: 20_000, interestRate: 0, termYears: 0 },
+      tariffsData[0],
+      { enabled: true },
+      historicalSolarData as unknown as Record<string, import('../../src/types').HistoricalSolarData>,
+      historicalTariffData as unknown as import('../../src/types').HistoricalTariffData[],
+      1,
+      undefined,
+      makeSolar(),
+      priceData,
+    );
+
+    const priceWarnings = result.diagnostics.warnings.filter((w: string) =>
+      w.startsWith('Price normalization:')
+    );
+    expect(priceWarnings.length).toBeGreaterThan(0);
+    expect(priceWarnings[0]).toContain('Filled');
+  });
+
+  it('warns when solar irradiance total is 0 (lines 137-138)', () => {
+    const makeZeroIrradianceSolar = (year = 2021) => {
+      const timesteps = [];
+      const start = Date.UTC(year, 0, 1, 0, 0, 0);
+      for (let hour = 0; hour < 8760; hour++) {
+        const t = new Date(start + hour * 60 * 60 * 1000);
+        const hourOfDay = t.getUTCHours();
+        const monthIndex = t.getUTCMonth();
+        const day = t.getUTCDate();
+        timesteps.push({
+          timestamp: t,
+          stamp: { year, monthIndex, day, hour: hourOfDay },
+          hourKey: `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hourOfDay).padStart(2, '0')}`,
+          irradianceWm2: 0,
+          sourceIndex: hour,
+        });
+      }
+      return { location: 'Test', latitude: 0, longitude: 0, elevation: 0, year, timesteps, totalIrradiance: 0 };
+    };
+
+    const result = runCalculation(
+      {
+        annualProductionKwh: 10_000,
+        batterySizeKwh: 0,
+        installationCost: 20_000,
+        location: 'Test',
+        businessType: 'hotel',
+      },
+      [],
+      { equity: 20_000, interestRate: 0, termYears: 0 },
+      tariffsData[0],
+      { enabled: false },
+      historicalSolarData as unknown as Record<string, import('../../src/types').HistoricalSolarData>,
+      historicalTariffData as unknown as import('../../src/types').HistoricalTariffData[],
+      1,
+      undefined,
+      makeZeroIrradianceSolar(),
+    );
+
+    expect(result.diagnostics.warnings).toContain(
+      'Solar irradiance total is 0 for the selected timeseries. Annual PV production was distributed evenly across hours (no irradiance weighting).'
+    );
+  });
+
+  it('throws when solarTimeseriesData is not provided (line 101-107)', () => {
+    expect(() =>
+      runCalculation(
+        {
+          annualProductionKwh: 10_000,
+          batterySizeKwh: 0,
+          installationCost: 20_000,
+          location: 'Dublin',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 20_000, interestRate: 0, termYears: 0 },
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        undefined,
+        undefined // no solarTimeseriesData → throws
+      )
+    ).toThrow('Solar timeseries data is required');
+  });
+
+  describe('uncovered branch coverage', () => {
+    it('uses explicit financing.loanAmount when provided as a number (line 92)', () => {
+      const result = runCalculation(
+        {
+          annualProductionKwh: 22500,
+          batterySizeKwh: 0,
+          installationCost: 50_000,
+          location: 'Dublin',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 0, interestRate: 0.05, termYears: 10, loanAmount: 30_000 }, // explicit loanAmount
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        undefined,
+        makeSolar()
+      );
+      // The loanAmount of 30k should be used (not derived as netCost - equity = 50k - 0 = 50k)
+      expect(result.netCost).toBeGreaterThan(0);
+    });
+
+    it('uses isTaxReliefEligible + taxRate to compute year1TaxSavings (lines 251-252)', () => {
+      const result = runCalculation(
+        {
+          annualProductionKwh: 22500,
+          batterySizeKwh: 0,
+          installationCost: 50_000,
+          location: 'Dublin',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 50_000, interestRate: 0, termYears: 0, isTaxReliefEligible: true, taxRate: 0.12 },
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        undefined,
+        makeSolar()
+      );
+      // year1TaxSavings = netCost * 0.12 > 0
+      expect(result.year1TaxSavings).toBeGreaterThan(0);
+    });
+
+    it('uses ?? 0 fallback when isTaxReliefEligible is true but taxRate is undefined (line 251)', () => {
+      const result = runCalculation(
+        {
+          annualProductionKwh: 22500,
+          batterySizeKwh: 0,
+          installationCost: 50_000,
+          location: 'Dublin',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 50_000, interestRate: 0, termYears: 0, isTaxReliefEligible: true },
+        // taxRate is undefined → ?? 0 → taxRate = 0 → year1TaxSavings = 0
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        undefined,
+        makeSolar()
+      );
+      // taxRate ?? 0 = 0, so year1TaxSavings = netCost * 0 = 0
+      expect(result.year1TaxSavings).toBe(0);
+    });
+
+    it('sets consumptionSample when hourlyConsumptionOverride is provided (lines 285-291)', () => {
+      const override = new Array(8760).fill(2.0);
+      const result = runCalculation(
+        {
+          annualProductionKwh: 22500,
+          batterySizeKwh: 0,
+          installationCost: 50_000,
+          location: 'Dublin',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 50_000, interestRate: 0, termYears: 0 },
+        tariffsData[0],
+        { enabled: false },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        undefined,
+        makeSolar(),
+        undefined,
+        override
+      );
+      // consumptionSource = 'override' → consumptionSample is set
+      expect(result.inputsUsed.simulation.consumptionSource).toBe('override');
+      expect(result.inputsUsed.samples.consumption).toBeDefined();
+      expect(result.inputsUsed.samples.consumption!.length).toBeGreaterThan(0);
+    });
+
+    it('sets pricesSample when priceTimeseriesData is provided and trading enabled (lines 293-298)', () => {
+      // Build a full-year price timeseries
+      const year = 2021;
+      const priceTimesteps = [];
+      const start = Date.UTC(year, 0, 1, 0, 0, 0);
+      for (let hour = 0; hour < 8760; hour++) {
+        const t = new Date(start + hour * 60 * 60 * 1000);
+        const hourOfDay = t.getUTCHours();
+        const monthIndex = t.getUTCMonth();
+        const day = t.getUTCDate();
+        priceTimesteps.push({
+          timestamp: t,
+          stamp: { year, monthIndex, day, hour: hourOfDay, minute: 0 },
+          hourKey: `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hourOfDay).padStart(2, '0')}`,
+          priceEur: 50,
+          sourceIndex: hour
+        });
+      }
+      const priceData = { year, timesteps: priceTimesteps };
+
+      const result = runCalculation(
+        {
+          annualProductionKwh: 22500,
+          batterySizeKwh: 0,
+          installationCost: 50_000,
+          location: 'Dublin',
+          businessType: 'hotel'
+        },
+        [],
+        { equity: 50_000, interestRate: 0, termYears: 0 },
+        tariffsData[0],
+        { enabled: true, importMargin: 0.05, exportMargin: 0, hoursWindow: 4 },
+        historicalSolarData as any,
+        historicalTariffData as any,
+        5,
+        undefined,
+        makeSolar(year),
+        priceData
+      );
+
+      // pricesSample should be non-null because hourlyPrices was provided via trading
+      expect(result.inputsUsed.samples.prices).toBeDefined();
+      expect(result.inputsUsed.samples.prices!.length).toBeGreaterThan(0);
+    });
+  });
+
   describe('payback and IRR when equity is zero vs positive', () => {
     it('when equity is 0, payback is based on effectiveNetCost and IRR is finite', () => {
       const result = runCalculation(
