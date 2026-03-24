@@ -104,6 +104,26 @@ export function HliThresholdReport() {
       <div className="mx-auto max-w-3xl px-4 py-10 space-y-16">
 
         {/* ============================================================= */}
+        {/* CONTEXT: THE RETROFIT PROBLEM                                  */}
+        {/* ============================================================= */}
+        <section>
+          <p className="text-base text-slate-600 leading-relaxed">
+            Ireland has committed to retrofitting 500,000 homes to BER B2 by 2030. We are
+            not on track. The ESRI's 2026 analysis
+            (<a href="https://doi.org/10.26504/QEC2026SPR_SA_Lynch" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Lynch et al.</a>)
+            identifies the core problem: the cost of deep retrofit is too high relative to the
+            energy savings it delivers, and the homes that need it most — older, poorly insulated
+            stock — face the longest payback periods. Uptake has stalled not because homeowners
+            don't care about climate, but because spending €30,000–€50,000 on a deep retrofit
+            that saves €1,500/year doesn't make financial sense for most families. The grant
+            system was designed to close that gap, but a binary threshold at HLI 2.0 means
+            hundreds of thousands of homes that could benefit from a heat pump are locked out
+            entirely — while the homes that do qualify often don't need the grant to make
+            the numbers work.
+          </p>
+        </section>
+
+        {/* ============================================================= */}
         {/* SECTION 1: THE CLIFF                                          */}
         {/* ============================================================= */}
         <section>
