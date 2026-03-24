@@ -270,7 +270,7 @@ describe('estimateSCOP — calibration', () => {
     expect(scop).toBeLessThanOrEqual(4.8);
   });
 
-  it('1980s semi + poor install (+10°C offset, weather comp): SCOP in range 3.0–4.5', () => {
+  it('1980s semi + poor install (fixed flow temp, no weather comp): SCOP in range 2.5–3.5', () => {
     const scop = estimateSCOP({
       archetypeId: '1980s_semi',
       insulation: [],
@@ -278,8 +278,8 @@ describe('estimateSCOP — calibration', () => {
       location: 'Dublin',
       year: 2025,
     });
-    expect(scop).toBeGreaterThanOrEqual(3.0);
-    expect(scop).toBeLessThanOrEqual(4.5);
+    expect(scop).toBeGreaterThanOrEqual(2.5);
+    expect(scop).toBeLessThanOrEqual(3.5);
   });
 
   it('1980s semi + good install + attic + cavity: SCOP improves vs poor install', () => {

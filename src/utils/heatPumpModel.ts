@@ -205,6 +205,14 @@ export function generateHeatPumpProfile(params: HeatPumpProfileParams): number[]
   // Resolve flow temp offset: explicit override wins, else use install quality preset
   const resolvedOffset = params.flowTempOffsetC ?? INSTALL_QUALITY[installQuality].flowTempOffsetC;
 
+  // Poor install with no explicit override = no weather compensation.
+  // Runs at a fixed high flow temperature year-round, which is what causes
+  // real-world SCOP ~2.5–3.1 in field trials (Electrification of Heat, MCS data).
+  // An explicit flowTempOffsetC override enables weather comp for intermediate cases
+  // (e.g. a poorly calibrated system that still has weather comp, offset +5–7°C).
+  const useFixedFlowTemp = installQuality === 'poor' && params.flowTempOffsetC === undefined;
+  const fixedFlowTempC = designFlowTempC + resolvedOffset; // only used when useFixedFlowTemp
+
   // Annual DHW thermal demand (kWh)
   const dailyDhwThermalKwh = DHW_KWH_THERMAL_PER_OCCUPANT_PER_DAY * occupants;
 
@@ -232,8 +240,11 @@ export function generateHeatPumpProfile(params: HeatPumpProfileParams): number[]
       const deltaT = Math.max(0, 21 - T_out); // internal setpoint 21°C
       const spaceHeatThermalKwh = (hlcWperK * deltaT * 0.5) / 1000; // W × h → kWh (0.5h slot)
 
-      // Flow temperature from weather compensation curve
-      const T_flow = getFlowTempC(T_out, designFlowTempC, resolvedOffset);
+      // Poor install: fixed flow temp all year (no weather comp)
+      // All other installs: weather compensation curve (flow temp tracks outdoor temp)
+      const T_flow = useFixedFlowTemp
+        ? fixedFlowTempC
+        : getFlowTempC(T_out, designFlowTempC, resolvedOffset);
 
       // COP at this operating point
       const cop = calculateCOP(T_out, T_flow);
@@ -281,6 +292,8 @@ export function estimateSCOP(params: HeatPumpProfileParams): number {
 
   const designFlowTempC = getDesignFlowTempC(effectiveHLI);
   const resolvedOffset = params.flowTempOffsetC ?? INSTALL_QUALITY[params.installQuality].flowTempOffsetC;
+  const useFixedFlowTemp = params.installQuality === 'poor' && params.flowTempOffsetC === undefined;
+  const fixedFlowTempC = designFlowTempC + resolvedOffset;
   const dailyDhwThermalKwh = DHW_KWH_THERMAL_PER_OCCUPANT_PER_DAY * occupants;
 
   let totalThermal = 0;
@@ -296,7 +309,9 @@ export function estimateSCOP(params: HeatPumpProfileParams): number {
     if (T_out < HEATING_CUTOFF_TEMP_C) {
       const deltaT = Math.max(0, 21 - T_out);
       spaceHeatThermal = (hlcWperK * deltaT * 0.5) / 1000;
-      const T_flow = getFlowTempC(T_out, designFlowTempC, resolvedOffset);
+      const T_flow = useFixedFlowTemp
+        ? fixedFlowTempC
+        : getFlowTempC(T_out, designFlowTempC, resolvedOffset);
       const cop = calculateCOP(T_out, T_flow);
       spaceHeatElec = spaceHeatThermal / cop;
     }
