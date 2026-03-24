@@ -8,7 +8,7 @@
  * measures are needed to cross the threshold, and compares policy alternatives.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LineChart,
@@ -22,6 +22,8 @@ import {
   Legend,
 } from 'recharts';
 import { domesticTariffs } from '../utils/domesticTariffParser';
+import { loadSolarData } from '../utils/solarDataLoader';
+import type { ParsedSolarData } from '../utils/solarTimeseriesParser';
 import { formatCurrency } from '../utils/format';
 import {
   sweepHli,
@@ -60,11 +62,17 @@ export function HliThresholdReport() {
   const crossing30 = useMemo(() => analyseThresholdCrossing(3.0), []);
   const crossing35 = useMemo(() => analyseThresholdCrossing(3.5), []);
 
-  // Path comparison: pragmatic vs deep retrofit
+  // Load solar data for the path comparison (needs real irradiance for self-consumption)
+  const [solarData, setSolarData] = useState<ParsedSolarData | null>(null);
+  useEffect(() => {
+    loadSolarData('Dublin', 2025).then(setSolarData).catch(() => setSolarData(null));
+  }, []);
+
+  // Path comparison: pragmatic (with real solar billing) vs deep retrofit
   const paths = useMemo(() => {
     if (!tariff) return [] as PathComparison[];
-    return compareRetrofitPaths(tariff);
-  }, [tariff]);
+    return compareRetrofitPaths(tariff, solarData);
+  }, [tariff, solarData]);
 
   if (!tariff || sweep.length === 0) return <div className="p-8">Loading...</div>;
 
@@ -353,7 +361,16 @@ export function HliThresholdReport() {
                 <div className="grid grid-cols-3 gap-3 mt-3">
                   <div>
                     <p className="text-xs text-slate-500">Annual bill</p>
-                    <p className="text-base font-semibold text-slate-800">{fmt(path.annualHpBillEur)}</p>
+                    <p className="text-base font-semibold text-slate-800">{fmt(path.annualBillEur)}</p>
+                    {path.selfConsumptionKwh > 0 && (
+                      <p className="text-xs text-green-600 mt-0.5">
+                        after solar: {Math.round(path.selfConsumptionKwh).toLocaleString()} kWh self-consumed,
+                        {fmt(path.exportRevenueEur)} export
+                      </p>
+                    )}
+                    {path.selfConsumptionKwh === 0 && path.id === 'deep_retrofit' && (
+                      <p className="text-xs text-slate-400 mt-0.5">no solar generation</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">Saving vs gas</p>

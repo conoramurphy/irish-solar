@@ -8,7 +8,9 @@
 
 import { generateHeatPumpProfile, estimateSCOP } from './heatPumpModel';
 import { calculateDirectHpBill } from './heatPumpBilling';
+import { runCalculation } from './calculations';
 import { estimateFuelBaseline } from './heatPumpScenarios';
+import type { ParsedSolarData } from './solarTimeseriesParser';
 import {
   INSULATION_MEASURES,
   type InsulationMeasure,
@@ -240,25 +242,37 @@ export interface PathComparison {
   totalGrant: number;
   totalNet: number;
   totalWorkerHours: number;
-  annualHpBillEur: number;
+  /** Annual electricity bill after solar self-consumption + export (€) */
+  annualBillEur: number;
   annualGasBillEur: number;
   annualSavingEur: number;
+  /** Solar self-consumption (kWh/yr) — 0 for non-solar paths */
+  selfConsumptionKwh: number;
+  /** Solar export revenue (€/yr) — 0 for non-solar paths */
+  exportRevenueEur: number;
   scop: number;
 }
 
 /**
- * Compare two retrofit paths for a typical 1980s semi (HLI 2.5, 108m²):
- * 1. Pragmatic: basic insulation (C3), 8 kWp solar, good HP — spend on generation not fabric
- * 2. Deep retrofit: full insulation to A rating, OK HP, no solar — fabric first
+ * Compare two retrofit paths for a typical 1980s semi (HLI 2.5, 108m²).
+ * Both paths run through the SAME billing engine:
+ * - Solar path: runCalculation() with real irradiance data → self-consumption + export
+ * - Non-solar path: calculateDirectHpBill() slot-by-slot tariff billing
+ *
+ * Requires solarData for the solar path. If null, solar path uses HP-only bill.
  */
 export function compareRetrofitPaths(
   tariff: import('../types').Tariff,
+  solarData: ParsedSolarData | null,
   floorAreaM2 = 108,
   startingHli = 2.5,
 ): PathComparison[] {
 
   const baseGas = estimateFuelBaseline('1980s_semi', 'gas', floorAreaM2, startingHli);
   const totalGasBaseline = baseGas.annualBillEur + baseGas.standingChargeEur;
+
+  const SOLAR_KWP = 8;
+  const SOLAR_YIELD_KWH_PER_KWP = 950;
 
   // --- Path A: Pragmatic (C3 + solar + good HP) ---
   const pragmaticInsulation: InsulationMeasure[] = ['attic', 'cavity', 'airSealing'];
@@ -273,17 +287,49 @@ export function compareRetrofitPaths(
     { label: 'Solar PV 8 kWp',                    grossEur: 7500,  grantEur: 1800,  netEur: 5700,  workerHours: 40 },
   ];
 
-  const pragmaticProfile = generateHeatPumpProfile({
+  const pragmaticProfileParams = {
     archetypeId: '1980s_semi', hliOverride: pragmaticHli, floorAreaM2,
-    insulation: pragmaticInsulation, installQuality: 'good',
+    insulation: pragmaticInsulation, installQuality: 'good' as const,
     location: 'Dublin', year: 2025,
-  });
-  const pragmaticBill = calculateDirectHpBill(pragmaticProfile, tariff);
-  const pragmaticScop = estimateSCOP({
-    archetypeId: '1980s_semi', hliOverride: pragmaticHli, floorAreaM2,
-    insulation: pragmaticInsulation, installQuality: 'good',
-    location: 'Dublin', year: 2025,
-  });
+  };
+  const pragmaticProfile = generateHeatPumpProfile(pragmaticProfileParams);
+  const pragmaticScop = estimateSCOP(pragmaticProfileParams);
+
+  // Run solar path through the REAL simulation engine
+  let pragmaticBillEur: number;
+  let pragmaticSelfConsumption = 0;
+  let pragmaticExportRevenue = 0;
+
+  if (solarData) {
+    const noSolarBill = calculateDirectHpBill(pragmaticProfile, tariff);
+    const solarResult = runCalculation(
+      {
+        annualProductionKwh: SOLAR_KWP * SOLAR_YIELD_KWH_PER_KWP,
+        systemSizeKwp: SOLAR_KWP,
+        batterySizeKwh: 0,
+        installationCost: 0,
+        location: solarData.location ?? 'Dublin',
+        businessType: 'house',
+      },
+      [],
+      { equity: 0, interestRate: 0, termYears: 0 },
+      tariff,
+      { enabled: false },
+      {},
+      [],
+      1,
+      undefined,
+      solarData,
+      undefined,
+      pragmaticProfile,
+    );
+    pragmaticBillEur = Math.max(0, noSolarBill.annualBillEur - solarResult.annualSavings);
+    pragmaticSelfConsumption = solarResult.annualSelfConsumption;
+    pragmaticExportRevenue = solarResult.annualExportRevenue ?? 0;
+  } else {
+    const bill = calculateDirectHpBill(pragmaticProfile, tariff);
+    pragmaticBillEur = bill.annualBillEur;
+  }
 
   // --- Path B: Deep Retrofit (A rating, no solar) ---
   const deepInsulation: InsulationMeasure[] = ['attic', 'cavity', 'airSealing', 'ewi', 'windows', 'doors', 'floor'];
@@ -301,22 +347,20 @@ export function compareRetrofitPaths(
     { label: 'Floor insulation',                  grossEur: 3000,  grantEur: 1500,  netEur: 1500,  workerHours: 40 },
   ];
 
-  const deepProfile = generateHeatPumpProfile({
+  const deepProfileParams = {
     archetypeId: '1980s_semi', hliOverride: deepHli, floorAreaM2,
-    insulation: deepInsulation, installQuality: 'good',
+    insulation: deepInsulation, installQuality: 'good' as const,
     location: 'Dublin', year: 2025,
-  });
+  };
+  const deepProfile = generateHeatPumpProfile(deepProfileParams);
+  // No solar — straight tariff billing, slot by slot
   const deepBill = calculateDirectHpBill(deepProfile, tariff);
-  const deepScop = estimateSCOP({
-    archetypeId: '1980s_semi', hliOverride: deepHli, floorAreaM2,
-    insulation: deepInsulation, installQuality: 'good',
-    location: 'Dublin', year: 2025,
-  });
+  const deepScop = estimateSCOP(deepProfileParams);
 
   function buildPath(
     id: string, label: string, subtitle: string, ber: string,
     hli: number, lines: PathCostLine[],
-    billResult: { annualHpElecKwh: number; annualBillEur: number },
+    annualBill: number, selfConsumptionKwh: number, exportRevenueEur: number,
     scop: number,
   ): PathComparison {
     const totalGross = lines.reduce((s, l) => s + l.grossEur, 0);
@@ -326,18 +370,20 @@ export function compareRetrofitPaths(
     return {
       id, label, subtitle, hliAfter: hli, berRating: ber, lines,
       totalGross, totalGrant, totalNet, totalWorkerHours,
-      annualHpBillEur: billResult.annualBillEur,
+      annualBillEur: annualBill,
       annualGasBillEur: totalGasBaseline,
-      annualSavingEur: totalGasBaseline - billResult.annualBillEur,
+      annualSavingEur: totalGasBaseline - annualBill,
+      selfConsumptionKwh,
+      exportRevenueEur,
       scop,
     };
   }
 
   return [
     buildPath('pragmatic', 'Pragmatic', 'Basic insulation + 8 kWp solar + good HP', 'C3',
-      pragmaticHli, pragmaticLines, pragmaticBill, pragmaticScop),
+      pragmaticHli, pragmaticLines, pragmaticBillEur, pragmaticSelfConsumption, pragmaticExportRevenue, pragmaticScop),
     buildPath('deep_retrofit', 'Deep Retrofit', 'Full insulation to A rating + HP, no solar', 'A2–A3',
-      deepHli, deepLines, deepBill, deepScop),
+      deepHli, deepLines, deepBill.annualBillEur, 0, 0, deepScop),
   ];
 }
 
