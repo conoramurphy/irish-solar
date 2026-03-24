@@ -46,6 +46,11 @@ interface FormState {
 const YEAR = 2025;
 const DEFAULT_TARIFF = domesticTariffs.find((t) => t.id?.includes('standard') || t.type === '24-hour') ?? domesticTariffs[0];
 
+/** Returns true if the tariff has a cheap overnight rate worth shifting DHW into. */
+function tariffHasNightRate(tariff: Tariff): boolean {
+  return tariff.nightRate !== undefined || tariff.evRate !== undefined || tariff.type === 'ev';
+}
+
 export function HeatPumpCalculator() {
   const locations = getKnownLocations();
 
@@ -69,6 +74,7 @@ export function HeatPumpCalculator() {
     solarDataLoaded: boolean;
     tariff: Tariff;
     location: string;
+    dhwSchedule: 'draw-time' | 'night-boost';
   } | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +130,10 @@ export function HeatPumpCalculator() {
         // Continue without solar data — solar steps will show HP-only cost
       }
 
+      const dhwSchedule = form.tariff && tariffHasNightRate(form.tariff)
+        ? 'night-boost' as const
+        : 'draw-time' as const;
+
       const waterfall = buildWaterfallScenarios(
         form.archetypeId,
         form.location,
@@ -131,6 +141,8 @@ export function HeatPumpCalculator() {
         floorAreaM2,
         hliOverride,
         occupants,
+        undefined,
+        dhwSchedule,
       );
 
       const solarMax = buildSolarMaxScenario(
@@ -140,6 +152,8 @@ export function HeatPumpCalculator() {
         floorAreaM2,
         hliOverride,
         occupants,
+        undefined,
+        dhwSchedule,
       );
 
       const baseline = estimateFuelBaseline(
@@ -171,6 +185,7 @@ export function HeatPumpCalculator() {
         solarDataLoaded: solarData !== null,
         tariff: form.tariff!,
         location: form.location,
+        dhwSchedule,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Calculation failed. Please check your inputs.');
@@ -396,6 +411,7 @@ export function HeatPumpCalculator() {
             solarDataLoaded={results.solarDataLoaded}
             tariff={results.tariff}
             location={results.location}
+            dhwSchedule={results.dhwSchedule}
           />
         )}
       </div>

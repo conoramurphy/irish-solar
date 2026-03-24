@@ -27,6 +27,7 @@ interface HeatPumpResultsProps {
   solarDataLoaded: boolean;
   tariff: Tariff;
   location: string;
+  dhwSchedule: 'draw-time' | 'night-boost';
 }
 
 // Stored in sessionStorage so the main wizard can pick it up
@@ -71,6 +72,7 @@ export function HeatPumpResults({
   solarDataLoaded,
   tariff,
   location,
+  dhwSchedule,
 }: HeatPumpResultsProps) {
   const navigate = useNavigate();
   const gasAnnualBill = baseline.annualBillEur;
@@ -121,6 +123,13 @@ export function HeatPumpResults({
           <Stat label="Annual CO₂" value={`${Math.round(baseline.annualCo2Kg)} kg`} />
           <Stat label="vs heat pump" value={`−${Math.round(baseline.annualCo2Kg * 0.65)} kg est.`} note="≈65% CO₂ reduction" />
         </div>
+      </div>
+
+      {/* DHW schedule notice */}
+      <div className={`rounded-lg border px-4 py-3 text-sm ${dhwSchedule === 'night-boost' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
+        {dhwSchedule === 'night-boost'
+          ? 'Night-rate DHW: hot water cylinder is recharged during cheap overnight slots (01:00–07:00) only — the tank covers the day\'s draw. Electricity cost reflects the night rate.'
+          : 'Flat-rate DHW: hot water electricity billed at draw time (morning/evening peaks). Switch to a night-rate tariff to shift this load to cheaper overnight slots.'}
       </div>
 
       {/* Solar data notice */}

@@ -102,12 +102,13 @@ const M2_PER_OCCUPANT = 30;
 const DHW_KWH_THERMAL_PER_OCCUPANT_PER_DAY = 2.56;
 
 /**
- * DHW time-of-day distribution across 48 half-hour slots.
+ * DHW time-of-day distribution across 48 half-hour slots — draw-time schedule.
+ * Models when hot water is actually used (no smart scheduling).
  * Morning peak (06:00–09:00): slots 12–17 (40%)
  * Evening peak (18:00–21:00): slots 36–41 (35%)
  * Spread remaining (25%) evenly across other slots.
  */
-function buildDhwDailyProfile(): number[] {
+function buildDhwDrawTimeProfile(): number[] {
   const profile = new Array<number>(48).fill(0);
   const morningSlots = [12, 13, 14, 15, 16, 17]; // 06:00–09:00
   const eveningSlots = [36, 37, 38, 39, 40, 41]; // 18:00–21:00
@@ -124,7 +125,21 @@ function buildDhwDailyProfile(): number[] {
   return profile;
 }
 
-const DHW_DAILY_PROFILE = buildDhwDailyProfile();
+/**
+ * DHW night-boost schedule: HP reheats only what was drawn, during cheap overnight slots.
+ * Slots 2–13 (01:00–07:00) — solidly within any Irish night-rate window.
+ * The tank covers draw demand throughout the day; electricity consumption shifts to night.
+ */
+function buildDhwNightBoostProfile(): number[] {
+  const profile = new Array<number>(48).fill(0);
+  const nightSlots = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]; // 01:00–07:00
+  const share = 1.0 / nightSlots.length;
+  for (const s of nightSlots) profile[s] = share;
+  return profile;
+}
+
+const DHW_DRAW_TIME_PROFILE = buildDhwDrawTimeProfile();
+const DHW_NIGHT_BOOST_PROFILE = buildDhwNightBoostProfile();
 
 // ---------------------------------------------------------------------------
 // Profile generator
@@ -156,6 +171,13 @@ export interface HeatPumpProfileParams {
   location: string;
   /** Number of occupants (drives DHW demand). Defaults to floor_area / 30, clamped 1–6. */
   occupants?: number;
+  /**
+   * DHW heating schedule.
+   * - 'draw-time': electricity consumed when hot water is drawn (morning/evening peaks). Default.
+   * - 'night-boost': HP reheats the tank during cheap overnight slots (01:00–07:00),
+   *   covering only what was drawn. Use when the tariff has a cheap night/EV rate.
+   */
+  dhwSchedule?: 'draw-time' | 'night-boost';
   /** Calendar year — determines leap year slot count (17568 or 17664) */
   year: number;
   /**
@@ -215,6 +237,9 @@ export function generateHeatPumpProfile(params: HeatPumpProfileParams): number[]
 
   // Annual DHW thermal demand (kWh)
   const dailyDhwThermalKwh = DHW_KWH_THERMAL_PER_OCCUPANT_PER_DAY * occupants;
+  const dhwDailyProfile = params.dhwSchedule === 'night-boost'
+    ? DHW_NIGHT_BOOST_PROFILE
+    : DHW_DRAW_TIME_PROFILE;
 
   // Temperature profile for the year
   const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
@@ -255,7 +280,7 @@ export function generateHeatPumpProfile(params: HeatPumpProfileParams): number[]
     // --- DHW ---
     // DHW COP uses fixed storage temperature (52°C)
     const copDhw = calculateCOP(T_out, DHW_TEMP_C);
-    const dhwThermalKwh = dailyDhwThermalKwh * DHW_DAILY_PROFILE[halfHourOfDay];
+    const dhwThermalKwh = dailyDhwThermalKwh * dhwDailyProfile[halfHourOfDay];
     const dhwElecKwh = dhwThermalKwh / copDhw;
 
     profile[slot] = spaceHeatElecKwh + dhwElecKwh;
@@ -295,6 +320,9 @@ export function estimateSCOP(params: HeatPumpProfileParams): number {
   const useFixedFlowTemp = params.installQuality === 'poor' && params.flowTempOffsetC === undefined;
   const fixedFlowTempC = designFlowTempC + resolvedOffset;
   const dailyDhwThermalKwh = DHW_KWH_THERMAL_PER_OCCUPANT_PER_DAY * occupants;
+  const dhwDailyProfile = params.dhwSchedule === 'night-boost'
+    ? DHW_NIGHT_BOOST_PROFILE
+    : DHW_DRAW_TIME_PROFILE;
 
   let totalThermal = 0;
   let totalElec = 0;
@@ -317,7 +345,7 @@ export function estimateSCOP(params: HeatPumpProfileParams): number {
     }
 
     const copDhw = calculateCOP(T_out, DHW_TEMP_C);
-    const dhwThermal = dailyDhwThermalKwh * DHW_DAILY_PROFILE[halfHourOfDay];
+    const dhwThermal = dailyDhwThermalKwh * dhwDailyProfile[halfHourOfDay];
     const dhwElec = dhwThermal / copDhw;
 
     totalThermal += spaceHeatThermal + dhwThermal;

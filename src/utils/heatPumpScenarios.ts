@@ -224,6 +224,7 @@ export function buildWaterfallScenarios(
   hliOverride?: number,
   occupants?: number,
   realTemperaturesC?: number[],
+  dhwSchedule?: 'draw-time' | 'night-boost',
 ): WaterfallResult {
   const archetype = getArchetype(archetypeId);
   const resolvedFloorArea = floorAreaM2 ?? archetype.floorAreaM2;
@@ -236,6 +237,7 @@ export function buildWaterfallScenarios(
     year,
     occupants,
     realTemperaturesC,
+    dhwSchedule,
   };
 
   let cumulativeCost = 0;
@@ -309,6 +311,7 @@ export function buildSolarMaxScenario(
   hliOverride?: number,
   occupants?: number,
   realTemperaturesC?: number[],
+  dhwSchedule?: 'draw-time' | 'night-boost',
 ): SolarMaxResult {
   const archetype = getArchetype(archetypeId);
   const resolvedFloorArea = floorAreaM2 ?? archetype.floorAreaM2;
@@ -327,6 +330,7 @@ export function buildSolarMaxScenario(
     year,
     occupants,
     realTemperaturesC,
+    dhwSchedule,
   };
 
   const baseHLI = hliOverride ?? archetype.defaultHLI;
