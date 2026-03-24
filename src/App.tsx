@@ -4,6 +4,7 @@ import { SharedReportView } from './components/SharedReportView';
 import ReportsListView from './components/ReportsListView';
 import LinksPage from './components/LinksPage';
 import { HeatPumpCalculator } from './components/HeatPumpCalculator';
+import { HliThresholdReport } from './components/HliThresholdReport';
 
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
@@ -1024,6 +1025,7 @@ function App() {
       <Route path="/full-model/*" element={<WizardApp defaultMode="solar-battery" />} />
       <Route path="/tariffs/*" element={<WizardApp defaultMode="tariff" />} />
       <Route path="/heat-pump" element={<HeatPumpCalculator />} />
+      <Route path="/report/hli-threshold" element={<HliThresholdReport />} />
       <Route path="/links" element={<LinksPage />} />
       <Route path="/r" element={<ReportsListView />} />
       <Route path="/r/:id" element={<SharedReportView />} />

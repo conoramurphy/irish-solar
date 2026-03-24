@@ -1,0 +1,276 @@
+/**
+ * HLI threshold analysis — generates data for the special report.
+ *
+ * Sweeps HLI from 0.8 to 3.5 and computes HP performance metrics at each point.
+ * Also analyses what insulation measures are needed to cross the 2.0 threshold
+ * from various starting points, and their costs.
+ */
+
+import { generateHeatPumpProfile, estimateSCOP } from './heatPumpModel';
+import { calculateDirectHpBill } from './heatPumpBilling';
+import { estimateFuelBaseline } from './heatPumpScenarios';
+import {
+  INSULATION_MEASURES,
+  type InsulationMeasure,
+  type InsulationMeasureData,
+  applyInsulationMeasures,
+} from '../data/heatPumpArchetypes';
+import type { Tariff } from '../types';
+
+// ---------------------------------------------------------------------------
+// HLI sweep
+// ---------------------------------------------------------------------------
+
+export interface HliSweepPoint {
+  hli: number;
+  scop: number;
+  annualHpElecKwh: number;
+  annualHpBillEur: number;
+  annualGasBillEur: number;
+  annualSavingEur: number;
+  /** 10-year net saving WITH grant (€6,500 if HLI ≤ 2.0) */
+  tenYearNetWithGrant: number;
+  /** 10-year net saving WITHOUT grant */
+  tenYearNetNoGrant: number;
+  grantEur: number;
+}
+
+const GRANT_THRESHOLD = 2.0;
+const GRANT_AMOUNT = 6500; // HP unit grant only (excluding central heating component)
+const HP_GROSS_COST = 14000;
+
+export function sweepHli(
+  tariff: Tariff,
+  floorAreaM2 = 108,
+  fuelType: 'gas' | 'oil' = 'gas',
+  dhwSchedule: 'draw-time' | 'night-boost' = 'draw-time',
+): HliSweepPoint[] {
+  const points: HliSweepPoint[] = [];
+
+  for (let hli = 0.8; hli <= 3.51; hli += 0.1) {
+    const roundedHli = Math.round(hli * 10) / 10;
+
+    const profile = generateHeatPumpProfile({
+      archetypeId: '1980s_semi',
+      hliOverride: roundedHli,
+      floorAreaM2,
+      insulation: [],
+      installQuality: 'good',
+      location: 'Dublin',
+      year: 2025,
+      dhwSchedule,
+    });
+
+    const scop = estimateSCOP({
+      archetypeId: '1980s_semi',
+      hliOverride: roundedHli,
+      floorAreaM2,
+      insulation: [],
+      installQuality: 'good',
+      location: 'Dublin',
+      year: 2025,
+      dhwSchedule,
+    });
+
+    const bill = calculateDirectHpBill(profile, tariff);
+    const gasBaseline = estimateFuelBaseline('1980s_semi', fuelType, floorAreaM2, roundedHli);
+    const totalGasBaseline = gasBaseline.annualBillEur + gasBaseline.standingChargeEur;
+    const annualSaving = totalGasBaseline - bill.annualBillEur;
+
+    const grantEur = roundedHli <= GRANT_THRESHOLD ? GRANT_AMOUNT : 0;
+
+    points.push({
+      hli: roundedHli,
+      scop,
+      annualHpElecKwh: bill.annualHpElecKwh,
+      annualHpBillEur: bill.annualBillEur,
+      annualGasBillEur: totalGasBaseline,
+      annualSavingEur: annualSaving,
+      tenYearNetWithGrant: annualSaving * 10 - (HP_GROSS_COST - grantEur),
+      tenYearNetNoGrant: annualSaving * 10 - HP_GROSS_COST,
+      grantEur,
+    });
+  }
+
+  return points;
+}
+
+// ---------------------------------------------------------------------------
+// Threshold crossing analysis
+// ---------------------------------------------------------------------------
+
+export interface ThresholdCrossingResult {
+  startingHli: number;
+  targetHli: number;
+  /** Cheapest combination of measures to reach target, sorted by cost */
+  cheapestPath: {
+    measures: InsulationMeasure[];
+    labels: string[];
+    totalCost: number;
+    hliAfter: number;
+    reachesTarget: boolean;
+  };
+  /** All individual measures and whether each alone reaches the target */
+  individualMeasures: Array<{
+    measure: InsulationMeasure;
+    label: string;
+    cost: number;
+    hliDelta: number;
+    hliAfter: number;
+    reachesTarget: boolean;
+  }>;
+  /** Can you reach the target with measures costing ≤ €2,000 total? */
+  achievableCheaply: boolean;
+  /** Cheapest cost to reach target */
+  cheapestCostToTarget: number | null;
+}
+
+/**
+ * For a given starting HLI, find what measures are needed to reach the target (2.0).
+ * Tries all combinations from cheapest to most expensive.
+ */
+export function analyseThresholdCrossing(
+  startingHli: number,
+  targetHli = GRANT_THRESHOLD,
+  hasCavity = true,
+): ThresholdCrossingResult {
+  // All applicable measures sorted by cost-effectiveness (hliDelta / cost)
+  const applicable: Array<{ id: InsulationMeasure; data: InsulationMeasureData }> = [];
+  for (const [id, data] of Object.entries(INSULATION_MEASURES)) {
+    if (data.requiresCavity && !hasCavity) continue;
+    applicable.push({ id: id as InsulationMeasure, data });
+  }
+
+  // Individual measures
+  const individualMeasures = applicable.map(({ id, data }) => ({
+    measure: id,
+    label: data.label,
+    cost: data.netCostEur,
+    hliDelta: data.hliDelta,
+    hliAfter: Math.max(0.3, startingHli - data.hliDelta),
+    reachesTarget: (startingHli - data.hliDelta) <= targetHli,
+  }));
+
+  // Find cheapest combination that reaches target
+  // Greedy: sort by cost, add measures until target reached
+  const sortedByCost = [...applicable].sort((a, b) => a.data.netCostEur - b.data.netCostEur);
+
+  let bestPath: ThresholdCrossingResult['cheapestPath'] | null = null;
+
+  // Try adding measures greedily by cost
+  const measures: InsulationMeasure[] = [];
+  const labels: string[] = [];
+  let totalCost = 0;
+  let currentHli = startingHli;
+
+  for (const { id, data } of sortedByCost) {
+    if (currentHli <= targetHli) break;
+    measures.push(id);
+    labels.push(data.label);
+    totalCost += data.netCostEur;
+    currentHli = applyInsulationMeasures(startingHli, measures, hasCavity);
+  }
+
+  bestPath = {
+    measures,
+    labels,
+    totalCost,
+    hliAfter: currentHli,
+    reachesTarget: currentHli <= targetHli,
+  };
+
+  // Also try by cost-effectiveness (hliDelta/cost, descending)
+  const sortedByEffectiveness = [...applicable].sort(
+    (a, b) => (b.data.hliDelta / b.data.netCostEur) - (a.data.hliDelta / a.data.netCostEur),
+  );
+
+  const effMeasures: InsulationMeasure[] = [];
+  const effLabels: string[] = [];
+  let effCost = 0;
+  let effHli = startingHli;
+
+  for (const { id, data } of sortedByEffectiveness) {
+    if (effHli <= targetHli) break;
+    effMeasures.push(id);
+    effLabels.push(data.label);
+    effCost += data.netCostEur;
+    effHli = applyInsulationMeasures(startingHli, effMeasures, hasCavity);
+  }
+
+  if (effHli <= targetHli && (effCost < bestPath.totalCost || !bestPath.reachesTarget)) {
+    bestPath = {
+      measures: effMeasures,
+      labels: effLabels,
+      totalCost: effCost,
+      hliAfter: effHli,
+      reachesTarget: true,
+    };
+  }
+
+  return {
+    startingHli,
+    targetHli,
+    cheapestPath: bestPath,
+    individualMeasures,
+    achievableCheaply: bestPath.reachesTarget && bestPath.totalCost <= 2000,
+    cheapestCostToTarget: bestPath.reachesTarget ? bestPath.totalCost : null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Policy alternatives
+// ---------------------------------------------------------------------------
+
+export interface PolicyScenario {
+  id: string;
+  label: string;
+  getGrant: (hli: number) => number;
+}
+
+export const POLICY_SCENARIOS: PolicyScenario[] = [
+  {
+    id: 'status_quo',
+    label: 'Status quo (cliff at 2.0)',
+    getGrant: (hli) => hli <= 2.0 ? 6500 : 0,
+  },
+  {
+    id: 'sliding_scale',
+    label: 'Sliding scale (€6,500 at 1.0 → €0 at 3.0)',
+    getGrant: (hli) => hli <= 1.0 ? 6500 : hli >= 3.0 ? 0 : Math.round(6500 * (3.0 - hli) / 2.0),
+  },
+  {
+    id: 'higher_threshold',
+    label: 'Threshold at 2.5',
+    getGrant: (hli) => hli <= 2.5 ? 6500 : 0,
+  },
+  {
+    id: 'universal',
+    label: 'Universal €4,000',
+    getGrant: () => 4000,
+  },
+];
+
+export interface PolicyComparisonPoint {
+  hli: number;
+  annualSavingEur: number;
+  policies: Array<{
+    policyId: string;
+    grantEur: number;
+    tenYearNetEur: number;
+  }>;
+}
+
+export function comparePolicies(sweepData: HliSweepPoint[]): PolicyComparisonPoint[] {
+  return sweepData.map((point) => ({
+    hli: point.hli,
+    annualSavingEur: point.annualSavingEur,
+    policies: POLICY_SCENARIOS.map((policy) => {
+      const grant = policy.getGrant(point.hli);
+      return {
+        policyId: policy.id,
+        grantEur: grant,
+        tenYearNetEur: point.annualSavingEur * 10 - (HP_GROSS_COST - grant),
+      };
+    }),
+  }));
+}

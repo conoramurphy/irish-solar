@@ -6,6 +6,7 @@ const links = [
   { path: '/full-model', description: 'Solar & Battery Modeller' },
   { path: '/tariffs', description: 'Tariff Modeller' },
   { path: '/heat-pump', description: 'Heat Pump ROI Calculator' },
+  { path: '/report/hli-threshold', description: 'Report: The HLI 2.0 Cliff' },
   { path: '/r', description: 'All Reports' },
   { path: '/links', description: 'Sitemap' },
 ];
