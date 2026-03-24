@@ -544,6 +544,15 @@ export function buildPackageScenarios(
       extraCostEur: 3400,
     },
     {
+      id: 'full_retrofit',
+      label: 'Full Retrofit',
+      description: `All major insulation (attic + ${wallLabel} + air sealing + EWI). No solar/battery — fabric first.`,
+      insulation: ['attic', wallMeasure, 'airSealing', 'ewi'],
+      solarKwp: 0,
+      batteryKwh: 0,
+      extraCostEur: 0,
+    },
+    {
       id: 'solar_max',
       label: 'Solar Maximalist',
       description: `Comfort + 10 kWp solar + 10 kWh battery. Maximum self-sufficiency.`,

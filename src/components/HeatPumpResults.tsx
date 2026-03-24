@@ -146,7 +146,7 @@ export function HeatPumpResults({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
           {packages.packages.map((pkg) => {
             const bill = calculateDirectHpBill(pkg.hpProfileKwh, tariff);
             const savingVsGas = totalGasBaseline - bill.annualBillEur;
