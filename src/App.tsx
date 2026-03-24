@@ -45,6 +45,8 @@ import { Step4Finance } from './components/steps/Step4Finance';
 import { ResultsSection } from './components/ResultsSection';
 import type { ExampleMonth, TariffConfiguration } from './types/billing';
 import { loadSolarData, SOLAR_AVAILABLE_YEARS } from './utils/solarDataLoader';
+import { domesticTariffs } from './utils/domesticTariffParser';
+import type { HpHandoff } from './components/HeatPumpResults';
 import { endSpan as endSolarSpan, logError as logSolarError, logInfo as logSolarInfo, logWarn, startSpan as startSolarSpan } from './utils/logger';
 import { normalizeSolarTimeseriesYear, type SolarNormalizationCorrections } from './utils/solarTimeseriesParser';
 import type { BuildingTypeSelection } from './types';
@@ -228,6 +230,34 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
   // Step management - starts at 0 (building type)
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+  const [hpHandoffBanner, setHpHandoffBanner] = useState<string | null>(null);
+
+  // Pick up heat pump profile passed from HeatPumpCalculator via sessionStorage
+  useEffect(() => {
+    const raw = sessionStorage.getItem('__hpHandoff');
+    if (!raw) return;
+    sessionStorage.removeItem('__hpHandoff');
+    try {
+      const handoff = JSON.parse(raw) as HpHandoff;
+      setHourlyConsumptionOverride(handoff.hpProfileKwh);
+      setUploadSummary({
+        filename: handoff.label,
+        year: 2025,
+        totalKwh: Math.round(handoff.totalKwh),
+        slotsPerDay: 48,
+      });
+      setConfig((prev) => ({ ...prev, businessType: 'house', location: handoff.location }));
+      if (handoff.tariffId) {
+        const t = domesticTariffs.find((d) => d.id === handoff.tariffId);
+        if (t) setSelectedDomesticTariff(t);
+      }
+      setCurrentStep(1);
+      setHpHandoffBanner(handoff.label);
+    } catch {
+      // Malformed handoff — ignore and start normally
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Steps for stepper (1-4, Step 0 not shown in stepper)
   const steps = [
@@ -906,6 +936,12 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
 
                 {/* Step Content — max-w constrained for comfortable reading */}
                 <div className="max-w-3xl mx-auto w-full mt-6">
+                  {hpHandoffBanner && currentStep === 1 && (
+                    <div className="mb-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800 flex items-center justify-between">
+                      <span>Using heat pump profile: <strong>{hpHandoffBanner}</strong>. Proceed to Step 2 to add solar.</span>
+                      <button type="button" onClick={() => setHpHandoffBanner(null)} className="ml-4 text-blue-500 hover:text-blue-700">✕</button>
+                    </div>
+                  )}
                   {currentStep === 1 && (
                     <Step1DigitalTwin
                       businessType={config.businessType}

@@ -4,9 +4,10 @@
  * Route: /heat-pump
  *
  * Accepts house archetype (or direct BER HLI), floor area, fuel type,
- * location, and tariff. Runs the full waterfall scenario sequence
- * and the solar-maximalist scenario through the billing engine,
- * then renders the results table.
+ * location, and tariff. Loads real solar data for the selected location,
+ * runs the full waterfall scenario sequence + solar-maximalist scenario
+ * through the same billing engine used by the main wizard, then renders
+ * the results table.
  */
 
 import { useState } from 'react';
@@ -15,6 +16,8 @@ import type { Tariff } from '../types';
 import { DomesticTariffSelector } from './DomesticTariffSelector';
 import { domesticTariffs } from '../utils/domesticTariffParser';
 import { getKnownLocations } from '../utils/solarLocationDiscovery';
+import { loadSolarData } from '../utils/solarDataLoader';
+import type { ParsedSolarData } from '../utils/solarTimeseriesParser';
 import { ARCHETYPES } from '../data/heatPumpArchetypes';
 import {
   buildWaterfallScenarios,
@@ -63,15 +66,19 @@ export function HeatPumpCalculator() {
     billing: WaterfallBillingResults;
     baseline: GasBaselineEstimate;
     floorAreaM2: number;
-    effectiveHLI: number;
+    solarDataLoaded: boolean;
+    tariff: Tariff;
+    location: string;
   } | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [computing, setComputing] = useState(false);
+  const [solarLoadStatus, setSolarLoadStatus] = useState<'idle' | 'loading' | 'loaded' | 'failed'>('idle');
 
   function handleField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     setResults(null);
+    if (key === 'location') setSolarLoadStatus('idle');
   }
 
   function validate(): string | null {
@@ -92,7 +99,7 @@ export function HeatPumpCalculator() {
     return null;
   }
 
-  function handleCalculate() {
+  async function handleCalculate() {
     const validationError = validate();
     if (validationError) {
       setError(validationError);
@@ -105,6 +112,17 @@ export function HeatPumpCalculator() {
       const hliOverride = form.useHliDirect ? parseFloat(form.hliDirect) : undefined;
       const floorAreaM2 = form.floorAreaM2 ? parseFloat(form.floorAreaM2) : undefined;
       const occupants = form.occupants ? parseInt(form.occupants, 10) : undefined;
+
+      // Load real solar data for the location (shared with main wizard via solarDataLoader cache)
+      setSolarLoadStatus('loading');
+      let solarData: ParsedSolarData | null = null;
+      try {
+        solarData = await loadSolarData(form.location, YEAR);
+        setSolarLoadStatus('loaded');
+      } catch {
+        setSolarLoadStatus('failed');
+        // Continue without solar data — solar steps will show HP-only cost
+      }
 
       const waterfall = buildWaterfallScenarios(
         form.archetypeId,
@@ -132,20 +150,28 @@ export function HeatPumpCalculator() {
         occupants,
       );
 
+      // Same engine as main wizard: solar steps use runCalculation() with HP profile
+      // as hourlyConsumptionOverride; non-solar steps use direct tariff billing
       const billing = calculateAllScenarioBills(
         waterfall.steps,
         solarMax,
         form.tariff!,
-        null, // solar data not loaded — solar steps show HP-only cost
+        solarData,
         baseline.annualBillEur,
       );
 
-      // Compute effectiveHLI from last non-solar step for display
-      const lastStep = waterfall.steps[waterfall.steps.length - 1];
-      const effectiveHLI = lastStep?.effectiveHLI ?? 0;
       const resolvedFloorArea = floorAreaM2 ?? ARCHETYPES.find((a) => a.id === form.archetypeId)?.floorAreaM2 ?? 100;
 
-      setResults({ waterfall, solarMax, billing, baseline, floorAreaM2: resolvedFloorArea, effectiveHLI });
+      setResults({
+        waterfall,
+        solarMax,
+        billing,
+        baseline,
+        floorAreaM2: resolvedFloorArea,
+        solarDataLoaded: solarData !== null,
+        tariff: form.tariff!,
+        location: form.location,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Calculation failed. Please check your inputs.');
     } finally {
@@ -158,6 +184,10 @@ export function HeatPumpCalculator() {
   const inputClass =
     'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
   const labelClass = 'block text-sm font-medium text-slate-700 mb-1';
+
+  const computingLabel = solarLoadStatus === 'loading'
+    ? 'Loading solar data…'
+    : 'Calculating…';
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -272,7 +302,7 @@ export function HeatPumpCalculator() {
                 max="2000"
                 step="1"
                 placeholder={
-                  ARCHETYPES.find((a) => a.id === form.archetypeId)?.floorAreaM2.toString() +
+                  (ARCHETYPES.find((a) => a.id === form.archetypeId)?.floorAreaM2.toString() ?? '') +
                   ' (archetype default)'
                 }
                 value={form.floorAreaM2}
@@ -346,11 +376,11 @@ export function HeatPumpCalculator() {
           <div className="mt-5 flex justify-end">
             <button
               type="button"
-              onClick={handleCalculate}
+              onClick={() => { void handleCalculate(); }}
               disabled={computing}
               className="rounded-md bg-blue-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
-              {computing ? 'Calculating…' : 'Calculate scenarios'}
+              {computing ? computingLabel : 'Calculate scenarios'}
             </button>
           </div>
         </div>
@@ -363,7 +393,9 @@ export function HeatPumpCalculator() {
             billing={results.billing}
             baseline={results.baseline}
             floorAreaM2={results.floorAreaM2}
-            tariff={form.tariff!}
+            solarDataLoaded={results.solarDataLoaded}
+            tariff={results.tariff}
+            location={results.location}
           />
         )}
       </div>

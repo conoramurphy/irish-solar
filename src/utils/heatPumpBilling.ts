@@ -95,6 +95,9 @@ const IRELAND_SOLAR_YIELD_KWH_PER_KWP = 950;
 /**
  * Runs a solar scenario through the existing runCalculation() engine.
  * Returns annual bill after solar + battery savings.
+ *
+ * Bill = (HP cost without solar) − annualSavings from the engine.
+ * This reuses getTariffRateForHour() for both paths — same code as the main wizard.
  */
 function calculateSolarHpBill(
   hpProfileKwh: number[],
@@ -105,47 +108,39 @@ function calculateSolarHpBill(
 ): Omit<ScenarioBillingResult, 'stepId'> {
   const annualProductionKwh = solarKwp * IRELAND_SOLAR_YIELD_KWH_PER_KWP;
 
+  // Run the same simulation engine used by the main wizard
   const result = runCalculation(
     {
       annualProductionKwh,
       systemSizeKwp: solarKwp,
       batterySizeKwh: batteryKwh,
-      installationCost: 0, // not needed for billing
-      location: 'Dublin',  // location affects solar yield scaling, not tariff
+      installationCost: 0,
+      location: solarData.location ?? 'Dublin',
       businessType: 'house',
     },
-    [], // no grants needed for billing
+    [],
     { equity: 0, interestRate: 0, termYears: 0 },
     tariff,
     { enabled: false },
     {},
     [],
-    1, // single year
+    1,
     undefined,
     solarData,
     undefined,
     hpProfileKwh,
   );
 
-  const annualHpElecKwh = hpProfileKwh.reduce((a, b) => a + b, 0);
+  // Baseline: what the HP would cost with no solar (proper slot-by-slot tariff billing)
+  const noSolarBill = calculateDirectHpBill(hpProfileKwh, tariff);
 
   return {
-    annualHpElecKwh,
-    annualBillEur: result.annualSavings > 0
-      ? (annualHpElecKwh * getAverageRatePerKwh(tariff)) - result.annualSavings + (tariff.standingCharge * 365)
-      : annualHpElecKwh * getAverageRatePerKwh(tariff) + tariff.standingCharge * 365,
+    annualHpElecKwh: noSolarBill.annualHpElecKwh,
+    // annualSavings = selfConsumption savings + export revenue (Year 1, no finance)
+    annualBillEur: Math.max(0, noSolarBill.annualBillEur - result.annualSavings),
     annualSelfConsumptionKwh: result.annualSelfConsumption,
     annualExportRevenueEur: result.annualExportRevenue ?? 0,
   };
-}
-
-/** Weighted average tariff rate across a typical day (approximation for solar step billing) */
-function getAverageRatePerKwh(tariff: Tariff): number {
-  let total = 0;
-  for (let h = 0; h < 24; h++) {
-    total += getTariffRateForHour(h, tariff);
-  }
-  return total / 24;
 }
 
 // ---------------------------------------------------------------------------
