@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { parseWeatherCSV } from '../../src/utils/weatherDataLoader';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { parseWeatherCSV, loadWeatherData, clearWeatherDataCache } from '../../src/utils/weatherDataLoader';
 import { generateYearlyTemperatureProfile } from '../../src/data/irishWeatherProfiles';
 
 // ---------------------------------------------------------------------------
@@ -89,5 +89,79 @@ describe('generateYearlyTemperatureProfile — real temperature data', () => {
     const synthetic = generateYearlyTemperatureProfile('Dublin', 2025);
     const withEmpty = generateYearlyTemperatureProfile('Dublin', 2025, undefined, []);
     expect(synthetic).toEqual(withEmpty);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// loadWeatherData (async fetch with cache)
+// ---------------------------------------------------------------------------
+
+describe('loadWeatherData', () => {
+  const SAMPLE_CSV = [
+    'Latitude (decimal degrees):\t53.35',
+    'Longitude (decimal degrees):\t-6.26',
+    'Source:\tOpen-Meteo',
+    'Location:\tDublin',
+    '',
+    'time,temperature_2m',
+    '20250101:0000,8.0',
+    '20250101:0030,7.5',
+  ].join('\n');
+
+  beforeEach(() => {
+    clearWeatherDataCache();
+    vi.restoreAllMocks();
+  });
+
+  it('fetches and parses weather data for a location', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(SAMPLE_CSV),
+    }));
+
+    const result = await loadWeatherData('Dublin');
+    expect(result.location).toBe('Dublin');
+    expect(result.temperatureC).toEqual([8.0, 7.5]);
+    expect(result.slotCount).toBe(2);
+  });
+
+  it('caches results on second call', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(SAMPLE_CSV),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await loadWeatherData('Dublin');
+    await loadWeatherData('Dublin');
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws on HTTP error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+    }));
+
+    await expect(loadWeatherData('Nowhere')).rejects.toThrow('Failed to load weather data');
+  });
+
+  it('throws on network error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
+    await expect(loadWeatherData('Dublin')).rejects.toThrow('Network error');
+  });
+
+  it('clearWeatherDataCache forces re-fetch', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve(SAMPLE_CSV),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await loadWeatherData('Dublin');
+    clearWeatherDataCache();
+    await loadWeatherData('Dublin');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });
