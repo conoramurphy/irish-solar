@@ -307,12 +307,12 @@ export function compareRetrofitPaths(
   const pragmaticHli = applyInsulationMeasures(startingHli, pragmaticInsulation, true);
 
   const pragmaticLines: PathCostLine[] = [
-    { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 64 },
-    { label: 'Good install (survey + radiators)', grossEur: 7000,  grantEur: 2000,  netEur: 5000,  workerHours: 40 },
-    { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 16 },
-    { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 16 },
-    { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 24 },
-    { label: 'Solar + battery (8 kWp + 10 kWh)',  grossEur: 8500,  grantEur: 1800,  netEur: 6700,  workerHours: 40 },
+    { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 56 },  // SEAI: 2-3 days, 3-person crew
+    { label: 'Good install (survey + radiators)', grossEur: 7000,  grantEur: 2000,  netEur: 5000,  workerHours: 48 },  // 3-5 days, 2-person crew
+    { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 12 },  // 1 day, 2 workers (top-up from 100mm)
+    { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 6 },   // pumped bead: half-day, 2 workers
+    { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 20 },  // blower-door guided, 1-2 days
+    { label: 'Solar + battery (8 kWp + 10 kWh)',  grossEur: 8500,  grantEur: 1800,  netEur: 6700,  workerHours: 32 },  // 1.5-2 days, 2-3 person crew
   ];
 
   const pragmaticProfileParams = {
@@ -368,14 +368,14 @@ export function compareRetrofitPaths(
   const deepHli = applyInsulationMeasures(startingHli, deepInsulation, true);
 
   const deepLines: PathCostLine[] = [
-    { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 64 },
-    { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 16 },
-    { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 16 },
-    { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 24 },
-    { label: 'External wall insulation',           grossEur: 20000, grantEur: 6000,  netEur: 14000, workerHours: 480 },
-    { label: 'Windows (triple glazing)',          grossEur: 8000,  grantEur: 3000,  netEur: 5000,  workerHours: 40 },
-    { label: 'Front & back doors',                grossEur: 4000,  grantEur: 1600,  netEur: 2400,  workerHours: 16 },
-    { label: 'Floor insulation',                  grossEur: 3000,  grantEur: 1500,  netEur: 1500,  workerHours: 40 },
+    { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 56 },  // SEAI: 2-3 days, 3-person crew
+    { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 12 },  // 1 day, 2 workers
+    { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 6 },   // pumped bead: half-day
+    { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 20 },  // 1-2 days, blower-door guided
+    { label: 'External wall insulation',           grossEur: 20000, grantEur: 6000,  netEur: 14000, workerHours: 320 }, // 3-4 workers × 2-3 weeks (Osber.ie, EWI Store)
+    { label: 'Windows (triple glazing)',          grossEur: 8000,  grantEur: 3000,  netEur: 5000,  workerHours: 28 },  // 30-60 min/window, 2-person crew
+    { label: 'Front & back doors',                grossEur: 4000,  grantEur: 1600,  netEur: 2400,  workerHours: 10 },  // 3-4 hrs per door
+    { label: 'Floor insulation',                  grossEur: 3000,  grantEur: 1500,  netEur: 1500,  workerHours: 36 },  // 2-3 days, disruptive (raises floor level)
   ];
 
   // With HLI ~0.3-0.5 after full insulation, standard radiators work fine

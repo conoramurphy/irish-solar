@@ -393,6 +393,13 @@ export function HliThresholdReport() {
               The line is smooth. There is no inflection point at HLI 2.0 — the heat pump doesn't suddenly
               become inefficient.
             </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Modelled from EN 14511 COP test data, validated against real-world SCOP from{' '}
+              <a href="https://www.heatgeek.com/heat-pump-performance-data/" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-600">
+                Heat Geek live installations
+              </a>{' '}
+              and the EST RHPP field trial (700+ UK/Irish heat pumps).
+            </p>
           </div>
 
         </section>
@@ -569,27 +576,41 @@ export function HliThresholdReport() {
         {/* SECTION 5: CONCLUSION                                         */}
         {/* ============================================================= */}
         <section className="border-t border-slate-200 pt-10">
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>Conclusion</p>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Move the line, or remove it</h2>
-          <ol className="list-decimal list-inside space-y-3 text-base text-slate-700">
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>Policy fixes</p>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Two changes that would accelerate heat pump adoption</h2>
+          <ol className="list-decimal list-inside space-y-5 text-base text-slate-700">
             <li>
-              <strong>The HLI 2.0 threshold has no basis in heat pump engineering.</strong> Performance
-              degrades smoothly. There is no inflection point at 2.0.
+              <strong>Raise the HLI threshold from 2.0 to 2.5.</strong> The data shows no cliff at 2.0 —
+              costs rise smoothly through the entire range. Moving the line to 2.5 would unlock heat pump
+              grants for hundreds of thousands of homes that are currently excluded, including most
+              pre-2000 semi-detached houses, without meaningfully increasing running costs. A home at
+              HLI 2.5 still runs a heat pump efficiently — it just pays slightly more in electricity than
+              one at 2.0.
             </li>
             <li>
-              <strong>The threshold forces expensive insulation with poor standalone payback</strong> on
-              homeowners who are already close — while completely locking out the oldest, coldest homes
-              that would benefit most from decarbonisation.
-            </li>
-            <li>
-              <strong>A sliding scale would preserve the incentive to insulate</strong> (lower HLI = bigger grant)
-              while removing the cliff that blocks hundreds of thousands of homes.
+              <strong>Create an "Electrify Your Heating" package that bundles heat pump and solar grants.</strong> A
+              heat pump dramatically increases a home's electricity consumption — the modelling above shows
+              annual bills of €1,400–€2,000+. Solar PV directly offsets this new load, especially in
+              summer when the heat pump is off and panels produce the most. Bundling the grants would
+              encourage homeowners to install solar at the same time as their heat pump, maximising
+              self-consumption, reducing grid strain, and making the economics of electrification far
+              more attractive. The current system treats heating and generation as separate decisions —
+              they should be one package.
             </li>
           </ol>
+          <p className="text-sm text-slate-500 mt-6 leading-relaxed">
+            The opportunity is enormous. Around 1.44 million Irish homes — 78.6% of occupied
+            dwellings — still heat with fossil fuels (<a href="https://www.cso.ie/en/releasesandpublications/ep/p-cpp2/censusofpopulation2022profile2-housinginireland/occupieddwellings/" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700">CSO Census 2022</a>).
+            A <a href="https://www.marei.ie/wp-content/uploads/2022/07/Quantifying-the-Potential-for-Rooftop-Solar-Photovoltaic-in-Ireland.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700">national satellite analysis by MaREI (UCC)</a> found
+            over 1 million homes have suitable roof space for solar PV. Because the fossil-fuel stock
+            is dominated by detached and semi-detached houses — the types with the largest, least-shaded
+            roofs — an estimated 750,000 to 900,000 fossil-fuel-heated homes could realistically
+            install solar alongside a heat pump.
+          </p>
           <p className="text-lg text-slate-700 mt-6 italic">
-            Every winter this threshold stays in place, homes that could run a heat pump burn gas and oil
-            instead — not because the technology doesn't work, but because a number on a certificate is
-            0.1 too high.
+            Every winter these barriers stay in place, homes that could run a heat pump burn gas and oil
+            instead — not because the technology doesn't work, but because policy hasn't caught up with
+            the engineering.
           </p>
         </section>
 
