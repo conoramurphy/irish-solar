@@ -412,30 +412,34 @@ export function HliThresholdReport() {
         {/* ============================================================= */}
         <section>
           <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The insulation trap</p>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Can you cross the threshold cheaply?</h2>
-          <p className="text-base text-slate-700 mb-6">
-            If your HLI is above 2.0, SEAI says: insulate first, then apply for the heat pump grant.
-            But what does that actually cost? And for houses that start higher, is it even possible
-            with affordable measures?
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>What does it cost to qualify for the grant?</h2>
+          <p className="text-base text-slate-700 mb-4">
+            To get the €12,500 heat pump grant, your home's Heat Loss Indicator must be 2.0 or below.
+            If you're above that, you need to insulate first. The table below shows what that costs
+            depending on where your home starts.
+          </p>
+          <p className="text-sm text-slate-500 mb-6">
+            Costs shown are <strong>what you actually pay</strong> — after SEAI insulation grants have been deducted.
+            For example, cavity wall fill costs around €1,700 to install, but the SEAI grant covers €1,300,
+            so you pay €400 out of pocket.
           </p>
 
           <div className="overflow-x-auto rounded-lg border border-slate-200 mb-6">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-4 py-3 text-left">Starting HLI</th>
-                  <th className="px-4 py-3 text-left">Cheapest path to HLI ≤ 2.0</th>
-                  <th className="px-4 py-3 text-right">Cost</th>
-                  <th className="px-4 py-3 text-right">HLI after</th>
-                  <th className="px-4 py-3 text-right">Reaches 2.0?</th>
-                  <th className="px-4 py-3 text-right">Affordable?</th>
+                  <th className="px-4 py-3 text-left">Your starting HLI</th>
+                  <th className="px-4 py-3 text-left">What you need to do</th>
+                  <th className="px-4 py-3 text-right">You pay (after grants)</th>
+                  <th className="px-4 py-3 text-right">Your HLI after</th>
+                  <th className="px-4 py-3 text-right">Qualifies?</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {[crossing23, crossing25, crossing30, crossing35].map((c) => (
-                  <tr key={c.startingHli} className={!c.cheapestPath.reachesTarget ? 'bg-red-50' : c.achievableCheaply ? 'bg-green-50' : 'bg-amber-50'}>
+                  <tr key={c.startingHli} className={!c.cheapestPath.reachesTarget ? 'bg-red-50' : c.cheapestPath.totalCost <= 2000 ? 'bg-green-50' : 'bg-amber-50'}>
                     <td className="px-4 py-3 font-medium">{c.startingHli.toFixed(1)}</td>
-                    <td className="px-4 py-3 text-slate-600 text-xs">
+                    <td className="px-4 py-3 text-slate-700 text-xs">
                       {c.cheapestPath.labels.join(' + ') || '—'}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums font-medium">
@@ -449,13 +453,6 @@ export function HliThresholdReport() {
                         ? <span className="text-green-700 font-medium">Yes</span>
                         : <span className="text-red-600 font-medium">No</span>}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      {c.achievableCheaply
-                        ? <span className="text-green-700">Under €2k</span>
-                        : c.cheapestPath.reachesTarget
-                          ? <span className="text-amber-600">€{Math.round(c.cheapestPath.totalCost / 1000)}k+</span>
-                          : <span className="text-red-600">Not achievable</span>}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -465,17 +462,17 @@ export function HliThresholdReport() {
           {/* Individual measure breakdown */}
           <details className="mb-6">
             <summary className="text-sm font-medium text-slate-700 cursor-pointer hover:text-slate-900">
-              Show individual measure effectiveness (from HLI 2.5)
+              What does each measure cost on its own? (starting from HLI 2.5)
             </summary>
             <div className="mt-3 overflow-x-auto rounded-lg border border-slate-200">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-4 py-2 text-left">Measure</th>
-                    <th className="px-4 py-2 text-right">Cost (net)</th>
-                    <th className="px-4 py-2 text-right">HLI reduction</th>
-                    <th className="px-4 py-2 text-right">HLI after</th>
-                    <th className="px-4 py-2 text-right">Alone reaches 2.0?</th>
+                    <th className="px-4 py-2 text-right">You pay (after grant)</th>
+                    <th className="px-4 py-2 text-right">How much it lowers your HLI</th>
+                    <th className="px-4 py-2 text-right">Your HLI after</th>
+                    <th className="px-4 py-2 text-right">Enough on its own?</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -495,19 +492,18 @@ export function HliThresholdReport() {
             </div>
           </details>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
-            <p>
-              <strong>For homes near the threshold (HLI 2.1–2.5):</strong> cheap measures like attic insulation
-              (€{crossing25.individualMeasures.find((m) => m.measure === 'attic')?.cost ?? 800}) or cavity fill
-              (€{crossing25.individualMeasures.find((m) => m.measure === 'cavity')?.cost ?? 400}) can get you there.
-              The grant system works for these homes.
-            </p>
-            <p className="mt-2">
-              <strong>For homes at HLI 3.0+:</strong> you need multiple measures totalling
-              €{Math.round((crossing30.cheapestCostToTarget ?? 0) / 100) * 100}+. For HLI 3.5+, even
-              all affordable measures may not reach the threshold — you're forced into external wall insulation (€14,000+)
-              or drylining (€6,000+) just to qualify for a €6,500 grant. That's the trap.
-            </p>
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900 mb-4">
+            <strong>If your home is close to the threshold (HLI 2.1–2.5):</strong> a single cheap measure
+            like cavity wall fill (€400 after grant) or attic insulation (€800 after grant) is enough
+            to qualify. The grant system works well for these homes.
+          </div>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+            <strong>If your home starts at HLI 3.0 or above:</strong> you need multiple measures
+            costing €{Math.round((crossing30.cheapestCostToTarget ?? 0) / 100) * 100}+.
+            For homes at HLI 3.5+, even doing everything affordable may not be enough — you could be
+            forced into external wall insulation (€14,000 after grant) or internal dry lining
+            (€11,000 after grant, including replastering) just to qualify for a €12,500 heat pump grant.
+            You spend more on qualifying than the grant is worth.
           </div>
         </section>
 
