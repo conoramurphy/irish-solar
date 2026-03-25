@@ -133,7 +133,7 @@ export function HliThresholdReport() {
         {/* THE PROBLEM                                                     */}
         {/* ============================================================= */}
         <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The problem</p>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The national problem</p>
           <p className="text-base text-slate-700 leading-relaxed">
             Ireland has committed to retrofitting 500,000 homes to BER B2 by 2030. We are
             not on track. The ESRI's 2026 analysis
@@ -142,11 +142,46 @@ export function HliThresholdReport() {
             energy savings it delivers, and the homes that need it most — older, poorly insulated
             stock — face the longest payback periods. Uptake has stalled not because homeowners
             don't care about climate, but because spending €30,000–€50,000 on a deep retrofit
-            that saves €1,500/year doesn't make financial sense for most families. The grant
-            system was designed to close that gap, but a binary threshold at HLI 2.0 means
-            hundreds of thousands of homes that could benefit from a heat pump are locked out
-            entirely — while the homes that do qualify often don't need the grant to make
-            the numbers work.
+            that saves €1,500/year doesn't make financial sense for most families. We don't have
+            enough skilled workers to deliver 500,000 deep retrofits by 2030 even if every
+            homeowner said yes tomorrow. And families don't want to live through months of
+            scaffolding, replastering, and raised floors if there's a simpler option.
+          </p>
+        </section>
+
+        <section>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The insulation obsession</p>
+          <p className="text-base text-slate-700 leading-relaxed">
+            The cost of heating a home comes down to three things:
+          </p>
+          <div className="my-6 py-5 px-6 rounded-xl text-center" style={{ backgroundColor: '#FEF3C7' }}>
+            <p className="text-lg md:text-xl font-serif font-bold" style={{ color: '#78350F' }}>
+              Heating cost = price of electricity × how efficiently you turn it into heat × how well you keep the heat in
+            </p>
+          </div>
+          <p className="text-base text-slate-700 leading-relaxed">
+            Twenty years ago, the only one of these you could improve was insulation. Heat pumps
+            were rare and expensive. Solar panels were exotic. So our entire retrofit strategy —
+            grants, BER ratings, contractor training — was built around fabric. Insulate first.
+            Insulate everything. Then maybe we'll talk about heating.
+          </p>
+          <p className="text-base text-slate-700 leading-relaxed mt-4">
+            That made sense in 2005. It doesn't in 2026.
+          </p>
+          <p className="text-base text-slate-700 leading-relaxed mt-4">
+            Today, a heat pump turns every unit of electricity into 3–4 units of heat. An 8 kWp
+            solar array with a battery generates cheap electricity right on the roof. These are
+            the scalable levers — they work on every house, they don't need scaffolding, and they
+            can be installed in days, not months. But our grant system is still designed around
+            the old approach. It pushes homeowners into the most expensive solution (full fabric
+            retrofit), the one with the most disruption (months of construction work), and the one
+            that needs by far the most worker hours — at a time when we don't have enough
+            workers to go around.
+          </p>
+          <p className="text-base text-slate-700 leading-relaxed mt-4">
+            The HLI 2.0 threshold is the mechanism that forces this choice. If your house
+            isn't insulated enough, you can't get the heat pump grant — even though the heat
+            pump would cut your bills and emissions regardless.
           </p>
         </section>
 
@@ -155,7 +190,7 @@ export function HliThresholdReport() {
         {/* ============================================================= */}
         {paths.length === 2 && (
         <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The solution</p>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>What this actually looks like</p>
           <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>Two paths, same house</h2>
           <p className="text-base text-slate-700 mb-6">
             Take a typical 1980s semi-detached (HLI 2.5, 108 m²). Two ways to decarbonise it.
