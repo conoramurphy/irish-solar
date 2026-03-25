@@ -165,9 +165,18 @@ export function HliThresholdReport() {
           <p className="text-base text-slate-700 leading-relaxed">
             The cost of heating a home comes down to three things:
           </p>
-          <div className="my-6 py-5 px-6 rounded-xl text-center" style={{ backgroundColor: '#FEF3C7' }}>
-            <p className="text-lg md:text-xl font-serif font-bold" style={{ color: '#78350F' }}>
-              Heating cost = price of electricity × how efficiently you turn it into heat × how well you keep the heat in
+          <div className="my-6 py-4 px-6 rounded-xl text-center" style={{ backgroundColor: '#FEF3C7' }}>
+            <p className="text-sm font-mono tracking-wide" style={{ color: '#78350F' }}>
+              <span className="font-semibold">heating cost</span>
+              {' = '}
+              <span className="italic">electricity price</span>
+              {' × '}
+              <span className="italic">conversion efficiency</span>
+              {' × '}
+              <span className="italic">heat retention</span>
+            </p>
+            <p className="text-xs mt-2" style={{ color: 'rgba(120,53,15,0.5)' }}>
+              i.e. what you pay per unit · how well your system turns it into heat · how well your house keeps it
             </p>
           </div>
           <p className="text-base text-slate-700 leading-relaxed">
