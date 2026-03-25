@@ -288,7 +288,7 @@ export function HeatPumpResults({
         <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-xs text-slate-400">
           Payback = step cost ÷ saving vs previous step. HP row has no payback (sunk cost).
           "vs {fuelLabel}" includes {fmt(baseline.standingChargeEur)}/yr standing charge saving.
-          Grants: SEAI Feb 2026 (HP €12,500, attic €1,500, cavity €1,300, EWI €6,000, drylining €3,500, solar €1,800).
+          Grants: SEAI Feb 2026 (heat pump €12,500, attic €1,500, cavity €1,300, external wall €6,000, dry lining €3,500, solar €1,800).
           Carbon tax: €63.50/t CO₂ (2026), rising to €100/t by 2030 (Finance Act 2020 S.40).
           Export rate: {fmt(tariff.exportRate)}/kWh ({tariff.supplier}).
         </div>

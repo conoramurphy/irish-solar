@@ -221,7 +221,7 @@ const WATERFALL_STEP_DEFS: WaterfallStepDef[] = [
   },
   {
     id: 'ewi',
-    label: '→ + External wall insulation (EWI)',
+    label: '→ + External wall insulation',
     insulation: ['attic', 'cavity', 'airSealing', 'ewi'],
     installQuality: 'good',
     solarKwp: 0,
@@ -537,7 +537,7 @@ export function buildPackageScenarios(
     {
       id: 'comfort',
       label: 'Comfort',
-      description: `Essentials + air sealing. Maximum fabric-first comfort without EWI.`,
+      description: `Essentials + air sealing. Maximum fabric-first comfort without external wall insulation.`,
       insulation: ['attic', wallMeasure, 'airSealing'],
       solarKwp: 0,
       batteryKwh: 0,
@@ -555,7 +555,7 @@ export function buildPackageScenarios(
     {
       id: 'full_retrofit',
       label: 'Full Retrofit',
-      description: `Everything: attic + ${wallLabel} + air sealing + EWI + windows + doors. Standard Irish deep retrofit.`,
+      description: `Everything: attic + ${wallLabel} + air sealing + external wall insulation + windows + doors. Standard Irish deep retrofit.`,
       insulation: ['attic', wallMeasure, 'airSealing', 'ewi', 'windows', 'doors'],
       solarKwp: 0,
       batteryKwh: 0,
@@ -592,7 +592,7 @@ export function buildPackageScenarios(
     airSealing: { gross: 450,  grant: 0 },
     ewi:        { gross: 20000, grant: 6000 },
     windows:    { gross: 8000, grant: 3000 },
-    doors:      { gross: 2800, grant: 1600 },
+    doors:      { gross: 4000, grant: 1600 },
     floor:      { gross: 3000, grant: 1500 },
   };
 

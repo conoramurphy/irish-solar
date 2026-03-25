@@ -105,13 +105,13 @@ export const INSULATION_MEASURES: Record<InsulationMeasure, InsulationMeasureDat
     requiresCavity: false,
   },
   ewi: {
-    label: 'External wall insulation (EWI)',
+    label: 'External wall insulation',
     hliDelta: 0.30,
     netCostEur: 14000,
     requiresCavity: false,
   },
   drylining: {
-    label: 'Internal dry lining (IWI)',
+    label: 'Internal dry lining',
     hliDelta: 0.30,
     netCostEur: 6000,
     requiresCavity: false,
@@ -131,7 +131,7 @@ export const INSULATION_MEASURES: Record<InsulationMeasure, InsulationMeasureDat
   doors: {
     label: 'Front & back doors',
     hliDelta: 0.05,  // small but measurable draught + thermal bridge reduction
-    netCostEur: 1200,  // typical €2,800 (2 doors), SEAI grant €1,600 (€800 × 2, Feb 2026)
+    netCostEur: 2400,  // typical €4,000 (2 quality doors), SEAI grant €1,600 (€800 × 2, Feb 2026)
     requiresCavity: false,
   },
 };

@@ -277,7 +277,7 @@ export function HliThresholdReport() {
                 </p>
                 <p className="text-sm text-slate-700 mt-3">
                   The deep retrofit achieves a better BER ({deep.berRating} vs {pragmatic.berRating}) and better comfort.
-                  But EWI, windows, and floor insulation costing €{Math.round(costDiff / 1000)}k does not deliver
+                  But external wall insulation, windows, and floor insulation costing €{Math.round(costDiff / 1000)}k does not deliver
                   better decarbonisation outcomes than a €{Math.round(pragmatic.totalNet / 1000)}k heat pump with solar.
                   The current grant structure rewards the more expensive, slower path.
                 </p>
@@ -505,7 +505,7 @@ export function HliThresholdReport() {
             <p className="mt-2">
               <strong>For homes at HLI 3.0+:</strong> you need multiple measures totalling
               €{Math.round((crossing30.cheapestCostToTarget ?? 0) / 100) * 100}+. For HLI 3.5+, even
-              all affordable measures may not reach the threshold — you're forced into EWI (€14,000+)
+              all affordable measures may not reach the threshold — you're forced into external wall insulation (€14,000+)
               or drylining (€6,000+) just to qualify for a €6,500 grant. That's the trap.
             </p>
           </div>
@@ -630,7 +630,7 @@ export function HliThresholdReport() {
             <Source
               title="SEAI Insulation & Window Grants (Feb 2026)"
               url="https://www.seai.ie/grants/home-energy-grants/individual-grants/insulation-grants"
-              used="Net costs for attic (€1,500 grant), cavity (€1,300), EWI (€6,000), drylining (€3,500), windows (€3,000), doors (€1,600). Semi-detached rates."
+              used="Net costs for attic (€1,500 grant), cavity (€1,300), external wall (€6,000), dry lining (€3,500), windows (€3,000), doors (€1,600). Semi-detached rates."
               key_info="Grants increased Feb 2026. Windows and doors newly eligible. Second wall measure now permitted (from Mar 2026)."
             />
             <Source

@@ -372,9 +372,9 @@ export function compareRetrofitPaths(
     { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 16 },
     { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 16 },
     { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 24 },
-    { label: 'External wall insulation (EWI)',    grossEur: 20000, grantEur: 6000,  netEur: 14000, workerHours: 480 },
+    { label: 'External wall insulation',           grossEur: 20000, grantEur: 6000,  netEur: 14000, workerHours: 480 },
     { label: 'Windows (triple glazing)',          grossEur: 8000,  grantEur: 3000,  netEur: 5000,  workerHours: 40 },
-    { label: 'Front & back doors',                grossEur: 2800,  grantEur: 1600,  netEur: 1200,  workerHours: 16 },
+    { label: 'Front & back doors',                grossEur: 4000,  grantEur: 1600,  netEur: 2400,  workerHours: 16 },
     { label: 'Floor insulation',                  grossEur: 3000,  grantEur: 1500,  netEur: 1500,  workerHours: 40 },
   ];
 
