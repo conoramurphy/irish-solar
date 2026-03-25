@@ -210,9 +210,9 @@ export function HeatPumpCalculator() {
   }
 
   const selectClass =
-    'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
+    'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400';
   const inputClass =
-    'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
+    'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400';
   const labelClass = 'block text-sm font-medium text-slate-700 mb-1';
 
   const computingLabel = solarLoadStatus === 'loading'
@@ -220,26 +220,26 @@ export function HeatPumpCalculator() {
     : 'Calculating…';
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen" style={{ backgroundColor: '#FAFAF8' }}>
       {/* Header */}
-      <div className="border-b border-slate-200 bg-white px-4 py-4">
-        <div className="mx-auto max-w-4xl flex items-center gap-4">
-          <Link to="/" className="text-sm text-slate-500 hover:text-slate-800">
+      <div className="px-4 py-6 md:py-8" style={{ backgroundColor: '#FEF9EE' }}>
+        <div className="mx-auto max-w-4xl">
+          <Link to="/" className="text-xs font-medium" style={{ color: 'rgba(120,53,15,0.4)' }}>
             ← Back
           </Link>
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">Heat Pump ROI Calculator</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Waterfall payback — from a poorly-installed heat pump to an optimised system
-            </p>
-          </div>
+          <h1 className="text-2xl md:text-3xl font-serif font-bold tracking-tight mt-3" style={{ color: '#78350F' }}>
+            Heat Pump ROI Calculator
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'rgba(120,53,15,0.6)' }}>
+            Packages, waterfall payback, and full half-hourly simulation
+          </p>
         </div>
       </div>
 
       <div className="mx-auto max-w-4xl px-4 py-8 space-y-8">
         {/* Input form */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="text-base font-semibold text-slate-900 mb-5">Your house</h2>
+          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>Your house</p>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             {/* Archetype or HLI */}
@@ -250,9 +250,10 @@ export function HeatPumpCalculator() {
                   onClick={() => handleField('useHliDirect', false)}
                   className={`text-sm px-3 py-1.5 rounded-md border transition-colors ${
                     !form.useHliDirect
-                      ? 'bg-blue-600 text-white border-blue-600'
+                      ? 'text-white border-amber-700'
                       : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                   }`}
+                  style={!form.useHliDirect ? { backgroundColor: '#92400E' } : undefined}
                 >
                   By house type
                 </button>
@@ -261,9 +262,10 @@ export function HeatPumpCalculator() {
                   onClick={() => handleField('useHliDirect', true)}
                   className={`text-sm px-3 py-1.5 rounded-md border transition-colors ${
                     form.useHliDirect
-                      ? 'bg-blue-600 text-white border-blue-600'
+                      ? 'text-white border-amber-700'
                       : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                   }`}
+                  style={form.useHliDirect ? { backgroundColor: '#92400E' } : {}}
                 >
                   From BER certificate (HLI)
                 </button>
@@ -408,7 +410,8 @@ export function HeatPumpCalculator() {
               type="button"
               onClick={() => { void handleCalculate(); }}
               disabled={computing}
-              className="rounded-md bg-blue-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              className="rounded-xl px-7 py-3 text-sm font-semibold text-white shadow-sm disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              style={{ backgroundColor: '#92400E' }}
             >
               {computing ? computingLabel : 'Calculate scenarios'}
             </button>
