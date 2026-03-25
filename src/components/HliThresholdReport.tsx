@@ -19,7 +19,6 @@ import {
   Tooltip,
   ReferenceLine,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import { domesticTariffs } from '../utils/domesticTariffParser';
 import { loadSolarData } from '../utils/solarDataLoader';
@@ -28,9 +27,7 @@ import { formatCurrency } from '../utils/format';
 import {
   sweepHli,
   analyseThresholdCrossing,
-  comparePolicies,
   compareRetrofitPaths,
-  POLICY_SCENARIOS,
   type PathComparison,
 } from '../utils/hliThresholdAnalysis';
 
@@ -62,12 +59,9 @@ export function HliThresholdReport() {
     return sweepHli(tariff, 108, 'gas');
   }, [tariff]);
 
-  const policyComparison = useMemo(() => comparePolicies(sweep), [sweep]);
-
   // Key threshold points
   const at19 = sweep.find((p) => p.hli === 1.9);
   const at21 = sweep.find((p) => p.hli === 2.1);
-  const at23 = sweep.find((p) => p.hli === 2.3);
 
 
   // Threshold crossing analysis for common starting points
@@ -504,73 +498,7 @@ export function HliThresholdReport() {
           </div>
         </section>
 
-        {/* ============================================================= */}
-        {/* SECTION 5: ALTERNATIVE POLICIES                               */}
-        {/* ============================================================= */}
-        <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>Policy alternatives</p>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-tight tracking-tight mb-6" style={{ color: '#78350F' }}>The cliff disappears under every alternative</h2>
-          <p className="text-base text-slate-700 mb-6">
-            The same model, same house, same weather — but four different grant designs.
-            The cliff disappears under every alternative.
-          </p>
-
-          <ResponsiveContainer width="100%" height={360}>
-            <LineChart data={policyComparison} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="hli" tick={{ fontSize: 11 }} label={{ value: 'HLI', position: 'insideBottom', offset: -3, fontSize: 12 }} />
-              <YAxis tickFormatter={(v: number) => `€${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <ReferenceLine x={2.0} stroke="#dc2626" strokeDasharray="6 3" />
-              <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
-              {POLICY_SCENARIOS.map((policy, i) => {
-                const colors = ['#dc2626', '#2563eb', '#059669', '#d97706'];
-                const dashes = ['', '5 3', '8 4', '3 3'];
-                return (
-                  <Line
-                    key={policy.id}
-                    type="monotone"
-                    dataKey={(d: (typeof policyComparison)[0]) => d.policies[i]?.tenYearNetEur}
-                    stroke={colors[i]}
-                    strokeWidth={policy.id === 'status_quo' ? 2.5 : 1.5}
-                    strokeDasharray={dashes[i]}
-                    dot={false}
-                    name={policy.label}
-                  />
-                );
-              })}
-              <Legend />
-            </LineChart>
-          </ResponsiveContainer>
-
-          {/* Policy comparison at HLI 2.3 */}
-          {at23 && (
-            <div className="mt-6 overflow-x-auto rounded-lg border border-slate-200">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Policy</th>
-                    <th className="px-4 py-3 text-right">Grant at HLI 2.3</th>
-                    <th className="px-4 py-3 text-right">10-year net saving</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {POLICY_SCENARIOS.map((policy) => {
-                    const grant = policy.getGrant(2.3);
-                    const tenYr = at23.annualSavingEur * 10 - (14000 - grant);
-                    return (
-                      <tr key={policy.id} className={policy.id === 'status_quo' ? 'bg-red-50' : ''}>
-                        <td className="px-4 py-2">{policy.label}</td>
-                        <td className="px-4 py-2 text-right tabular-nums font-medium">{fmt(grant)}</td>
-                        <td className="px-4 py-2 text-right tabular-nums font-medium">{fmt(tenYr)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+        {/* Policy alternatives section removed — chart was confusing */}
 
         {/* ============================================================= */}
         {/* SECTION 5: CONCLUSION                                         */}
