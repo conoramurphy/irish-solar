@@ -113,7 +113,7 @@ export const INSULATION_MEASURES: Record<InsulationMeasure, InsulationMeasureDat
   drylining: {
     label: 'Internal dry lining (est. incl. replastering + repainting)',
     hliDelta: 0.30,
-    netCostEur: 9000,  // est. €12,500 gross (boards, insulation, replastering, repainting, moving sockets/radiators) - €3,500 grant
+    netCostEur: 11000,  // est. €14,500 gross (€9,500 boards/insulation + €5,000 replastering/repainting/sockets) - €3,500 grant
     requiresCavity: false,
   },
   floor: {
