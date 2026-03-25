@@ -135,17 +135,28 @@ export function HliThresholdReport() {
         <section>
           <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The national problem</p>
           <p className="text-base text-slate-700 leading-relaxed">
-            Ireland has committed to retrofitting 500,000 homes to BER B2 by 2030. We are
-            not on track. The ESRI's 2026 analysis
+            Ireland committed to retrofitting 500,000 homes to BER B2 by 2030 and installing
+            400,000 heat pumps in existing homes. By the end of 2024, just 57,932 deep retrofits
+            were complete — 11.5% of the target. Only 14,194 heat pump grants were drawn down.
+            At the current pace, heat pump targets won't be met
+            until <a href="https://www.rte.ie/news/2026/0310/1562514-climate-targets/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">2042</a>.
+          </p>
+          <p className="text-base text-slate-700 leading-relaxed mt-4">
+            The ESRI's March 2026 analysis
             (<a href="https://doi.org/10.26504/QEC2026SPR_SA_Lynch" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Lynch et al.</a>)
-            identifies the core problem: the cost of deep retrofit is too high relative to the
-            energy savings it delivers, and the homes that need it most — older, poorly insulated
-            stock — face the longest payback periods. Uptake has stalled not because homeowners
-            don't care about climate, but because spending €30,000–€50,000 on a deep retrofit
-            that saves €1,500/year doesn't make financial sense for most families. We don't have
-            enough skilled workers to deliver 500,000 deep retrofits by 2030 even if every
-            homeowner said yes tomorrow. And families don't want to live through months of
-            scaffolding, replastering, and raised floors if there's a simpler option.
+            explains why. A deep retrofit of a detached house costs over €66,000 before grants
+            and still €45,000 after — with loan repayments of €770/month, equivalent to a second
+            mortgage. The annual energy saving is roughly €900. Simple
+            payback: <a href="https://www.irishtimes.com/business/2026/03/11/we-need-a-retrofit-reality-check-the-figures-dont-stack-up-and-we-cant-be-bothered/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">48 years</a>.
+            Uptake has stalled not because homeowners don't care about climate, but because the
+            numbers don't work for most families.
+          </p>
+          <p className="text-base text-slate-700 leading-relaxed mt-4">
+            Ireland faces a 40% shortfall in skilled carpenters and electricians. To hit the 2030
+            target, we'd need 75,000 deep retrofits a year from 2026 — three times the current
+            rate. We don't have the workers even if every homeowner said yes tomorrow. And
+            families don't want to live through months of scaffolding, replastering, and raised
+            floors when a simpler option exists.
           </p>
         </section>
 
@@ -166,7 +177,11 @@ export function HliThresholdReport() {
             Insulate everything. Then maybe we'll talk about heating.
           </p>
           <p className="text-base text-slate-700 leading-relaxed mt-4">
-            That made sense in 2005. It doesn't in 2026.
+            That made sense in 2005. It doesn't in 2026. The ESRI found that the theoretical
+            energy savings from insulation are significantly overstated: homes rated F or G
+            actually use 56% less energy than their BER predicts, because people in cold houses
+            simply heat less. Meanwhile, A-rated homes use 40% more than predicted. The gap
+            between theory and reality undermines the entire fabric-first rationale.
           </p>
           <p className="text-base text-slate-700 leading-relaxed mt-4">
             Today, a heat pump turns every unit of electricity into 3–4 units of heat. An 8 kWp
