@@ -588,7 +588,7 @@ export function buildPackageScenarios(
   const INSULATION_GRANTS: Partial<Record<InsulationMeasure, { gross: number; grant: number }>> = {
     attic:      { gross: 2300, grant: 1500 },
     cavity:     { gross: 1700, grant: 1300 },
-    drylining:  { gross: 9500, grant: 3500 },
+    drylining:  { gross: 12500, grant: 3500 },  // incl. replastering + repainting (estimate)
     airSealing: { gross: 450,  grant: 0 },
     ewi:        { gross: 20000, grant: 6000 },
     windows:    { gross: 8000, grant: 3000 },
