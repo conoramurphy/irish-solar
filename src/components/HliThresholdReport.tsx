@@ -66,10 +66,8 @@ export function HliThresholdReport() {
 
   // Key threshold points
   const at19 = sweep.find((p) => p.hli === 1.9);
-  const at20 = sweep.find((p) => p.hli === 2.0);
   const at21 = sweep.find((p) => p.hli === 2.1);
   const at23 = sweep.find((p) => p.hli === 2.3);
-  const at25 = sweep.find((p) => p.hli === 2.5);
 
 
   // Threshold crossing analysis for common starting points
@@ -338,73 +336,6 @@ export function HliThresholdReport() {
             </p>
           </div>
 
-          {/* Chart B: 10-year net saving with/without grant */}
-          <div className="mb-10">
-            <h3 className="text-base font-serif font-semibold mb-3" style={{ color: '#78350F' }}>The grant creates the cliff, not the engineering</h3>
-            <ResponsiveContainer width="100%" height={340}>
-              <LineChart data={sweep} margin={{ top: 5, right: 20, bottom: 30, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="hli" tick={{ fontSize: 11 }} xAxisId="hli" />
-                <XAxis dataKey="hli" xAxisId="ber" orientation="bottom" axisLine={false} tickLine={false}
-                  tick={{ fontSize: 9, fill: '#94a3b8' }}
-                  tickFormatter={hliBerLabel}
-                  interval={2}
-                  dy={14}
-                />
-                <YAxis tickFormatter={(v: number) => `€${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <ReferenceLine x={2.0} stroke="#dc2626" strokeDasharray="6 3" xAxisId="hli" />
-                <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="2 2" />
-                <Line type="monotone" dataKey="tenYearNetWithGrant" stroke="#2563eb" strokeWidth={2} dot={false} name="With grant" xAxisId="hli" />
-                <Line type="monotone" dataKey="tenYearNetNoGrant" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" dot={false} name="Without grant" xAxisId="hli" />
-                <Legend />
-              </LineChart>
-            </ResponsiveContainer>
-            <p className="text-sm text-slate-500 mt-2">
-              The gap between the two lines is the grant — a constant €6,500 that disappears
-              at HLI 2.0. The underlying economics barely change.
-            </p>
-          </div>
-
-          {/* Smoking gun table */}
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 text-left">HLI</th>
-                  <th className="px-4 py-3 text-right">SCOP</th>
-                  <th className="px-4 py-3 text-right">HP bill</th>
-                  <th className="px-4 py-3 text-right">Gas bill</th>
-                  <th className="px-4 py-3 text-right">Annual saving</th>
-                  <th className="px-4 py-3 text-right">Grant</th>
-                  <th className="px-4 py-3 text-right">10yr net</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {[at19, at20, at21, at23, at25].filter(Boolean).map((p) => {
-                  const isCliff = p!.hli === 2.1;
-                  return (
-                    <tr key={p!.hli} className={isCliff ? 'bg-red-50' : p!.hli === 2.0 ? 'bg-green-50' : ''}>
-                      <td className="px-4 py-2 font-medium">{p!.hli.toFixed(1)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{p!.scop.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{fmt(p!.annualHpBillEur)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{fmt(p!.annualGasBillEur)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{fmt(p!.annualSavingEur)}</td>
-                      <td className={`px-4 py-2 text-right font-semibold tabular-nums ${p!.grantEur > 0 ? 'text-green-700' : 'text-red-600'}`}>
-                        {fmt(p!.grantEur)}
-                      </td>
-                      <td className="px-4 py-2 text-right font-semibold tabular-nums">{fmt(p!.tenYearNetWithGrant)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-sm text-slate-600 mt-3">
-            Between HLI 2.0 and 2.1, the annual saving drops by {fmt(costDiff)}. But the
-            10-year outcome drops by <strong>{fmt((at20?.tenYearNetWithGrant ?? 0) - (at21?.tenYearNetWithGrant ?? 0))}</strong> — almost entirely
-            because of the grant, not the engineering.
-          </p>
         </section>
 
         {/* ============================================================= */}
