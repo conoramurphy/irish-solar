@@ -114,7 +114,7 @@ describe('applyInsulationMeasures', () => {
   it('multiple measures stack correctly', () => {
     // attic: -0.70, cavity: -0.55
     const result = applyInsulationMeasures(3.5, ['attic', 'cavity'], true);
-    expect(result).toBeCloseTo(3.5 - 0.70 - 0.55, 5);
+    expect(result).toBeCloseTo(3.5 - 0.13 - 0.45, 5);
   });
 
   it('no measures leaves HLI unchanged', () => {

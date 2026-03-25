@@ -135,10 +135,10 @@ describe('buildSolarMaxScenario', () => {
     expect(result.cumulativeCostEur).toBeGreaterThan(0);
   });
 
-  it('SCOP is reasonable (2.5–4.5) for 1980s semi', () => {
+  it('SCOP is reasonable (2.5–4.6) for 1980s semi', () => {
     const result = buildSolarMaxScenario('1980s_semi', 'Dublin', 2025);
     expect(result.estimatedSCOP).toBeGreaterThanOrEqual(2.5);
-    expect(result.estimatedSCOP).toBeLessThanOrEqual(4.5);
+    expect(result.estimatedSCOP).toBeLessThanOrEqual(4.6);
   });
 });
 

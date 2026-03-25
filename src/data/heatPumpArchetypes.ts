@@ -85,46 +85,53 @@ export interface InsulationMeasureData {
   requiresCavity: boolean;
 }
 
+/**
+ * HLI deltas derived from DEAP U-value defaults and element areas for a 108m² 1980s semi-d.
+ * Formula: delta = (U_before - U_after) × element_area / floor_area
+ * Sources: SEAI DEAP Manual v4.2.7, TABULA Ireland typology, TCD air-tightness field data,
+ * Dublin City Council retrofit case studies.
+ * See hliThresholdAnalysis.ts sources section for full references.
+ */
 export const INSULATION_MEASURES: Record<InsulationMeasure, InsulationMeasureData> = {
   attic: {
     label: 'Attic insulation',
-    hliDelta: 0.70,
+    hliDelta: 0.13,  // U 0.40→0.13, 54m² roof / 108m² floor. Small because 1980s already has ~100mm.
     netCostEur: 800,
     requiresCavity: false,
   },
   cavity: {
     label: 'Cavity wall fill',
-    hliDelta: 0.55,
+    hliDelta: 0.45,  // U 1.1→0.55, 75m² walls / 108m² floor. Includes ~0.07 air-tightness co-benefit (TCD data).
     netCostEur: 400,
     requiresCavity: true,
   },
   airSealing: {
     label: 'Air sealing / draught-proofing',
-    hliDelta: 0.22,
+    hliDelta: 0.20,  // Ventilation: 0.75→0.50 ACH. 0.33×0.25×270/108. Variable — chimney blocking alone is 0.05-0.10.
     netCostEur: 450,
     requiresCavity: false,
   },
   ewi: {
     label: 'External wall insulation',
-    hliDelta: 0.30,
+    hliDelta: 0.60,  // U 1.1→0.27 (SEAI target), 75m² walls / 108m² floor. Also eliminates thermal bridges.
     netCostEur: 14000,
     requiresCavity: false,
   },
   drylining: {
     label: 'Internal dry lining (est. incl. replastering + repainting)',
-    hliDelta: 0.30,
+    hliDelta: 0.45,  // U 1.1→0.35 (SEAI target, 100mm PIR on battens), 75m² / 108m². Less effective than EWI (thermal bridges remain).
     netCostEur: 11000,  // est. €14,500 gross (€9,500 boards/insulation + €5,000 replastering/repainting/sockets) - €3,500 grant
     requiresCavity: false,
   },
   floor: {
     label: 'Floor insulation',
-    hliDelta: 0.15,
+    hliDelta: 0.18,  // U 0.60→0.25, 54m² floor / 108m² floor area. Highly disruptive (raises floor level ~120mm).
     netCostEur: 1500,
     requiresCavity: false,
   },
   windows: {
     label: 'Windows (double → triple glazing)',
-    hliDelta: 0.12,
+    hliDelta: 0.30,  // U 3.1→0.8, ~16m² windows / 108m². Includes ~0.05 air-tightness co-benefit from new frames.
     netCostEur: 5000,  // typical €8,000, SEAI grant €3,000 (semi-d, Feb 2026)
     requiresCavity: false,
   },
