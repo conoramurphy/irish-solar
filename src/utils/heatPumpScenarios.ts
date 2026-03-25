@@ -564,24 +564,24 @@ export function buildPackageScenarios(
     {
       id: 'solar_max',
       label: 'Solar Maximalist',
-      description: `Comfort + 10 kWp solar + 10 kWh battery. Maximum self-sufficiency.`,
+      description: `Comfort + 8 kWp solar + 10 kWh battery package. Maximum self-sufficiency.`,
       insulation: ['attic', wallMeasure, 'airSealing'],
-      solarKwp: 10,
+      solarKwp: 8,
       batteryKwh: 10,
-      extraCostEur: 3400 + 3500, // solar 10kWp net + battery
+      extraCostEur: 8500 - 1800, // €8,500 package - €1,800 SEAI solar grant
     },
   ];
 
   // Gross costs and grants for the cost breakdown
   const HP_GROSS = 14000;
   const HP_GRANT = 12500;
-  const GOOD_INSTALL_GROSS = 4500;
+  const GOOD_INSTALL_GROSS = 7000; // survey €800 + radiators €5,000 + commissioning €700 + misc €500
   const GOOD_INSTALL_GRANT = 2000; // central heating component of HP grant
   const SOLAR_4KWP_GROSS = 5200;
   const SOLAR_4KWP_GRANT = 1800;
-  const SOLAR_10KWP_GROSS = 9000;
+  const SOLAR_10KWP_GROSS = 8500; // 8kWp solar + 10kWh battery package deal
   const SOLAR_10KWP_GRANT = 1800; // same cap
-  const BATTERY_10KWH_GROSS = 3500;
+  const BATTERY_10KWH_GROSS = 0; // included in solar package above
   const BATTERY_10KWH_GRANT = 0;
 
   // Insulation gross costs (net + grant) — grants are per SEAI Feb 2026 semi-d
@@ -637,19 +637,23 @@ export function buildPackageScenarios(
       });
     }
 
-    // Solar
-    if (def.solarKwp > 0) {
-      const isLarge = def.solarKwp >= 10;
+    // Solar + battery
+    if (def.solarKwp > 0 && def.batteryKwh > 0) {
+      // Bundled package deal (e.g. 8kWp solar + 10kWh battery)
+      costBreakdown.push({
+        label: `Solar ${def.solarKwp} kWp + ${def.batteryKwh} kWh battery`,
+        grossCostEur: SOLAR_10KWP_GROSS,
+        grantEur: SOLAR_10KWP_GRANT,
+        netCostEur: SOLAR_10KWP_GROSS - SOLAR_10KWP_GRANT,
+      });
+    } else if (def.solarKwp > 0) {
       costBreakdown.push({
         label: `Solar PV ${def.solarKwp} kWp`,
-        grossCostEur: isLarge ? SOLAR_10KWP_GROSS : SOLAR_4KWP_GROSS,
-        grantEur: isLarge ? SOLAR_10KWP_GRANT : SOLAR_4KWP_GRANT,
-        netCostEur: isLarge ? SOLAR_10KWP_GROSS - SOLAR_10KWP_GRANT : SOLAR_4KWP_GROSS - SOLAR_4KWP_GRANT,
+        grossCostEur: SOLAR_4KWP_GROSS,
+        grantEur: SOLAR_4KWP_GRANT,
+        netCostEur: SOLAR_4KWP_GROSS - SOLAR_4KWP_GRANT,
       });
-    }
-
-    // Battery
-    if (def.batteryKwh > 0) {
+    } else if (def.batteryKwh > 0) {
       costBreakdown.push({
         label: `Battery ${def.batteryKwh} kWh`,
         grossCostEur: BATTERY_10KWH_GROSS,

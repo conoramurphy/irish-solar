@@ -308,11 +308,11 @@ export function compareRetrofitPaths(
 
   const pragmaticLines: PathCostLine[] = [
     { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 64 },
-    { label: 'Good install (survey + radiators)', grossEur: 4500,  grantEur: 2000,  netEur: 2500,  workerHours: 40 },
+    { label: 'Good install (survey + radiators)', grossEur: 7000,  grantEur: 2000,  netEur: 5000,  workerHours: 40 },
     { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 16 },
     { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 16 },
     { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 24 },
-    { label: 'Solar PV 8 kWp',                    grossEur: 7500,  grantEur: 1800,  netEur: 5700,  workerHours: 40 },
+    { label: 'Solar + battery (8 kWp + 10 kWh)',  grossEur: 8500,  grantEur: 1800,  netEur: 6700,  workerHours: 40 },
   ];
 
   const pragmaticProfileParams = {

@@ -202,18 +202,18 @@ export const INSTALL_QUALITY: Record<InstallQuality, InstallQualityData> = {
   good: {
     label: 'Good installation',
     flowTempOffsetC: 0,
-    incrementalCostEur: 2500,
+    incrementalCostEur: 5000,
     description:
-      'Proper heat loss survey (€800), radiators sized/upgraded in 2–3 rooms (€3,000), ' +
-      'weather compensation calibrated (€700). €4,500 gross but €2,000 covered by HP grant central heating upgrade component.',
+      'Proper heat loss survey (€800), radiators sized/upgraded (€5,000), ' +
+      'weather compensation calibrated (€700), misc (€500). €7,000 gross, €2,000 covered by HP grant.',
   },
   heatgeek: {
     label: 'Heat Geek quality',
     flowTempOffsetC: -5,
-    incrementalCostEur: 5000,
+    incrementalCostEur: 7500,
     description:
-      'All rooms checked, undersized radiators upgraded, fine-tuned weather compensation curve. ' +
-      '€7,000 gross but €2,000 covered by HP grant.',
+      'All rooms checked, all undersized radiators upgraded, fine-tuned weather compensation curve. ' +
+      '€9,500 gross, €2,000 covered by HP grant.',
   },
 };
 
