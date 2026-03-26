@@ -120,6 +120,10 @@ export interface ThresholdCrossingResult {
     hliDelta: number;
     hliAfter: number;
     reachesTarget: boolean;
+    /** Annual fuel saving from this measure alone (€/yr) */
+    annualFuelSavingEur: number;
+    /** Simple payback in years (cost / annualFuelSavingEur), Infinity if no saving */
+    paybackYears: number;
   }>;
   /** Can you reach the target with measures costing ≤ €2,000 total? */
   achievableCheaply: boolean;
@@ -143,15 +147,28 @@ export function analyseThresholdCrossing(
     applicable.push({ id: id as InsulationMeasure, data });
   }
 
-  // Individual measures
-  const individualMeasures = applicable.map(({ id, data }) => ({
-    measure: id,
-    label: data.label,
-    cost: data.netCostEur,
-    hliDelta: data.hliDelta,
-    hliAfter: Math.max(0.3, startingHli - data.hliDelta),
-    reachesTarget: (startingHli - data.hliDelta) <= targetHli,
-  }));
+  // Individual measures — compute fuel saving and payback for each
+  const floorAreaM2 = 108;
+  const fuelType = 'oil' as const;
+  const baselineGas = estimateFuelBaseline('1980s_semi', fuelType, floorAreaM2, startingHli);
+  const baselineTotalEur = baselineGas.annualBillEur + baselineGas.standingChargeEur;
+
+  const individualMeasures = applicable.map(({ id, data }) => {
+    const hliAfter = Math.max(0.3, startingHli - data.hliDelta);
+    const afterGas = estimateFuelBaseline('1980s_semi', fuelType, floorAreaM2, hliAfter);
+    const afterTotalEur = afterGas.annualBillEur + afterGas.standingChargeEur;
+    const annualFuelSavingEur = baselineTotalEur - afterTotalEur;
+    return {
+      measure: id,
+      label: data.label,
+      cost: data.netCostEur,
+      hliDelta: data.hliDelta,
+      hliAfter,
+      reachesTarget: (startingHli - data.hliDelta) <= targetHli,
+      annualFuelSavingEur,
+      paybackYears: annualFuelSavingEur > 0 ? data.netCostEur / annualFuelSavingEur : Infinity,
+    };
+  });
 
   // Find cheapest combination that reaches target
   // Greedy: sort by cost, add measures until target reached
