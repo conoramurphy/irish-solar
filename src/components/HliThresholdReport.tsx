@@ -71,7 +71,11 @@ export function HliThresholdReport() {
 
   // Key threshold points
   const at19 = sweep.find((p) => p.hli === 1.9);
+  const at20 = sweep.find((p) => p.hli === 2.0);
   const at21 = sweep.find((p) => p.hli === 2.1);
+  const at25 = sweep.find((p) => p.hli === 2.5);
+  const at27 = sweep.find((p) => p.hli === 2.7);
+  const at28 = sweep.find((p) => p.hli === 2.8);
 
 
   // Threshold crossing analysis for common starting points
@@ -87,8 +91,9 @@ export function HliThresholdReport() {
   }, []);
 
   // Path comparison: pragmatic (with real solar billing) vs deep retrofit
+  // Only runs once real solar irradiance data has loaded — no fallback.
   const paths = useMemo(() => {
-    if (!tariff) return [] as PathComparison[];
+    if (!tariff || !solarData) return [] as PathComparison[];
     return compareRetrofitPaths(tariff, solarData);
   }, [tariff, solarData]);
 
@@ -96,6 +101,18 @@ export function HliThresholdReport() {
 
   const costDiff = at21 && at19
     ? Math.abs(at21.annualHpBillEur - at19.annualHpBillEur)
+    : 0;
+
+  const costDiff20v25 = at25 && at20
+    ? Math.abs(at25.annualHpBillEur - at20.annualHpBillEur)
+    : 0;
+
+  // Interpolate cost at HLI 2.75 (midpoint of 2.7 and 2.8 sweep points)
+  const bill275 = at27 && at28
+    ? (at27.annualHpBillEur + at28.annualHpBillEur) / 2
+    : 0;
+  const costDiff20v275 = at20 && bill275
+    ? Math.abs(bill275 - at20.annualHpBillEur)
     : 0;
 
   const GRID_DARK: React.CSSProperties = {
@@ -108,6 +125,9 @@ export function HliThresholdReport() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FFFBF0' }}>
+      <div className="bg-slate-900 text-white text-center py-2 text-sm">
+        Work in progress. Contact <a href="mailto:conortjmurphy@gmail.com" className="underline">conortjmurphy@gmail.com</a> for more information.
+      </div>
       {/* Hero — amber theme from Landing heat pump section */}
       <div className="relative py-14 md:py-20" style={{ backgroundColor: '#FEF3C7' }}>
         <div className="pointer-events-none absolute inset-0" style={GRID_DARK} />
@@ -123,7 +143,7 @@ export function HliThresholdReport() {
             We need to electrify first, not deep-insulate first.
           </p>
           <p className="text-xs mt-5" style={{ color: 'rgba(146,64,14,0.4)' }}>
-            All figures generated live · 1980s semi-d, 108 m², Dublin · {tariff.supplier} {tariff.product}
+            1980s semi-d, 108 m², Dublin · {tariff.supplier} {tariff.product}
           </p>
         </div>
       </div>
@@ -131,51 +151,89 @@ export function HliThresholdReport() {
       <div className="mx-auto max-w-3xl px-5 md:px-8 py-14 space-y-20">
 
         {/* ============================================================= */}
+        {/* EXEC SUMMARY                                                    */}
+        {/* ============================================================= */}
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm -mt-6">
+          <p className="text-xs font-medium tracking-widest uppercase mb-4" style={{ color: '#92400E' }}>Executive summary</p>
+          <ul className="space-y-2 text-[0.9375rem] text-slate-700 leading-[1.65]">
+            <li>Ireland will miss its 400,000 heat pump target by over a decade. Only 14,194 grants drawn down by end-2024.</li>
+            <li>The core barrier is SEAI's HLI (insulation level)&nbsp;≤&nbsp;2.0 rule, which forces expensive insulation before a heat pump grant is available, 
+              yet there is <strong>no performance cliff at any HLI&nbsp; level</strong>. 
+              A home at HLI&nbsp;2.75 pays just <strong>{fmt(costDiff20v275)}/year more</strong> to run a heat pump than one at 2.0, yet is forced into a "deep retrofit" that adds €20k+ of upfront cost and months of disruption, which has a terrible 62-year payback.</li>
+            {paths.length === 2 && (() => {
+              const [pragmatic, deep] = paths;
+              const netDiff = deep.totalNet - pragmatic.totalNet;
+              const deepDays = Math.round(deep.totalWorkerHours / 8);
+              const daysDiff = Math.round((deep.totalWorkerHours - pragmatic.totalWorkerHours) / 8);
+              const daysPct = Math.round((daysDiff / deepDays) * 100);
+              const savingDiff = pragmatic.annualSavingEur - deep.annualSavingEur;
+              const grantDiff = deep.totalGrant - pragmatic.totalGrant;
+              return (
+                <li>For a typical 1980s semi-d, the pragmatic path (heat pump, solar and simple insulation) costs <strong>{fmt(netDiff)} less</strong> upfront, uses <strong>{fmt(grantDiff)} less</strong> in grants, takes <strong>{daysDiff} fewer work days (-{daysPct}%)</strong>, and saves up to <strong>{fmt(savingDiff)}/yr more</strong> on bills than the deep retrofit we force people into.</li>
+              );
+            })()}
+            <li><strong>Simple fix:</strong> raise the HLI threshold to 2.75 and bundle heat-pump and solar grants into one "electrify first" package. At 2.75, roughly 75% of fossil-fuel homes qualify with only cheap, non-invasive measures. No wall insulation, no window replacement.</li>
+          </ul>
+        </section>
+
+        {/* ============================================================= */}
         {/* THE PROBLEM                                                     */}
         {/* ============================================================= */}
         <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-5" style={{ color: '#92400E' }}>The national problem</p>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Ireland will miss its home heating targets by a decade.</h2>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
-            Ireland committed to retrofitting 500,000 homes to BER B2 by 2030 and installing
-            400,000 heat pumps. By end-2024, just 57,932 deep retrofits were complete, 11.5% of
-            target. Only 14,194 heat pump grants were drawn down. At this pace, heat pump targets
-            won't be met
+            <strong>Targets are failing.</strong> Ireland committed to retrofitting 500,000 homes to
+            BER B2 by 2030 and installing 400,000 heat pumps. By end-2024, just 57,932 deep
+            retrofits were complete, 11.5% of target. Only 14,194 heat pump grants were drawn
+            down. At this pace, heat pump targets won't be met
             until <a href="https://www.rte.ie/news/2026/0310/1562514-climate-targets/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">2042</a>.
           </p>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            The ESRI's March 2026 analysis
-            (<a href="https://doi.org/10.26504/QEC2026SPR_SA_Lynch" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Lynch et al.</a>)
-            explains why. A deep retrofit of a detached house costs over €66,000 before grants,
-            €45,000 after, with loan repayments of €770/month, a second mortgage. Annual energy
-            saving: roughly €900. Simple payback: <a href="https://www.irishtimes.com/business/2026/03/11/we-need-a-retrofit-reality-check-the-figures-dont-stack-up-and-we-cant-be-bothered/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">48 years</a>.
-            Uptake has stalled not because homeowners don't care about climate, but because
-            the numbers don't work.
+            <strong>The economics don't work.</strong> The
+            ESRI's <a href="https://doi.org/10.26504/QEC2026SPR_SA_Lynch" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">March 2026 analysis</a> (Lynch
+            et al.) explains why. A deep retrofit of a detached house costs over €66,000 before
+            grants, €45,000 after, with loan repayments of €770/month. A second mortgage.
+            Annual energy saving: roughly €900. Simple
+            payback: <a href="https://www.irishtimes.com/business/2026/03/11/we-need-a-retrofit-reality-check-the-figures-dont-stack-up-and-we-cant-be-bothered/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">48 years</a>.
+            Uptake has stalled not because homeowners don't care about climate, but because the
+            numbers don't work.
           </p>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            The ESRI correctly identifies the problem, but its biofuels alternative is a
-            distraction. A boiler converts biogas to heat at ~90% efficiency. A heat pump converts
-            electricity to heat at 300–450% efficiency, <strong>3–5 times more heat</strong> per unit
-            of primary energy (<a href="https://www.iea.org/reports/the-future-of-heat-pumps" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">IEA, 2022</a>).
+            <strong>Disruption kills uptake.</strong> Even when the money works, homeowners say no.
+            The ESRI's own choice
+            experiment (<a href="https://www.esri.ie/publications/residential-renovations-understanding-cost-disruption-trade-offs-0" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Curtis, Grilli &amp; Lynch, 2024</a>)
+            found that the disruption of a deep retrofit (dust, noise, rooms out of use, or
+            vacating entirely) reduces homeowners' willingness to invest by €9,000 for minor
+            works and up to €25,000 when the home becomes uninhabitable during construction.
+            For many households the disruption cost alone exceeds the expected energy savings,
+            making the retrofit irrational even at full grant. And 18% of Irish
+            households, 330,000 homes, are private
+            renters (<a href="https://www.cso.ie/en/releasesandpublications/ep/p-cpp2/censusofpopulation2022profile2-housinginireland/homeownershipandrent/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">CSO Census 2022</a>).
+            You cannot put a family through months of construction mid-tenancy. A solution that
+            requires people to leave their homes is not a solution for a fifth of the housing stock.
+          </p>
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
+            <strong>Biofuels aren't the answer.</strong> The ESRI correctly identifies the problem,
+            but its biofuels alternative is a distraction. A boiler converts biogas to heat
+            at ~90% efficiency. A heat pump converts electricity to heat at 300–450%
+            efficiency, <strong>3–5 times more heat</strong> per unit of primary
+            energy (<a href="https://www.iea.org/reports/the-future-of-heat-pumps" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">IEA, 2022</a>).
             Ireland lacks the biomass to heat its housing stock, and
             the <a href="https://www.chathamhouse.org/2017/02/woody-biomass-power-and-heat" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">"carbon neutral" claim doesn't survive scrutiny</a> once
             you account for land use, supply chain emissions, and regrowth timescales. The IPCC
             is clear: bioenergy should be reserved for sectors that can't electrify. Homes can.
           </p>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            Ireland faces a 40% shortfall in skilled carpenters and electricians. Hitting the
-            2030 target requires 75,000 deep retrofits a year, three times the current rate. We
-            don't have the workers even if every homeowner said yes. And many won't: the ESRI
-            finds over 40% of homeowners are highly unlikely to undertake a deep retrofit, with
-            the disruption alone valued at
-            <a href="https://doi.org/10.26504/QEC2026SPR_SA_Lynch" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">€9,000–€24,000</a> per
-            household (Curtis et al. 2024), potentially requiring families to vacate their homes
-            for the duration of the work.
+            <strong>We don't have the workers.</strong> Ireland faces
+            a <a href="https://www.igbc.ie/research-reveals-critical-skills-shortages-threatening-irelands-climate-targets/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">40% shortfall</a> in
+            skilled carpenters and electricians. Hitting the 2030 target requires 75,000 deep retrofits
+            a year, three times the current rate. We don't have the workers even if every
+            homeowner said yes.
           </p>
         </section>
 
         <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The insulation obsession</p>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>We built our entire strategy around the wrong lever.</h2>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>One outdated rule forces the most expensive path: "insulate first, electrify later."</h2>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
             The cost of heating a home comes down to three things:
           </p>
@@ -195,8 +253,8 @@ export function HliThresholdReport() {
           </div>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
             Twenty years ago, insulation was the only lever you could improve. Heat pumps were
-            rare and expensive. Solar panels were exotic. So our entire retrofit strategy, grants,
-            BER ratings, contractor training, was built around fabric. Insulate first. Insulate
+            rare and expensive. Solar panels were exotic. So our entire retrofit strategy (grants,
+            BER ratings, contractor training) was built around fabric. Insulate first. Insulate
             everything. Then maybe talk about heating.
           </p>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
@@ -207,17 +265,60 @@ export function HliThresholdReport() {
             fabric-first rationale.
           </p>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            Today, a heat pump turns every unit of electricity into 3–4 units of heat. An 8 kWp
+            Today, a heat pump turns every unit of electricity into 3–6 units of heat. A 6 kWp
             solar array with a battery generates cheap electricity on the roof. These are the
             scalable levers. They work on every house, need no scaffolding, and install in days.
-            But our grant system still pushes homeowners into the most expensive solution (full
-            fabric retrofit), the most disruptive (months of construction), and the most
-            labour-intensive, when we don't have enough workers.
+            But our grant system still forces homeowners through a full fabric retrofit: months
+            of construction, tens of thousands in cost, and thousands of hours of skilled labour
+            we don't have.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Change one number and hundreds of thousands of homes qualify for a heat pump.</h2>
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
+            The HLI 2.0 threshold is the gate. If your house isn't insulated enough, you can't
+            get the heat pump grant, even though the heat pump would cut your bills and emissions
+            regardless. A home at HLI 2.75 pays just {fmt(costDiff20v275)}/year more to run a heat
+            pump than one at 2.0. There is no performance cliff. The line is smooth.
           </p>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            The HLI 2.0 threshold forces this choice. If your house isn't insulated enough,
-            you can't get the heat pump grant, even though the heat pump would cut your bills
-            and emissions regardless.
+            Raising the threshold to 2.75 would unlock heat pump grants for roughly 75% of
+            fossil-fuel homes using only cheap, non-invasive measures: attic insulation, cavity
+            fill, and air sealing. No wall insulation. No window replacement. No months of
+            construction. It requires no new legislation, no new funding, and no new infrastructure.
+            Just a number change in SEAI's eligibility criteria.
+          </p>
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
+            There is much more we should do: bundle solar and heat pump grants, shift to
+            performance-based verification, rethink BER entirely. But this single change, on its
+            own, would do more to accelerate heat pump adoption than any policy introduced in
+            the last decade.
+          </p>
+        </section>
+
+        {/* ============================================================= */}
+        {/* INSULATION vs ELECTRIFICATION                                   */}
+        {/* ============================================================= */}
+        <section>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Insulation saves hundreds. Electrification saves thousands.</h2>
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
+            Insulating a house at HLI 2.5 saves about €500/year. You're still burning gas,
+            still exposed to price shocks and rising carbon tax. A heat pump on the same house,
+            with no insulation at all, saves
+            over {fmt(Math.round(at25?.annualSavingEur ?? 1233))}/year by switching to electricity.
+            Add solar and the saving
+            exceeds {paths.length >= 1 ? fmt(Math.round(paths[0].annualSavingEur)) : '€2,500'}/year.
+          </p>
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
+            This is the key point: a heat pump and solar panels reinforce each other. The heat
+            pump increases electricity demand. The solar panels meet it, on site, at zero
+            marginal cost, for 25+ years. The more you produce yourself, the less any future
+            price rise matters. Insulation does not have this compounding effect. It reduces
+            demand for a fuel you cannot control.
+          </p>
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
+            The grant system demands the least effective option first.
           </p>
         </section>
 
@@ -226,10 +327,9 @@ export function HliThresholdReport() {
         {/* ============================================================= */}
         {paths.length === 2 && (
         <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>What this actually looks like</p>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Two paths, same house</h2>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Same house, two paths: one costs thousands less and saves more.</h2>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mb-6">
-            Take a typical 1980s semi-detached (HLI 2.5, 108 m²). Two ways to decarbonise it.
+            Take a 1970s semi-detached (HLI 3.0, 100 m²). Two ways to decarbonise it.
             One spends on generation, the other on fabric. Same heat pump in both.
           </p>
 
@@ -341,12 +441,6 @@ export function HliThresholdReport() {
                       : ` saves ${fmt(Math.abs(savingDiff))}/yr less`
                     } on total household bills, including solar self-consumption and export revenue.
                   </p>
-                  <p className="text-sm text-slate-500 leading-relaxed mt-3">
-                    Deep retrofit achieves a better BER ({deep.berRating} vs {pragmatic.berRating}) and better comfort.
-                    But €{Math.round(costDiff / 1000)}k of insulation and windows does not deliver better decarbonisation
-                    than a €{Math.round(pragmatic.totalNet / 1000)}k heat pump with solar. The grant structure rewards
-                    the more expensive, slower path.
-                  </p>
                 </div>
             );
           })()}
@@ -357,8 +451,14 @@ export function HliThresholdReport() {
         {/* SECTION 2: WHAT THE NUMBERS SHOW                              */}
         {/* ============================================================= */}
         <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The evidence</p>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Heat pump costs rise smoothly. There is no cliff at HLI 2.0.</h2>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>The data is clear: the HLI 2.0 cutoff is arbitrary.</h2>
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mb-4">
+            Engineers have known this for years. What's changed is proof at scale.
+            The <a href="https://www.heatgeek.com/heat-pump-performance-data/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">Heat Geek dataset</a> now
+            tracks thousands of real heat pump installations across the UK and Ireland,
+            reporting actual seasonal performance from homes people live in. The data is
+            unambiguous: heat pumps work well in poorly insulated homes.
+          </p>
 
           <div className="py-10 mb-8">
             <p className="font-serif text-lg md:text-xl leading-relaxed tracking-tight text-center italic" style={{ color: '#78350F' }}>
@@ -406,110 +506,105 @@ export function HliThresholdReport() {
         {/* SECTION 3: THE INSULATION TRAP / GRANT CLIFF                  */}
         {/* ============================================================= */}
         <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>The insulation trap</p>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>What does it cost to qualify for the grant?</h2>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>The trap: what does it cost to qualify for the grant?</h2>
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mb-4">
-            To get the €12,500 heat pump grant, your home's Heat Loss Indicator must be 2.0 or
-            below. If not, you must insulate first. The table shows what that costs depending on
-            your starting point.
-          </p>
-          <p className="text-sm text-slate-500 leading-relaxed mb-6">
-            Costs shown are <strong>net of SEAI insulation grants</strong>. Example: cavity wall fill
-            costs ~€1,700 to install; the grant covers €1,300, leaving €400 out of pocket.
+            To get the €12,500 heat pump grant, your HLI must be 2.0 or below. If not, you
+            insulate first. For homes at HLI 3.0+, that means external wall insulation
+            (€14,000 after grant) or dry lining (€11,000+). You spend more qualifying than
+            the grant is worth.
           </p>
 
+          <details className="mb-6">
+            <summary className="text-sm text-slate-500 cursor-pointer hover:text-slate-700 font-medium">
+              Cost to qualify by starting HLI
+            </summary>
+            <div className="overflow-x-auto rounded-lg border border-slate-200 mt-3">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-[0.6875rem] font-medium tracking-wide uppercase text-slate-400">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Starting HLI</th>
+                    <th className="px-4 py-3 text-left">Measures needed</th>
+                    <th className="px-4 py-3 text-right">You pay (after grants)</th>
+                    <th className="px-4 py-3 text-right">HLI after</th>
+                    <th className="px-4 py-3 text-right">Qualifies?</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {[crossing23, crossing25, crossing30, crossing35].map((c) => (
+                    <tr key={c.startingHli} className={!c.cheapestPath.reachesTarget ? 'bg-red-50' : c.cheapestPath.totalCost <= 2000 ? 'bg-green-50' : 'bg-amber-50'}>
+                      <td className="px-4 py-3 font-medium">{c.startingHli.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-slate-700 text-xs">
+                        {c.cheapestPath.labels.join(' + ') || '—'}
+                      </td>
+                      <td className={`px-4 py-3 text-right tabular-nums font-medium ${c.cheapestPath.reachesTarget && c.cheapestPath.totalCost >= 5000 ? 'text-red-700' : ''}`}>
+                        {c.cheapestPath.reachesTarget ? fmt(c.cheapestPath.totalCost) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {c.cheapestPath.hliAfter.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {c.cheapestPath.reachesTarget
+                          ? <span className="text-green-700 font-medium">Yes</span>
+                          : <span className="text-red-600 font-medium">No</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed mt-2">
+              All costs net of SEAI grants. Example: cavity fill costs €1,700 to install; the grant covers €1,300, leaving €400.
+            </p>
+          </details>
+
+          <h3 className="text-base font-semibold text-slate-900 mb-3">
+            What are the best-value measures?
+          </h3>
+          <p className="text-sm text-slate-500 leading-relaxed mb-4">
+            Not all insulation is equal. Cavity fill and attic top-up deliver the biggest HLI
+            improvement per euro, with zero disruption. Wall and floor insulation cost ten times
+            more and require weeks of construction.
+          </p>
           <div className="overflow-x-auto rounded-lg border border-slate-200 mb-6">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-[0.6875rem] font-medium tracking-wide uppercase text-slate-400">
                 <tr>
-                  <th className="px-4 py-3 text-left">Your starting HLI</th>
-                  <th className="px-4 py-3 text-left">What you need to do</th>
-                  <th className="px-4 py-3 text-right">You pay (after grants)</th>
-                  <th className="px-4 py-3 text-right">Your HLI after</th>
-                  <th className="px-4 py-3 text-right">Qualifies?</th>
+                  <th className="px-4 py-2 text-left">Measure</th>
+                  <th className="px-4 py-2 text-right">Cost (after grant)</th>
+                  <th className="px-4 py-2 text-right">HLI reduction</th>
+                  <th className="px-4 py-2 text-right">Payback</th>
+                  <th className="px-4 py-2 text-right">Disruption</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {[crossing23, crossing25, crossing30, crossing35].map((c) => (
-                  <tr key={c.startingHli} className={!c.cheapestPath.reachesTarget ? 'bg-red-50' : c.cheapestPath.totalCost <= 2000 ? 'bg-green-50' : 'bg-amber-50'}>
-                    <td className="px-4 py-3 font-medium">{c.startingHli.toFixed(1)}</td>
-                    <td className="px-4 py-3 text-slate-700 text-xs">
-                      {c.cheapestPath.labels.join(' + ') || '—'}
+                {crossing25.individualMeasures.map((m) => {
+                  const disruption = MEASURE_DISRUPTION[m.measure as keyof typeof MEASURE_DISRUPTION] ?? { level: 'Minimal', color: 'text-slate-500' };
+                  const isExpensive = m.cost >= 5000;
+                  return (
+                  <tr key={m.measure} className={isExpensive ? 'bg-red-50' : ''}>
+                    <td className="px-4 py-2">{m.label}</td>
+                    <td className={`px-4 py-2 text-right tabular-nums ${isExpensive ? 'text-red-700 font-medium' : ''}`}>{fmt(m.cost)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">-{m.hliDelta.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {m.paybackYears === Infinity
+                        ? '—'
+                        : m.paybackYears > 50
+                          ? '50+ yrs'
+                          : `${Math.round(m.paybackYears)} yrs`}
                     </td>
-                    <td className={`px-4 py-3 text-right tabular-nums font-medium ${c.cheapestPath.reachesTarget && c.cheapestPath.totalCost >= 5000 ? 'text-red-700' : ''}`}>
-                      {c.cheapestPath.reachesTarget ? fmt(c.cheapestPath.totalCost) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-right tabular-nums">
-                      {c.cheapestPath.hliAfter.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {c.cheapestPath.reachesTarget
-                        ? <span className="text-green-700 font-medium">Yes</span>
-                        : <span className="text-red-600 font-medium">No</span>}
-                    </td>
+                    <td className={`px-4 py-2 text-right ${disruption.color}`}>{disruption.level}</td>
                   </tr>
-                ))}
+                  );
+                })}
+                <tr>
+                  <td className="px-4 py-2">Windows (single → modern double)</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{fmt(5000)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">-0.61</td>
+                  <td className="px-4 py-2 text-right tabular-nums">13 yrs</td>
+                  <td className="px-4 py-2 text-right text-amber-600">Medium</td>
+                </tr>
               </tbody>
             </table>
-          </div>
-
-          {/* Individual measure breakdown — expanded */}
-          <div className="mb-6">
-            <h3 className="text-base font-semibold text-slate-900 mb-3">
-              What does each measure cost on its own? (starting from HLI 2.5)
-            </h3>
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-[0.6875rem] font-medium tracking-wide uppercase text-slate-400">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Measure</th>
-                    <th className="px-4 py-2 text-right">You pay (after grant)</th>
-                    <th className="px-4 py-2 text-right">HLI reduction</th>
-                    <th className="px-4 py-2 text-right">Your HLI after</th>
-                    <th className="px-4 py-2 text-right">Annual fuel saving</th>
-                    <th className="px-4 py-2 text-right">Payback</th>
-                    <th className="px-4 py-2 text-right">Disruption</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {crossing25.individualMeasures.map((m) => {
-                    const disruption = MEASURE_DISRUPTION[m.measure as keyof typeof MEASURE_DISRUPTION] ?? { level: 'Minimal', color: 'text-slate-500' };
-                    const isExpensive = m.cost >= 5000;
-                    return (
-                    <tr key={m.measure} className={isExpensive ? 'bg-red-50' : ''}>
-                      <td className="px-4 py-2">{m.label}</td>
-                      <td className={`px-4 py-2 text-right tabular-nums ${isExpensive ? 'text-red-700 font-medium' : ''}`}>{fmt(m.cost)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">-{m.hliDelta.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{m.hliAfter.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums">{fmt(Math.round(m.annualFuelSavingEur))}/yr</td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {m.paybackYears === Infinity
-                          ? '—'
-                          : m.paybackYears > 50
-                            ? '50+ yrs'
-                            : `${Math.round(m.paybackYears)} yrs`}
-                      </td>
-                      <td className={`px-4 py-2 text-right ${disruption.color}`}>{disruption.level}</td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900 leading-relaxed mb-4">
-            <strong>If your home is close to the threshold (HLI 2.1–2.5):</strong> a single cheap measure
-            like cavity wall fill (€400 after grant) or attic insulation (€800 after grant) is enough
-            to qualify. The grant system works well for these homes.
-          </div>
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 leading-relaxed">
-            <strong>If your home starts at HLI 3.0 or above:</strong> you need multiple measures
-            costing €{Math.round((crossing30.cheapestCostToTarget ?? 0) / 100) * 100}+.
-            For homes at HLI 3.5+, even doing everything affordable may not be enough. You could be
-            forced into external wall insulation (€14,000 after grant) or internal dry lining
-            (€11,000 after grant, including replastering) just to qualify for a €12,500 heat pump grant.
-            You spend more on qualifying than the grant is worth.
           </div>
         </section>
 
@@ -517,7 +612,6 @@ export function HliThresholdReport() {
         {/* SECTION: LOOKING TO THE FUTURE                               */}
         {/* ============================================================= */}
         <section>
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>Looking to the future</p>
           <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Insulation can't be measured. Electrification can.</h2>
 
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
@@ -563,17 +657,17 @@ export function HliThresholdReport() {
         {/* SECTION 5: CONCLUSION                                         */}
         {/* ============================================================= */}
         <section className="border-t border-slate-200 pt-10">
-          <p className="text-xs font-medium tracking-widest uppercase mb-3" style={{ color: '#92400E' }}>Policy fixes</p>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Two changes now, one for the future</h2>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Two changes now, one for the future.</h2>
 
           <p className="text-xs font-medium tracking-widest uppercase mb-4" style={{ color: '#92400E' }}>Now</p>
           <ol className="list-decimal list-inside space-y-5 text-[1.0625rem] text-slate-700 leading-[1.7]">
             <li>
-              <strong>Raise the HLI threshold from 2.0 to 2.5.</strong> Costs rise smoothly through
-              the range; there is no cliff at 2.0. A 2.5 threshold would unlock heat pump grants for
-              hundreds of thousands of currently excluded homes, including most pre-2000 semi-detached
-              houses, without meaningfully increasing running costs. A home at HLI 2.5 still runs a
-              heat pump efficiently; it just pays slightly more in electricity than one at 2.0.
+              <strong>Raise the HLI threshold from 2.0 to 2.75.</strong> Costs rise smoothly through
+              the range; there is no cliff at 2.0. A 2.75 threshold would allow roughly 75% of
+              fossil-fuel homes to qualify using only cheap, non-invasive measures (attic
+              insulation, cavity fill, and air sealing) without touching walls or replacing
+              windows. A home at HLI 2.75 still runs a heat pump efficiently; it just
+              pays {fmt(costDiff20v275)}/year more in electricity than one at 2.0.
             </li>
             <li>
               <strong>Create an "Electrify Your Heating" package bundling heat pump and solar
@@ -601,22 +695,73 @@ export function HliThresholdReport() {
               scheduling, no gaming.
             </li>
           </ol>
-          <p className="text-xs text-slate-400 leading-relaxed mt-6">
-            The opportunity is enormous. Around 1.44 million Irish homes, 78.6% of occupied
-            dwellings, still heat with fossil fuels (<a href="https://www.cso.ie/en/releasesandpublications/ep/p-cpp2/censusofpopulation2022profile2-housinginireland/occupieddwellings/" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700">CSO Census 2022</a>).
-            A <a href="https://www.marei.ie/wp-content/uploads/2022/07/Quantifying-the-Potential-for-Rooftop-Solar-Photovoltaic-in-Ireland.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700">national satellite analysis by MaREI (UCC)</a> found
-            over 1 million homes have suitable roof space for solar PV. Because the fossil-fuel stock
-            is dominated by detached and semi-detached houses, the types with the largest, least-shaded
-            roofs, an estimated 750,000 to 900,000 fossil-fuel-heated homes could realistically
-            install solar alongside a heat pump.
-          </p>
-          <div className="py-10 my-8">
-            <p className="font-serif text-lg md:text-xl leading-relaxed tracking-tight text-center italic" style={{ color: '#78350F' }}>
-              Every winter these barriers remain, homes that could be running
-              a heat pump burn gas and oil instead, not because the technology
-              doesn't work, but because policy hasn't caught up with the engineering.
-            </p>
+
+          <p className="text-xs font-medium tracking-widest uppercase mt-10 mb-4" style={{ color: '#92400E' }}>Further</p>
+          <ol start={4} className="list-decimal list-inside space-y-5 text-[1.0625rem] text-slate-700 leading-[1.7]">
+            <li>
+              <strong>Fix DEAP's treatment of pre-1940 solid walls.</strong> Raising the HLI
+              threshold to 2.75 unlocks post-1978 and 1940–78 homes, roughly 75% of the
+              stock. But pre-1940 solid-wall homes (~10–15%) face a separate barrier: DEAP
+              assigns them a U-value of 2.1 W/m²K regardless of wall thickness or
+              material. <a href="https://www.tandfonline.com/doi/full/10.1080/09613218.2014.967977" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">In
+              situ measurements</a> (Biddulph et al.) found a mean of
+              1.3 W/m²K, <strong>40% better</strong>, because thermal mass buffers heat in ways
+              a steady-state calculation cannot capture.
+              The <a href="https://link.springer.com/chapter/10.1007/978-3-031-71145-9_36" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">FabTrads
+              project</a> (TU Dublin) is measuring Irish traditional walls now. If confirmed,
+              these homes are excluded by a model error, not by physics.
+            </li>
+          </ol>
+          <div className="overflow-x-auto rounded-lg border border-slate-200 mt-8 mb-6">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-[0.6875rem] font-medium tracking-wide uppercase text-slate-400">
+                <tr>
+                  <th className="px-4 py-3 text-left">Era</th>
+                  <th className="px-4 py-3 text-left">Wall type</th>
+                  <th className="px-4 py-3 text-right">~% of stock</th>
+                  <th className="px-4 py-3 text-right">Typical HLI</th>
+                  <th className="px-4 py-3 text-left">Cheapest path to qualify (no walls, no windows)</th>
+                  <th className="px-4 py-3 text-right">HLI after</th>
+                  <th className="px-4 py-3 text-right">Qualifies at 2.75?</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                <tr className="bg-green-50">
+                  <td className="px-4 py-2 font-medium">Post-1978</td>
+                  <td className="px-4 py-2 text-slate-600">Cavity block</td>
+                  <td className="px-4 py-2 text-right tabular-nums">~50%</td>
+                  <td className="px-4 py-2 text-right tabular-nums">2.5</td>
+                  <td className="px-4 py-2 text-slate-600">Attic + cavity fill + air sealing (€1,650)</td>
+                  <td className="px-4 py-2 text-right tabular-nums">1.72</td>
+                  <td className="px-4 py-2 text-right"><span className="text-green-700 font-medium">Yes</span></td>
+                </tr>
+                <tr className="bg-green-50">
+                  <td className="px-4 py-2 font-medium">1940–1978</td>
+                  <td className="px-4 py-2 text-slate-600">Hollow block / early cavity</td>
+                  <td className="px-4 py-2 text-right tabular-nums">~25%</td>
+                  <td className="px-4 py-2 text-right tabular-nums">3.5</td>
+                  <td className="px-4 py-2 text-slate-600">Attic + cavity fill + air sealing (€1,650)</td>
+                  <td className="px-4 py-2 text-right tabular-nums">2.72</td>
+                  <td className="px-4 py-2 text-right"><span className="text-green-700 font-medium">Yes</span></td>
+                </tr>
+                <tr className="bg-red-50">
+                  <td className="px-4 py-2 font-medium">Pre-1940</td>
+                  <td className="px-4 py-2 text-slate-600">Solid stone / brick</td>
+                  <td className="px-4 py-2 text-right tabular-nums">~10–15%</td>
+                  <td className="px-4 py-2 text-right tabular-nums">4.5</td>
+                  <td className="px-4 py-2 text-slate-600">Attic + air sealing (€1,250)</td>
+                  <td className="px-4 py-2 text-right tabular-nums">4.17</td>
+                  <td className="px-4 py-2 text-right"><span className="text-red-600 font-medium">No</span></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+          <p className="text-xs text-slate-400 leading-relaxed mb-6">
+            Stock percentages are approximate, based on CSO Census 2022 dwelling age data and the TU Dublin housing stock study.
+            "Cheap measures" means attic insulation, cavity fill (where available), and air sealing. No wall insulation, no window replacement, no floor work.
+            Costs shown are net of SEAI grants.
+          </p>
+
         </section>
 
         {/* ============================================================= */}
@@ -700,6 +845,21 @@ export function HliThresholdReport() {
             Solar yield assumes 950 kWh/kWp/yr (standard Irish estimate, south-facing, unshaded). Actual yield
             varies with orientation, shading, and weather. Self-consumption and export are calculated from
             real Dublin 2025 half-hourly irradiance data via the same simulation engine used by the main calculator.
+          </p>
+        </div>
+
+        <div className="text-xs text-slate-400 leading-relaxed mt-10 pb-4 space-y-3">
+          <p>
+            Around 1.44 million Irish homes, 78.6% of occupied dwellings, still heat with fossil
+            fuels (<a href="https://www.cso.ie/en/releasesandpublications/ep/p-cpp2/censusofpopulation2022profile2-housinginireland/occupieddwellings/" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700">CSO Census 2022</a>).
+            A <a href="https://www.marei.ie/wp-content/uploads/2022/07/Quantifying-the-Potential-for-Rooftop-Solar-Photovoltaic-in-Ireland.pdf" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-700">national satellite analysis by MaREI (UCC)</a> found
+            over 1 million homes have suitable roof space for solar PV. Because the fossil-fuel stock
+            is dominated by detached and semi-detached houses, the types with the largest, least-shaded
+            roofs, an estimated 750,000 to 900,000 fossil-fuel-heated homes could realistically
+            install solar alongside a heat pump.
+          </p>
+          <p className="text-center">
+            Modelled on a 1980s semi-d, 108 m², Dublin · {tariff.supplier} {tariff.product}
           </p>
         </div>
       </div>

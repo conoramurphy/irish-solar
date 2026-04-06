@@ -306,34 +306,33 @@ export function generateBaseLoadProfile(totalSlots: number): number[] {
 export function compareRetrofitPaths(
   tariff: import('../types').Tariff,
   solarData: ParsedSolarData | null,
-  floorAreaM2 = 108,
-  startingHli = 2.5,
+  floorAreaM2 = 100,
+  startingHli = 3.0,
 ): PathComparison[] {
 
-  const baseGas = estimateFuelBaseline('1980s_semi', 'gas', floorAreaM2, startingHli);
+  const baseGas = estimateFuelBaseline('pre1978_semi', 'gas', floorAreaM2, startingHli);
   const totalGasBaseline = baseGas.annualBillEur + baseGas.standingChargeEur;
 
-  const SOLAR_KWP = 8;
+  const SOLAR_KWP = 6;
   // Standard Dublin yield estimate — same approach as the main wizard.
   // The solar CSV provides the hourly shape (irradiance weights), not the absolute yield.
-  // 950 kWh/kWp is the accepted figure for an 8 kWp system in Dublin (south-facing, ~35° tilt).
+  // 950 kWh/kWp is the accepted figure for a 6 kWp system in Dublin (south-facing, ~35° tilt).
   const SOLAR_YIELD_KWH_PER_KWP = 950;
 
-  // --- Path A: Pragmatic (C3 + solar + good HP) ---
-  const pragmaticInsulation: InsulationMeasure[] = ['attic', 'cavity', 'airSealing'];
+  // --- Path A: Pragmatic (basic insulation + solar + good HP, no cavity fill) ---
+  const pragmaticInsulation: InsulationMeasure[] = ['attic', 'airSealing'];
   const pragmaticHli = applyInsulationMeasures(startingHli, pragmaticInsulation, true);
 
   const pragmaticLines: PathCostLine[] = [
     { label: 'Heat pump (unit + install)',       grossEur: 14000, grantEur: 12500, netEur: 1500,  workerHours: 56 },  // SEAI: 2-3 days, 3-person crew
     { label: 'Good install (survey + radiators)', grossEur: 7000,  grantEur: 2000,  netEur: 5000,  workerHours: 48 },  // 3-5 days, 2-person crew
     { label: 'Attic insulation',                  grossEur: 2300,  grantEur: 1500,  netEur: 800,   workerHours: 12 },  // 1 day, 2 workers (top-up from 100mm)
-    { label: 'Cavity wall fill',                  grossEur: 1700,  grantEur: 1300,  netEur: 400,   workerHours: 6 },   // pumped bead: half-day, 2 workers
     { label: 'Air sealing',                       grossEur: 450,   grantEur: 0,     netEur: 450,   workerHours: 20 },  // blower-door guided, 1-2 days
-    { label: 'Solar + battery (8 kWp + 10 kWh)',  grossEur: 8500,  grantEur: 1800,  netEur: 6700,  workerHours: 32 },  // 1.5-2 days, 2-3 person crew
+    { label: 'Solar + battery (6 kWp + 10 kWh)',  grossEur: 7000,  grantEur: 1800,  netEur: 5200,  workerHours: 32 },  // 1.5-2 days, 2-3 person crew
   ];
 
   const pragmaticProfileParams = {
-    archetypeId: '1980s_semi', hliOverride: pragmaticHli, floorAreaM2,
+    archetypeId: 'pre1978_semi', hliOverride: pragmaticHli, floorAreaM2,
     insulation: pragmaticInsulation, installQuality: 'good' as const,
     location: 'Dublin', year: 2025,
   };
@@ -344,41 +343,37 @@ export function compareRetrofitPaths(
   const pragmaticBaseLoad = generateBaseLoadProfile(pragmaticProfile.length);
   const pragmaticTotalConsumption = pragmaticProfile.map((hp, i) => hp + pragmaticBaseLoad[i]);
 
-  // Run solar path through the REAL simulation engine
-  let pragmaticBillEur: number;
-  let pragmaticSelfConsumption = 0;
-  let pragmaticExportRevenue = 0;
-
-  if (solarData) {
-    const noSolarBill = calculateDirectHpBill(pragmaticTotalConsumption, tariff);
-    const solarResult = runCalculation(
-      {
-        annualProductionKwh: SOLAR_KWP * SOLAR_YIELD_KWH_PER_KWP,
-        systemSizeKwp: SOLAR_KWP,
-        batterySizeKwh: 0,
-        installationCost: 0,
-        location: solarData.location ?? 'Dublin',
-        businessType: 'house',
-      },
-      [],
-      { equity: 0, interestRate: 0, termYears: 0 },
-      tariff,
-      { enabled: false },
-      {},
-      [],
-      1,
-      undefined,
-      solarData,
-      undefined,
-      pragmaticTotalConsumption,
-    );
-    pragmaticBillEur = Math.max(0, noSolarBill.annualBillEur - solarResult.annualSavings);
-    pragmaticSelfConsumption = solarResult.annualSelfConsumption;
-    pragmaticExportRevenue = solarResult.annualExportRevenue ?? 0;
-  } else {
-    const bill = calculateDirectHpBill(pragmaticTotalConsumption, tariff);
-    pragmaticBillEur = bill.annualBillEur;
+  // Run solar path through the REAL simulation engine — no fallback.
+  // This report requires real irradiance data for accurate self-consumption and export.
+  if (!solarData) {
+    throw new Error('compareRetrofitPaths requires real solar irradiance data. Cannot produce accurate results without it.');
   }
+
+  const noSolarBill = calculateDirectHpBill(pragmaticTotalConsumption, tariff);
+  const solarResult = runCalculation(
+    {
+      annualProductionKwh: SOLAR_KWP * SOLAR_YIELD_KWH_PER_KWP,
+      systemSizeKwp: SOLAR_KWP,
+      batterySizeKwh: 0,
+      installationCost: 0,
+      location: solarData.location ?? 'Dublin',
+      businessType: 'house',
+    },
+    [],
+    { equity: 0, interestRate: 0, termYears: 0 },
+    tariff,
+    { enabled: false },
+    {},
+    [],
+    1,
+    undefined,
+    solarData,
+    undefined,
+    pragmaticTotalConsumption,
+  );
+  const pragmaticBillEur = Math.max(0, noSolarBill.annualBillEur - solarResult.annualSavings);
+  const pragmaticSelfConsumption = solarResult.annualSelfConsumption;
+  const pragmaticExportRevenue = solarResult.annualExportRevenue ?? 0;
 
   // --- Path B: Deep Retrofit (A rating, no solar) ---
   const deepInsulation: InsulationMeasure[] = ['attic', 'cavity', 'airSealing', 'ewi', 'windows', 'doors', 'floor'];
@@ -398,7 +393,7 @@ export function compareRetrofitPaths(
   // With HLI ~0.3-0.5 after full insulation, standard radiators work fine
   // at low flow temps — no radiator upgrades needed
   const deepProfileParams = {
-    archetypeId: '1980s_semi', hliOverride: deepHli, floorAreaM2,
+    archetypeId: 'pre1978_semi', hliOverride: deepHli, floorAreaM2,
     insulation: deepInsulation, installQuality: 'good' as const,
     location: 'Dublin', year: 2025,
   };
@@ -434,9 +429,9 @@ export function compareRetrofitPaths(
   }
 
   return [
-    buildPath('pragmatic', 'Pragmatic', 'Basic insulation + 8 kWp solar + good HP', 'C3',
+    buildPath('pragmatic', 'Pragmatic', 'Attic + air sealing + 6 kWp solar + good HP', 'C3',
       pragmaticHli, pragmaticLines, pragmaticBillEur, pragmaticSelfConsumption, pragmaticExportRevenue, pragmaticScop),
-    buildPath('deep_retrofit', 'Deep Retrofit', 'Full insulation to A rating + standard HP, no solar', 'A2–A3',
+    buildPath('deep_retrofit', 'Deep Retrofit', 'Full insulation to A rating + HP, no solar', 'A2–A3',
       deepHli, deepLines, deepBill.annualBillEur, 0, 0, deepScop),
   ];
 }
