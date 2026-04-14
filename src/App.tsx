@@ -35,6 +35,7 @@ import type { ParsedPriceData } from './utils/priceTimeseriesParser';
 import { CalendarSidebar } from './components/CalendarSidebar';
 
 import { Landing } from './components/Landing';
+import { Privacy } from './components/Privacy';
 import { UnifiedWizardBar } from './components/UnifiedWizardBar';
 
 import { TariffModeller } from './components/TariffModeller';
@@ -1022,6 +1023,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/privacy" element={<Privacy />} />
       <Route path="/full-model/*" element={<WizardApp defaultMode="solar-battery" />} />
       <Route path="/tariffs/*" element={<WizardApp defaultMode="tariff" />} />
       <Route path="/heat-pump" element={<HeatPumpCalculator />} />

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { CTAModal } from './CTAModal';
 
 // Grid overlay styles — white lines for dark sections, dark lines for light sections
@@ -156,6 +156,38 @@ export function Landing() {
               <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
                 2 min to submit · results in 24 hrs
               </p>
+
+              {/* Trust strip */}
+              <ul
+                className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold tracking-wide uppercase"
+                style={{ color: 'rgba(253,234,180,0.85)' }}
+                aria-label="Trust signals"
+              >
+                <li className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: '#FDEAB4' }}
+                    aria-hidden="true"
+                  />
+                  Independent
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: '#FDEAB4' }}
+                    aria-hidden="true"
+                  />
+                  No installer commission
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: '#FDEAB4' }}
+                    aria-hidden="true"
+                  />
+                  SEAI + TAMS 3 modelled
+                </li>
+              </ul>
             </div>
 
             {/* Example model cards */}
@@ -452,9 +484,18 @@ export function Landing() {
                   Independent energy analysis for Irish businesses.
                 </p>
               </div>
-              <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                36 Irish locations · 2020–25 · Not financial advice
-              </p>
+              <div className="flex flex-col sm:items-end gap-2">
+                <Link
+                  to="/privacy"
+                  className="text-xs font-semibold underline decoration-dotted underline-offset-2 transition-opacity hover:opacity-80"
+                  style={{ color: 'rgba(253,234,180,0.75)' }}
+                >
+                  Privacy policy
+                </Link>
+                <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  36 Irish locations · 2020–25 · Not financial advice
+                </p>
+              </div>
             </div>
           </div>
 

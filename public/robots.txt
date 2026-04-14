@@ -2,6 +2,8 @@ User-agent: *
 Disallow: /r/
 Disallow: /links
 
+Sitemap: https://wattprofit.ie/sitemap.xml
+
 User-agent: GPTBot
 Disallow: /
 

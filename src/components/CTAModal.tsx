@@ -204,6 +204,18 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
                   Next →
                 </button>
                 {whatsappBtn}
+                <p className="text-[11px] leading-snug text-slate-400 text-center pt-1">
+                  By submitting you agree to our{' '}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-dotted underline-offset-2 hover:text-slate-600"
+                  >
+                    privacy policy
+                  </a>
+                  .
+                </p>
               </div>
             ) : (
               /* ── Step 2: message ── */
