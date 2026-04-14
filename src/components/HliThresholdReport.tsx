@@ -103,10 +103,6 @@ export function HliThresholdReport() {
     ? Math.abs(at21.annualHpBillEur - at19.annualHpBillEur)
     : 0;
 
-  const costDiff20v25 = at25 && at20
-    ? Math.abs(at25.annualHpBillEur - at20.annualHpBillEur)
-    : 0;
-
   // Interpolate cost at HLI 2.75 (midpoint of 2.7 and 2.8 sweep points)
   const bill275 = at27 && at28
     ? (at27.annualHpBillEur + at28.annualHpBillEur) / 2
