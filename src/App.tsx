@@ -36,6 +36,8 @@ import { CalendarSidebar } from './components/CalendarSidebar';
 
 import { Landing } from './components/Landing';
 import { Privacy } from './components/Privacy';
+import { CookieConsent } from './components/CookieConsent';
+import { applyStoredConsent } from './utils/consent';
 import { UnifiedWizardBar } from './components/UnifiedWizardBar';
 
 import { TariffModeller } from './components/TariffModeller';
@@ -1020,19 +1022,26 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
 }
 
 function App() {
+  useEffect(() => {
+    applyStoredConsent();
+  }, []);
+
   return (
-    <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/privacy" element={<Privacy />} />
-      <Route path="/full-model/*" element={<WizardApp defaultMode="solar-battery" />} />
-      <Route path="/tariffs/*" element={<WizardApp defaultMode="tariff" />} />
-      <Route path="/heat-pump" element={<HeatPumpCalculator />} />
-      <Route path="/report/hli-threshold" element={<HliThresholdReport />} />
-      <Route path="/links" element={<LinksPage />} />
-      <Route path="/r" element={<ReportsListView />} />
-      <Route path="/r/:id" element={<SharedReportView />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/full-model/*" element={<WizardApp defaultMode="solar-battery" />} />
+        <Route path="/tariffs/*" element={<WizardApp defaultMode="tariff" />} />
+        <Route path="/heat-pump" element={<HeatPumpCalculator />} />
+        <Route path="/report/hli-threshold" element={<HliThresholdReport />} />
+        <Route path="/links" element={<LinksPage />} />
+        <Route path="/r" element={<ReportsListView />} />
+        <Route path="/r/:id" element={<SharedReportView />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <CookieConsent />
+    </>
   );
 }
 

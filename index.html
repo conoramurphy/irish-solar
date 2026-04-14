@@ -57,6 +57,30 @@
     }
     </script>
 
+    <!-- Google tag (gtag.js) — GA4 + future Google Ads -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BWVTV1DBS3"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+
+      // Consent Mode v2 — default deny until the user accepts (GDPR)
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        analytics_storage: 'denied',
+        functionality_storage: 'granted',
+        security_storage: 'granted',
+        wait_for_update: 500
+      });
+
+      gtag('js', new Date());
+      gtag('config', 'G-BWVTV1DBS3');
+      // Google Ads conversion tag — uncomment and swap AW-XXXXXXX when the
+      // Ads conversion action has been created in the Google Ads UI.
+      // gtag('config', 'AW-XXXXXXX');
+    </script>
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
