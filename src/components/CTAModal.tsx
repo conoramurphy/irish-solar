@@ -79,12 +79,15 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
     setSending(true);
     captured.current = true;
     fireCapture(email, role, message, false);
-    // GA4 conversion event — add a `send_to` for the AW-XXX/LABEL once the
-    // Google Ads conversion action is created.
     if (typeof window !== 'undefined' && window.gtag) {
       window.gtag('event', 'generate_lead', {
         role: role || 'unspecified',
         form: 'cta_modal',
+      });
+      window.gtag('event', 'conversion', {
+        send_to: 'AW-18091029484/pqP0CI21qJwcEOznvLJD',
+        value: 1.0,
+        currency: 'EUR',
       });
     }
     await new Promise(r => setTimeout(r, 700));
