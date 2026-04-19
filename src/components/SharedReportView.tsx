@@ -150,7 +150,7 @@ export function SharedReportView() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {EXAMPLE_REPORT_IDS.has(id!) && !gateCleared && (
+      {EXAMPLE_REPORT_IDS.has(id!) && !gateCleared && !isAdmin && (
         <ReportGateModal reportId={id!} onComplete={() => setGateCleared(true)} />
       )}
       {reportMode === 'locked' && (
