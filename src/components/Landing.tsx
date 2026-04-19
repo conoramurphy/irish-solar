@@ -62,13 +62,13 @@ const STEPS = [
     n: '03',
     title: 'You shop it',
     time: '~3 weeks',
-    body: 'You get 3 quotes from installers you trust for systems that pay you the most.',
+    body: 'You get 3 quotes from installers you trust, for systems that pay you the most.',
   },
   {
     n: '04',
     title: 'We verify it',
     time: '1 hr',
-    body: 'Real quotes run back through the digital twin. Every number confirmed before you commit.',
+    body: 'Real quotes run back through the digital twin. Every number is confirmed before you commit.',
   },
 ];
 
@@ -143,7 +143,7 @@ export function Landing() {
                 Your business's electricity bill is rising. Third time in four years.
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Installers quote to win contracts. We partner with you and model your business's current and future energy: using real usage, real sunlight, real export rates through 2033.
+                Installers quote to win contracts. We partner with you and model your business's current and future energy — real usage, real sunlight, real export rates through 2033.
               </p>
               <p className="text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 No savings? Full refund. We're your partner, not theirs.
@@ -221,22 +221,6 @@ export function Landing() {
                 </div>
               ))}
             </div>
-
-            {/* Trust strip */}
-            <ul
-              className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold tracking-wide uppercase"
-              style={{ color: 'rgba(253,234,180,0.85)' }}
-              aria-label="Trust signals"
-            >
-              <li className="flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FDEAB4' }} aria-hidden="true" />
-                Independent
-              </li>
-              <li className="flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FDEAB4' }} aria-hidden="true" />
-                SEAI + TAMS 3 modelled
-              </li>
-            </ul>
 
             {/* ── Process steps — merged into hero, compressed ── */}
             <div className="mt-14 pb-16 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
