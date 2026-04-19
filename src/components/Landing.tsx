@@ -144,7 +144,7 @@ export function Landing() {
                 ,<br />solar can halve them.
               </h1>
               <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                However, most solar jobs are wrongly sized, costing €200k over 10 years.
+                However, most solar jobs are wrongly sized, losing you €200k over 10 years.
               </p>
               <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 We're your partner. We model your real business data in 48 hours — real usage, real sunlight, real export rates through 2033 — then size it right with the installer you pick.
