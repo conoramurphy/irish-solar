@@ -149,7 +149,7 @@ export function Landing() {
                 .
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Most hotel solar installations in Ireland are wrongly sized, overpriced, or both. Installers get paid either way. You don't.
+                Most solar installations in Ireland are wrongly sized, overpriced, or both. Installers get paid either way. You don't.
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 We're your partner. We model your business in 48 hours — real usage, real roof, real export rates through 2033 — then size it right with the installer you pick.
