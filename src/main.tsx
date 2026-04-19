@@ -12,6 +12,13 @@ posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN, {
   defaults: '2026-01-30',
 })
 
+declare global {
+  interface Window {
+    posthog: typeof posthog
+  }
+}
+window.posthog = posthog
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PostHogProvider client={posthog}>
