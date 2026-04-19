@@ -127,7 +127,7 @@ export function Landing() {
             <header className="flex items-center justify-between pt-6 pb-2" role="banner">
               {LOGO}
               <span className="hidden md:block text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                Irish solar · Independent advice · 36 Irish locations · 2020–25
+                Irish solar · Independent advice · 2020–25
               </span>
             </header>
 
@@ -481,7 +481,7 @@ export function Landing() {
                   Privacy policy
                 </Link>
                 <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  36 Irish locations · 2020–25 · Not financial advice
+                  2020–25 · Not financial advice
                 </p>
               </div>
             </div>
