@@ -140,19 +140,22 @@ export function Landing() {
                 What profit will<br />solar make you?
               </h1>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Your business's electricity bills{' '}
+                Your bills{' '}
                 <a href="https://www.thejournal.ie/esri-electricity-prices-7011725-Apr2026/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">are</a>
                 {' '}
                 <a href="https://www.irishtimes.com/business/2026/04/17/households-face-electricity-bill-increases-in-weeks-industry-warns/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">rising</a>
                 {' '}
                 <a href="https://www.irishtimes.com/business/2026/04/17/ireland-faces-higher-electricity-bills-even-if-peace-breaks-out-tomorrow/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">again</a>
-                . You could halve them or more.
+                .
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                However installers quote to win contracts and most installations are completely wrong. We partner with you and model in 48 hours your business's current and future energy — your goals, your real usage, real sunlight, real export rates through 2033. Then we get you quotes with a plan.
+                Most hotel solar installations in Ireland are wrongly sized, overpriced, or both. Installers get paid either way. You don't.
+              </p>
+              <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                We're your partner. We model your business in 48 hours — real usage, real roof, real export rates through 2033 — then size it right with the installer you pick.
               </p>
               <p className="text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                No savings? Full refund. We're your partner, not theirs.
+                A mistake costs 200k+. A 15-minute chat is free.
               </p>
 
               {/* CTA */}
