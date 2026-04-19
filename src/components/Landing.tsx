@@ -62,7 +62,7 @@ const STEPS = [
     n: '03',
     title: 'You shop it',
     time: '~3 weeks',
-    body: 'We give you a specification to take directly to installers you trust. Three quotes, your choice.',
+    body: 'You get 3 quotes from installers you trust for systems that pay you the most.',
   },
   {
     n: '04',
