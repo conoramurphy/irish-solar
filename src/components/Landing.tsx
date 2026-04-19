@@ -62,7 +62,7 @@ const STEPS = [
     n: '03',
     title: 'You shop it',
     time: '~3 weeks',
-    body: 'We give you a specification to take directly to installers you trust. Three quotes, your choice. No referral, no commission.',
+    body: 'We give you a specification to take directly to installers you trust. Three quotes, your choice.',
   },
   {
     n: '04',
@@ -140,12 +140,13 @@ export function Landing() {
                 What profit will<br />solar make you?
               </h1>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                We tell you exactly what a solar installation will cost, what it will earn you each year,
-                and your 10 year profit. Using your actual electricity usage, your site's real sunlight
-                data, and Irish export rates as they're likely to change through 2033.
+                Your electricity bill is rising. Third time in four years.
+              </p>
+              <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                Installers quote to win contracts. We model to tell you the truth — your hotel's real usage, real roof, real export rates through 2033.
               </p>
               <p className="text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                No estimates. Just real numbers.
+                No savings? Full refund. We're your partner, not theirs.
               </p>
 
               {/* CTA */}
@@ -230,10 +231,6 @@ export function Landing() {
               <li className="flex items-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FDEAB4' }} aria-hidden="true" />
                 Independent
-              </li>
-              <li className="flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FDEAB4' }} aria-hidden="true" />
-                No installer commission
               </li>
               <li className="flex items-center gap-1.5">
                 <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FDEAB4' }} aria-hidden="true" />
