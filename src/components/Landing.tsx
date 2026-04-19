@@ -183,8 +183,8 @@ export function Landing() {
                       navigate(`/r/${m.reportId}`);
                     }
                   }}
-                  className="rounded-2xl p-5 cursor-pointer hover:scale-[1.02] active:scale-[0.99] transition-transform"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}
+                  className="rounded-2xl p-5 cursor-pointer border border-white/20 hover:border-white/40 hover:scale-[1.02] hover:bg-white/10 active:scale-[0.99] transition-all duration-200 shadow-lg hover:shadow-xl"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)' }}
                 >
                   <div className="mb-4">
                     <p className="text-lg sm:text-2xl font-serif font-bold text-white leading-snug mb-1">{m.type}</p>
