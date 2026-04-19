@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { usePostHog } from '@posthog/react';
 import { migrateReport } from '../utils/migrateReport';
 import { ResultsSection } from './ResultsSection';
 import { CTAModal } from './CTAModal';
@@ -15,6 +16,7 @@ export function SharedReportView() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const isAdmin = searchParams.get('mode') === 'admin';
+  const posthog = usePostHog();
 
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [ctaOpen, setCtaOpen] = useState(false);
@@ -49,6 +51,12 @@ export function SharedReportView() {
           locked: locked === true,
           name: name ?? null,
           description: description ?? null,
+        });
+        posthog?.capture('shared_report_viewed', {
+          report_id: id,
+          report_name: name ?? null,
+          is_admin: isAdmin,
+          locked: locked === true,
         });
       })
       .catch((err: unknown) => {
