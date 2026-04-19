@@ -221,7 +221,7 @@ export function Landing() {
               </button>
             </div>
             <p className="text-sm font-medium mb-14" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              2 min to submit · results in 24 hrs
+              2 min to submit · results in 48 hrs
             </p>
 
             {/* ── Process steps — merged into hero, compressed ── */}
