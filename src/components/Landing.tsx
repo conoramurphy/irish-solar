@@ -132,7 +132,7 @@ export function Landing() {
             </header>
 
             {/* Hero copy */}
-            <div className="pt-14 pb-10 md:pt-20 md:pb-14 max-w-3xl">
+            <div className="pt-10 pb-7 md:pt-14 md:pb-10 max-w-3xl">
               <h1
                 id="hero-heading"
                 className="text-4xl sm:text-6xl md:text-7xl font-serif font-bold text-white leading-[1.05] tracking-tight mb-7"
@@ -225,12 +225,12 @@ export function Landing() {
                 Free 15 minute walkthrough {ARROW}
               </button>
             </div>
-            <p className="text-sm font-medium mb-14" style={{ color: 'rgba(255,255,255,0.55)' }}>
+            <p className="text-sm font-medium mb-8" style={{ color: 'rgba(255,255,255,0.55)' }}>
               2 min to submit · results in 48 hrs
             </p>
 
             {/* ── Process steps — merged into hero, compressed ── */}
-            <div className="mt-14 pb-16 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
+            <div className="mt-8 pb-14 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
               <p className="text-xs font-medium tracking-widest uppercase mt-10 mb-8" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 The process
               </p>
