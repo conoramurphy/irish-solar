@@ -73,8 +73,8 @@ const STEPS = [
 ];
 
 const EXAMPLE_MODELS = [
-  { name: 'Longford dairy farm', size: '65–97.5 kWp', grant: 'TAMS 3', payback: '4.4 yrs', savingLabel: '10-yr return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
-  { name: 'Cavan hotel, 20 beds', size: '150–1,200 kWp', grant: 'SEAI', payback: '2.9 yrs', savingLabel: '10-yr return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
+  { type: 'Dairy Farm', name: 'Longford', size: '65–97.5 kWp', grant: 'TAMS 3', payback: '4.4 yrs', savingLabel: '10-yr return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
+  { type: 'Hotel', name: 'Cavan, 20 beds', size: '150–1,200 kWp', grant: 'SEAI', payback: '2.9 yrs', savingLabel: '10-yr return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
 ];
 
 const ARROW = (
@@ -187,7 +187,7 @@ export function Landing() {
                   key={m.name}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${m.name}: ${m.size} system, payback ${m.payback}, 10-yr return ${m.saving}. See the real savings.`}
+                  aria-label={`${m.type} — ${m.name}: ${m.size} system, payback ${m.payback}, 10-yr return ${m.saving}. See the real savings.`}
                   onClick={() => {
                     posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.name });
                     navigate(`/r/${m.reportId}`);
@@ -202,13 +202,14 @@ export function Landing() {
                   className="rounded-2xl p-5 cursor-pointer hover:scale-[1.02] active:scale-[0.99] transition-transform"
                   style={{ backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <p className="text-sm font-semibold text-white leading-snug">{m.name}</p>
-                      <p className="text-xs font-medium mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                        {m.size} · {m.grant} grant
-                      </p>
-                    </div>
+                  <div className="mb-4">
+                    <p className="text-xs font-semibold tracking-[0.18em] uppercase mb-1" style={{ color: '#FDEAB4' }}>
+                      {m.type}
+                    </p>
+                    <p className="text-xl font-serif font-bold text-white leading-snug">{m.name}</p>
+                    <p className="text-xs font-medium mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                      {m.size} · {m.grant} grant
+                    </p>
                   </div>
                   <div className="flex gap-6 mb-4">
                     <div className="min-w-0">
