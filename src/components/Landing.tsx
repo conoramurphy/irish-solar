@@ -73,8 +73,8 @@ const STEPS = [
 ];
 
 const EXAMPLE_MODELS = [
-  { type: 'Dairy Farm', spec: '65–97.5 kWp · TAMS 3 grant', payback: '4.4 yrs', savingLabel: '10-yr return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
   { type: 'Hotel, 20 beds', spec: '150–1,200 kWp · SEAI grant', payback: '2.9 yrs', savingLabel: '10-yr return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
+  { type: 'Dairy Farm', spec: '65–97.5 kWp · TAMS 3 grant', payback: '4.4 yrs', savingLabel: '10-yr return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
 ];
 
 const ARROW = (
@@ -135,43 +135,22 @@ export function Landing() {
             <div className="pt-14 pb-10 md:pt-20 md:pb-14 max-w-3xl">
               <h1
                 id="hero-heading"
-                className="text-5xl sm:text-6xl md:text-7xl font-serif font-bold text-white leading-[1.05] tracking-tight mb-7"
+                className="text-4xl sm:text-6xl md:text-7xl font-serif font-bold text-white leading-[1.05] tracking-tight mb-7"
               >
-                What profit will<br />solar make you?
-              </h1>
-              <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 Your bills{' '}
                 <a href="https://www.thejournal.ie/esri-electricity-prices-7011725-Apr2026/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">are</a>
                 {' '}
                 <a href="https://www.irishtimes.com/business/2026/04/17/households-face-electricity-bill-increases-in-weeks-industry-warns/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">rising</a>
-                {' '}
-                <a href="https://www.irishtimes.com/business/2026/04/17/ireland-faces-higher-electricity-bills-even-if-peace-breaks-out-tomorrow/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">again</a>
-                .
+                ,<br />solar can halve them.
+              </h1>
+              <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                However, most solar jobs are wrongly sized, costing €200k over 10 years.
               </p>
-              <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Most solar installations in Ireland are wrongly sized, overpriced, or both. Installers get paid either way. You don't.
+              <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                We're your partner. We model your real business data in 48 hours — real usage, real sunlight, real export rates through 2033 — then size it right with the installer you pick.
               </p>
-              <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                We're your partner. We model your business in 48 hours — real usage, real roof, real export rates through 2033 — then size it right with the installer you pick.
-              </p>
-              <p className="text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                A mistake costs 200k+ over 10 years. A 15-minute chat is free.
-              </p>
-
-              {/* CTA */}
-              <div className="mt-8 flex flex-wrap items-center gap-4 mb-2">
-                <button
-                  type="button"
-                  onClick={() => openCta('hero_button')}
-                  className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                  style={{ backgroundColor: '#1A4A35' }}
-                  aria-label="Get your solar profit model"
-                >
-                  Get your model {ARROW}
-                </button>
-              </div>
-              <p className="text-sm font-medium" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                2 min to submit · results in 24 hrs
+              <p className="text-base sm:text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                A mistake costs €200k+. A 15-minute chat is free.
               </p>
 
             </div>
@@ -228,6 +207,22 @@ export function Landing() {
                 </div>
               ))}
             </div>
+
+            {/* CTA */}
+            <div className="mt-8 flex flex-wrap items-center gap-4 mb-2">
+              <button
+                type="button"
+                onClick={() => openCta('hero_button')}
+                className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                style={{ backgroundColor: '#1A4A35' }}
+                aria-label="Get your solar profit model"
+              >
+                Get your model {ARROW}
+              </button>
+            </div>
+            <p className="text-sm font-medium mb-14" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              2 min to submit · results in 24 hrs
+            </p>
 
             {/* ── Process steps — merged into hero, compressed ── */}
             <div className="mt-14 pb-16 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
