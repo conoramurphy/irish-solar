@@ -183,7 +183,7 @@ export function SharedReportView() {
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => posthog?.capture('meeting_booking_started', { source: 'report_floating_cta' })}
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 inline-flex items-center gap-3 rounded-full px-5 py-3 text-sm font-semibold shadow-xl hover:shadow-2xl transition-all duration-200 whitespace-nowrap"
+          className="fixed bottom-5 left-1/2 -translate-x-1/2 z-30 inline-flex items-center gap-3 rounded-2xl px-8 py-4 text-base md:text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-200 whitespace-nowrap"
           style={{ backgroundColor: '#1A4A35', color: '#FDEAB4' }}
           aria-label="Book your free call on WhatsApp"
         >

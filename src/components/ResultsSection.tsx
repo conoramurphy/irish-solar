@@ -372,7 +372,7 @@ export function ResultsSection({
         <AdminBar locked={reportLocked} onLockToggle={onLockToggle} />
       )}
       <div className="px-8 py-7 md:px-10 md:py-8 border-b border-slate-100">
-        <div className="flex items-start justify-between gap-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
           <div className="flex-1 min-w-0">
             {isEditMode && onTitleChange ? (
               <input
