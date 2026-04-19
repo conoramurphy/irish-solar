@@ -34,3 +34,7 @@ Other tools/
 # Claude Code worktrees (nested git repos — must not be tracked as submodules)
 .claude/worktrees/
 .env.local
+.env
+
+# Wizard setup reports (local artifacts, not project docs)
+posthog-setup-report.md
