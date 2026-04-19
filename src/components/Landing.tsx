@@ -141,9 +141,11 @@ export function Landing() {
               </h1>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 Your business's electricity bills{' '}
-                <a href="https://www.irishtimes.com/business/2026/04/17/households-face-electricity-bill-increases-in-weeks-industry-warns/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">are rising again</a>
-                .{' '}
-                <a href="https://www.thejournal.ie/esri-electricity-prices-7011725-Apr2026/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">Third time in four years</a>
+                <a href="https://www.thejournal.ie/esri-electricity-prices-7011725-Apr2026/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">are</a>
+                {' '}
+                <a href="https://www.irishtimes.com/business/2026/04/17/households-face-electricity-bill-increases-in-weeks-industry-warns/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">rising</a>
+                {' '}
+                <a href="https://www.irishtimes.com/business/2026/04/17/ireland-faces-higher-electricity-bills-even-if-peace-breaks-out-tomorrow/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">again</a>
                 .
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
