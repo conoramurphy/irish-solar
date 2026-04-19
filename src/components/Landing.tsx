@@ -146,10 +146,10 @@ export function Landing() {
                 <a href="https://www.irishtimes.com/business/2026/04/17/households-face-electricity-bill-increases-in-weeks-industry-warns/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">rising</a>
                 {' '}
                 <a href="https://www.irishtimes.com/business/2026/04/17/ireland-faces-higher-electricity-bills-even-if-peace-breaks-out-tomorrow/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">again</a>
-                .
+                . You could halve them or more.
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Installers quote to win contracts. We partner with you and model your business's current and future energy — real usage, real sunlight, real export rates through 2033.
+                However installers quote to win contracts and most installations are completely wrong. We partner with you and model in 48 hours your business's current and future energy — real usage, real sunlight, real export rates through 2033.
               </p>
               <p className="text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 No savings? Full refund. We're your partner, not theirs.
