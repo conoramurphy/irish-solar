@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePostHog } from '@posthog/react';
+import { sha256Hex } from '../utils/sha256';
 
 const WHATSAPP_NUMBER = '353858082080';
 
@@ -84,6 +85,7 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
     posthog?.identify(email, { role: role || 'unspecified' });
     posthog?.capture('lead_submitted', { role: role || 'unspecified', has_message: message.trim().length > 0 });
     if (typeof window !== 'undefined' && window.gtag) {
+      const hashedEmail = await sha256Hex(email.trim().toLowerCase());
       window.gtag('event', 'generate_lead', {
         role: role || 'unspecified',
         form: 'cta_modal',
@@ -92,6 +94,7 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
         send_to: 'AW-18091029484/pqP0CI21qJwcEOznvLJD',
         value: 1.0,
         currency: 'EUR',
+        user_data: { sha256_email_address: hashedEmail },
       });
     }
     await new Promise(r => setTimeout(r, 700));

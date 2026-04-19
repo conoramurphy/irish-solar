@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePostHog } from '@posthog/react';
+import { sha256Hex } from '../utils/sha256';
 
 const SPEND_OPTIONS = [
   { value: 'lt100k', label: 'Under €100k / year' },
@@ -45,6 +46,16 @@ export function ReportGateModal({ reportId, onComplete }: ReportGateModalProps) 
     }).catch(() => {});
     posthog?.identify(email.trim(), { annual_electricity_spend: spend });
     posthog?.capture('report_gate_submitted', { report_id: reportId, electricity_spend: spend });
+    if (typeof window !== 'undefined' && window.gtag) {
+      const hashedEmail = await sha256Hex(email.trim().toLowerCase());
+      window.gtag('event', 'generate_lead', { form: 'report_gate' });
+      window.gtag('event', 'conversion', {
+        send_to: 'AW-18091029484/pqP0CI21qJwcEOznvLJD',
+        value: 1.0,
+        currency: 'EUR',
+        user_data: { sha256_email_address: hashedEmail },
+      });
+    }
     onComplete();
   }
 
