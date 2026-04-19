@@ -9,6 +9,8 @@ import type {
   TradingConfig
 } from '../types';
 import { distributeAnnualProductionTimeseries, type ParsedSolarData } from './solarTimeseriesParser';
+import type { PvgisProfileEntry } from './pvgisProfileLoader';
+import { distributeProductionWithOrientation } from './orientationWeights';
 import type { SimulationContext } from './simulationContext';
 import { simulateHourlyEnergyFlow, type BatteryConfig } from './hourlyEnergyFlow';
 import { estimateSystemCost } from './costEstimation';
@@ -24,6 +26,8 @@ interface AnalysisContext {
   trading: TradingConfig;
   simContext: SimulationContext;
   solarTimeseriesData: ParsedSolarData;
+  /** Pre-baked PVGIS profile for orientation-aware generation shape. */
+  pvgisProfile?: PvgisProfileEntry;
 }
 
 const ANALYSIS_YEARS = 25;
@@ -64,11 +68,10 @@ function computeScenarioMetrics(
       ? { capacityKwh: batterySizeKwh, efficiency: 0.9, initialSoC: 0 }
       : undefined;
 
-  // Year 1 full hourly simulation
-  const year1HourlyGeneration = distributeAnnualProductionTimeseries(
-    annualGenerationKwh,
-    solarTimeseriesData
-  );
+  // Year 1 full hourly simulation — use orientation-aware profile if available
+  const year1HourlyGeneration = ctx.pvgisProfile
+    ? distributeProductionWithOrientation(annualGenerationKwh, ctx.pvgisProfile, solarTimeseriesData.slotsPerDay)
+    : distributeAnnualProductionTimeseries(annualGenerationKwh, solarTimeseriesData);
   const year1Result = simulateHourlyEnergyFlow(
     year1HourlyGeneration,
     hourlyConsumption,

@@ -19,6 +19,8 @@ import { runSensitivityAnalysis } from './sensitivityAnalysis';
 import { prepareSimulationContext } from './simulationContext';
 import { stripVat, VAT_RATE_REDUCED } from './vat';
 import { projectCashFlows } from './exportRateProjection';
+import type { PvgisProfileEntry } from './pvgisProfileLoader';
+import { distributeProductionWithOrientation, getOrientationWeights } from './orientationWeights';
 
 /**
  * Run a full ROI calculation for a single scenario.
@@ -44,7 +46,9 @@ export function runCalculation(
   consumptionProfile?: ConsumptionProfile,
   solarTimeseriesData?: ParsedSolarData,
   priceTimeseriesData?: ParsedPriceData,
-  hourlyConsumptionOverride?: number[]
+  hourlyConsumptionOverride?: number[],
+  /** Pre-baked PVGIS profile for orientation-aware generation shape. When provided, replaces GHI-based weighting. */
+  pvgisProfile?: PvgisProfileEntry
 ): CalculationResult {
   // Guard: Trading must not be enabled for house mode
   if (config.businessType === 'house' && trading.enabled) {
@@ -158,15 +162,24 @@ export function runCalculation(
   const year1TradingRevenue = 0;
   
   if (useHourlySimulation) {
-    // Use hour-by-hour simulation with solar timeseries data
-    const hourlyGeneration = distributeAnnualProductionTimeseries(baseGeneration, solarTimeseriesData!);
+    // Use hour-by-hour simulation with solar timeseries data.
+    // When a PVGIS orientation profile is provided, use it for the hourly shape
+    // instead of the south-facing GHI weights.
+    const hourlyGeneration = pvgisProfile
+      ? distributeProductionWithOrientation(baseGeneration, pvgisProfile, solarTimeseriesData!.slotsPerDay)
+      : distributeAnnualProductionTimeseries(baseGeneration, solarTimeseriesData!);
+
+    // Spillage weights: orientation-aware if available, else GHI-based
+    const spillageWeights = pvgisProfile
+      ? getOrientationWeights(pvgisProfile, solarTimeseriesData!.slotsPerDay)
+      : calculateTimeseriesWeights(solarTimeseriesData!);
 
     // Extra mini-analysis: solar-only spillage sensitivity (ignores batteries + € rates).
     // Uses the same hourly consumption profile + irradiance-derived weights.
     solarSpillageAnalysis = buildSolarSpillageAnalysis({
       currentAnnualGenerationKwh: baseGeneration,
       hourlyConsumptionKwh: hourlyConsumption,
-      hourlyWeights: calculateTimeseriesWeights(solarTimeseriesData!),
+      hourlyWeights: spillageWeights,
       targetSpillageFraction: 0.3
     }) ?? undefined;
 
@@ -180,6 +193,7 @@ export function runCalculation(
       trading,
       simContext,
       solarTimeseriesData: solarTimeseriesData!,
+      pvgisProfile,
     });
     
     const batteryConfig: BatteryConfig | undefined = config.batterySizeKwh > 0 ? {

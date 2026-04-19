@@ -1,3 +1,10 @@
+export interface PanelOrientation {
+  /** Compass azimuth in degrees: 0 = south, 90 = west, -90 = east, 180 = north */
+  azimuthDeg: number;
+  /** Tilt from horizontal in degrees: 0 = flat, 90 = vertical */
+  tiltDeg: number;
+}
+
 export type BusinessType = 'hotel' | 'farm' | 'commercial' | 'other' | 'house';
 
 export type BuildingTypeSelection = 'hotel-year-round' | 'house' | 'farm';
@@ -13,6 +20,8 @@ export interface SystemConfiguration {
   installationCost: number;
   location: string;
   businessType: BusinessType;
+  /** Panel orientation. When set, uses pre-baked PVGIS hourly profiles instead of GHI weighting. */
+  orientation?: PanelOrientation;
   /** Whether to exclude VAT from all calculations (for VAT-registered businesses) */
   excludeVat?: boolean;
   /** Persisted VAT rate for installation costs (decimal, e.g. 0.135) */
