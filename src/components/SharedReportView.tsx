@@ -26,7 +26,14 @@ export function SharedReportView() {
 
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [ctaOpen, setCtaOpen] = useState(false);
-  const [gateCleared, setGateCleared] = useState(false);
+  const [gateCleared, setGateCleared] = useState(
+    () => localStorage.getItem('report_gate_cleared') === 'true'
+  );
+
+  function clearGate() {
+    localStorage.setItem('report_gate_cleared', 'true');
+    setGateCleared(true);
+  }
 
   useEffect(() => {
     if (!id) {
@@ -151,7 +158,7 @@ export function SharedReportView() {
   return (
     <div className="min-h-screen bg-slate-50">
       {EXAMPLE_REPORT_IDS.has(id!) && !gateCleared && !isAdmin && (
-        <ReportGateModal reportId={id!} onComplete={() => setGateCleared(true)} />
+        <ReportGateModal reportId={id!} onComplete={clearGate} />
       )}
       {reportMode === 'locked' && (
         <>
