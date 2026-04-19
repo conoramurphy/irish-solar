@@ -396,9 +396,13 @@ export function ResultsSection({
                 placeholder="Report description"
               />
             ) : (
-              <p className="mt-1 text-sm text-slate-500">
-                {reportDescription ?? 'Summary of costs, savings, and returns based on your inputs.'}
-              </p>
+              <div className="mt-1 space-y-3">
+                {(reportDescription ?? 'Summary of costs, savings, and returns based on your inputs.')
+                  .split(/\n\n+/)
+                  .map((para, i) => (
+                    <p key={i} className="text-sm text-slate-500 leading-relaxed">{para}</p>
+                  ))}
+              </div>
             )}
           </div>
           <div className="flex flex-col items-end gap-3">
