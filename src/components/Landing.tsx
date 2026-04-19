@@ -163,18 +163,18 @@ export function Landing() {
             >
               {EXAMPLE_MODELS.map(m => (
                 <div
-                  key={m.name}
+                  key={m.type}
                   role="button"
                   tabIndex={0}
                   aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. See the real savings.`}
                   onClick={() => {
-                    posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.name });
+                    posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
                     navigate(`/r/${m.reportId}`);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.name });
+                      posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
                       navigate(`/r/${m.reportId}`);
                     }
                   }}
