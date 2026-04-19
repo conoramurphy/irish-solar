@@ -143,7 +143,7 @@ export function Landing() {
                 Your business's electricity bill is rising. Third time in four years.
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Installers quote to win contracts. We model to tell you the truth — your hotel's real usage, real roof, real export rates through 2033.
+                Installers quote to win contracts. We partner with you and model your business's current and future energy: using real usage, real roof, real export rates through 2033.
               </p>
               <p className="text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 No savings? Full refund. We're your partner, not theirs.
