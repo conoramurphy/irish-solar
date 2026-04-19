@@ -164,37 +164,6 @@ export function Landing() {
                 2 min to submit · results in 24 hrs
               </p>
 
-              {/* Trust strip */}
-              <ul
-                className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold tracking-wide uppercase"
-                style={{ color: 'rgba(253,234,180,0.85)' }}
-                aria-label="Trust signals"
-              >
-                <li className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: '#FDEAB4' }}
-                    aria-hidden="true"
-                  />
-                  Independent
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: '#FDEAB4' }}
-                    aria-hidden="true"
-                  />
-                  No installer commission
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: '#FDEAB4' }}
-                    aria-hidden="true"
-                  />
-                  SEAI + TAMS 3 modelled
-                </li>
-              </ul>
             </div>
 
             {/* Example model cards */}
@@ -204,11 +173,23 @@ export function Landing() {
               aria-label="Example solar profit models"
             >
               {EXAMPLE_MODELS.map(m => (
-                <article
+                <div
                   key={m.name}
-                  role="listitem"
-                  aria-label={`${m.name}: ${m.size} system, payback ${m.payback}, year 1 saving ${m.saving}`}
-                  className="rounded-2xl p-5"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${m.name}: ${m.size} system, payback ${m.payback}, 10-yr return ${m.saving}. See the real savings.`}
+                  onClick={() => {
+                    posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.name });
+                    navigate(`/r/${m.reportId}`);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.name });
+                      navigate(`/r/${m.reportId}`);
+                    }
+                  }}
+                  className="rounded-2xl p-5 cursor-pointer hover:scale-[1.02] active:scale-[0.99] transition-transform"
                   style={{ backgroundColor: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)' }}
                 >
                   <div className="flex items-start justify-between mb-4">
@@ -229,20 +210,36 @@ export function Landing() {
                       <p className="text-2xl font-semibold font-sans tabular-nums leading-none" style={{ color: '#FDEAB4' }}>{m.saving}</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.name });
-                      navigate(`/r/${m.reportId}`);
-                    }}
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80"
+                  <span
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold"
                     style={{ color: '#FDEAB4' }}
+                    aria-hidden="true"
                   >
-                    Open model {ARROW}
-                  </button>
-                </article>
+                    See the real savings {ARROW}
+                  </span>
+                </div>
               ))}
             </div>
+
+            {/* Trust strip */}
+            <ul
+              className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold tracking-wide uppercase"
+              style={{ color: 'rgba(253,234,180,0.85)' }}
+              aria-label="Trust signals"
+            >
+              <li className="flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FDEAB4' }} aria-hidden="true" />
+                Independent
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FDEAB4' }} aria-hidden="true" />
+                No installer commission
+              </li>
+              <li className="flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#FDEAB4' }} aria-hidden="true" />
+                SEAI + TAMS 3 modelled
+              </li>
+            </ul>
 
             {/* ── Process steps — merged into hero, compressed ── */}
             <div className="mt-14 pb-16 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>

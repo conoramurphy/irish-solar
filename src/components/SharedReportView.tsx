@@ -4,8 +4,14 @@ import { usePostHog } from '@posthog/react';
 import { migrateReport } from '../utils/migrateReport';
 import { ResultsSection } from './ResultsSection';
 import { CTAModal } from './CTAModal';
+import { ReportGateModal } from './ReportGateModal';
 import type { SavedReport } from '../types/savedReports';
 import type { CalculationResult } from '../types';
+
+const EXAMPLE_REPORT_IDS = new Set([
+  'WZ9EWvHnXsJsk8gH7GUQN', // Longford dairy farm
+  'GXz4-_lMwsjVbgc3GzBww', // Cavan hotel
+]);
 
 type LoadState =
   | { status: 'loading' }
@@ -20,6 +26,7 @@ export function SharedReportView() {
 
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [ctaOpen, setCtaOpen] = useState(false);
+  const [gateCleared, setGateCleared] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -143,6 +150,9 @@ export function SharedReportView() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {EXAMPLE_REPORT_IDS.has(id!) && !gateCleared && (
+        <ReportGateModal reportId={id!} onComplete={() => setGateCleared(true)} />
+      )}
       {reportMode === 'locked' && (
         <>
           <CTAModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
