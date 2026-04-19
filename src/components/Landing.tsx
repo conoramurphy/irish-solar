@@ -155,6 +155,11 @@ export function Landing() {
 
             </div>
 
+            {/* Example model cards label */}
+            <p className="text-xs font-semibold tracking-widest uppercase mb-3 max-w-2xl" style={{ color: 'rgba(253,234,180,0.75)' }}>
+              Review our real anonymised reports for free
+            </p>
+
             {/* Example model cards */}
             <div
               className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl"
