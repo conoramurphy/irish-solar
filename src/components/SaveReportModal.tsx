@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePostHog } from '@posthog/react';
 
 interface SaveReportModalProps {
   initialName?: string;
@@ -8,13 +9,14 @@ interface SaveReportModalProps {
   isOpen: boolean;
 }
 
-export function SaveReportModal({ 
-  initialName = '', 
-  existingNames, 
-  onSave, 
-  onCancel, 
-  isOpen 
+export function SaveReportModal({
+  initialName = '',
+  existingNames,
+  onSave,
+  onCancel,
+  isOpen
 }: SaveReportModalProps) {
+  const posthog = usePostHog();
   const [name, setName] = useState(initialName);
   const [isOverwrite, setIsOverwrite] = useState(false);
 
@@ -48,7 +50,10 @@ export function SaveReportModal({
         <form 
           onSubmit={(e) => {
             e.preventDefault();
-            if (name.trim()) onSave(name.trim());
+            if (name.trim()) {
+              posthog?.capture('report_saved', { is_overwrite: isOverwrite });
+              onSave(name.trim());
+            }
           }}
           className="p-6"
         >

@@ -1,4 +1,5 @@
 import type { BuildingTypeSelection } from '../../types';
+import { usePostHog } from '@posthog/react';
 
 interface Step0BuildingTypeProps {
   onNext: (data: { buildingType: BuildingTypeSelection }) => void;
@@ -6,6 +7,7 @@ interface Step0BuildingTypeProps {
 }
 
 export function Step0BuildingType({ onNext, currentSelection }: Step0BuildingTypeProps) {
+  const posthog = usePostHog();
   const buildingTypes: Array<{
     id: BuildingTypeSelection;
     title: string;
@@ -73,7 +75,11 @@ export function Step0BuildingType({ onNext, currentSelection }: Step0BuildingTyp
             <button
               key={type.id}
               type="button"
-              onClick={() => type.enabled && onNext({ buildingType: type.id })}
+              onClick={() => {
+                if (!type.enabled) return;
+                posthog?.capture('building_type_selected', { building_type: type.id });
+                onNext({ buildingType: type.id });
+              }}
               disabled={!type.enabled}
               className={`relative group rounded-[24px] border p-8 text-left transition-all duration-300 flex flex-col ${
                 type.enabled

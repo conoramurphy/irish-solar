@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { usePostHog } from '@posthog/react';
 import type { CalculationResult, SensitivityVariant, SystemConfiguration, Tariff } from '../types';
 import { calculateAnnualBillSummary } from '../utils/billSummary';
 import { estimateSystemCost } from '../utils/costEstimation';
@@ -182,6 +183,7 @@ export function ResultsSection({
   const [auditOpen, setAuditOpen] = useState(false);
   const [applyFutureRateChanges, setApplyFutureRateChanges] = useState(true);
   const [ratesInfoOpen, setRatesInfoOpen] = useState(false);
+  const posthog = usePostHog();
   const [shareState, setShareState] = useState<'idle' | 'sharing' | 'copied' | 'error'>('idle');
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const [ctaOpen, setCtaOpen] = useState(false);
@@ -1406,6 +1408,7 @@ export function ResultsSection({
                       const url = await onShare();
                       setSharedUrl(url);
                       setShareState('copied');
+                      posthog?.capture('report_shared');
                     } catch {
                       setShareState('error');
                       setTimeout(() => setShareState('idle'), 3000);

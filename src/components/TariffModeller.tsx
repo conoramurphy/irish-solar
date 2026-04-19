@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { usePostHog } from '@posthog/react';
 import { domesticTariffs } from '../utils/domesticTariffParser';
 import { compareDomesticTariffsForUsage } from '../utils/tariffComparison';
 import { formatCurrency } from '../utils/format';
@@ -13,6 +14,7 @@ function formatPercent(value: number) {
 }
 
 export function TariffModeller() {
+  const posthog = usePostHog();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export function TariffModeller() {
         warnings: result.warnings,
         filename: file.name,
       });
+      posthog?.capture('tariff_file_uploaded', { year: result.year, total_kwh: Math.round(result.totalKwh) });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to parse file';
       setUploadError(msg);
@@ -204,7 +207,10 @@ export function TariffModeller() {
                     return (
                       <tr
                         key={r.tariff.id}
-                        onClick={() => setSelectedTariffId(r.tariff.id)}
+                        onClick={() => {
+                          posthog?.capture('tariff_selected', { tariff_id: r.tariff.id, tariff_supplier: r.tariff.supplier, tariff_product: r.tariff.product });
+                          setSelectedTariffId(r.tariff.id);
+                        }}
                         className={
                           'cursor-pointer hover:bg-slate-50 ' +
                           (isSelected ? 'bg-blue-50/50' : 'bg-white')

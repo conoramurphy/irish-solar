@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { usePostHog } from '@posthog/react';
 import { SharedReportView } from './components/SharedReportView';
 import ReportsListView from './components/ReportsListView';
 import LinksPage from './components/LinksPage';
@@ -64,6 +65,7 @@ type AppMode = 'solar-battery' | 'tariff' | null;
 
 function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' }) {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const appMode: AppMode = defaultMode;
 
   // Building type selection (Step 0)
@@ -401,6 +403,14 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
       };
 
       setStandardResult(standard);
+      posthog?.capture('report_generated', {
+        business_type: cfg.businessType,
+        location: cfg.location,
+        system_size_kwp: cfg.systemSizeKwp,
+        battery_size_kwh: cfg.batterySizeKwh,
+        annual_production_kwh: cfg.annualProductionKwh,
+        annual_savings: standard.annualSavings,
+      });
       logInfo(
         'engine',
         'runCalculation (standard) success',
@@ -642,9 +652,12 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
   }, [config.businessType, previousBusinessType, trading.enabled]);
 
 
+  const stepLabels: Record<number, string> = { 0: 'building_type', 1: 'consumption_tariff', 2: 'solar', 3: 'battery_market', 4: 'finance' };
+
   const handleNextStep = (step: number, data?: any) => {
     setCalculationError(null);
     logInfo('ui', `Step ${step} completed`, { step });
+    posthog?.capture('wizard_step_completed', { step, step_name: stepLabels[step] ?? `step_${step}` });
 
     if (step === 0 && data) {
       // Step 0: Building type selected

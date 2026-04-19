@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePostHog } from '@posthog/react';
 
 const WHATSAPP_NUMBER = '353858082080';
 
@@ -31,6 +32,7 @@ const WHATSAPP_ICON = (
 );
 
 export function CTAModal({ open, onClose }: CTAModalProps) {
+  const posthog = usePostHog();
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
@@ -79,6 +81,8 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
     setSending(true);
     captured.current = true;
     fireCapture(email, role, message, false);
+    posthog?.identify(email, { role: role || 'unspecified' });
+    posthog?.capture('lead_submitted', { role: role || 'unspecified', has_message: message.trim().length > 0 });
     if (typeof window !== 'undefined' && window.gtag) {
       window.gtag('event', 'generate_lead', {
         role: role || 'unspecified',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CTAModal } from './CTAModal';
+import { usePostHog } from '@posthog/react';
 
 // Grid overlay styles — white lines for dark sections, dark lines for light sections
 const GRID_LIGHT: React.CSSProperties = {
@@ -84,7 +85,13 @@ const ARROW = (
 
 export function Landing() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const [ctaOpen, setCtaOpen] = useState(false);
+
+  function openCta(source: string) {
+    posthog?.capture('cta_modal_opened', { source });
+    setCtaOpen(true);
+  }
 
   return (
     <>
@@ -93,7 +100,7 @@ export function Landing() {
       {/* Floating CTA */}
       <button
         type="button"
-        onClick={() => setCtaOpen(true)}
+        onClick={() => openCta('floating_button')}
         className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-white hover:-translate-y-0.5 transition-all duration-200"
         style={{ backgroundColor: '#3A7A5C', boxShadow: '0 0 0 6px rgba(58,122,92,0.18), 0 4px 16px rgba(0,0,0,0.25)' }}
         aria-label="Get your solar profit model"
@@ -145,7 +152,7 @@ export function Landing() {
               <div className="mt-8 flex flex-wrap items-center gap-4 mb-2">
                 <button
                   type="button"
-                  onClick={() => setCtaOpen(true)}
+                  onClick={() => openCta('hero_button')}
                   className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
                   style={{ backgroundColor: '#1A4A35' }}
                   aria-label="Get your solar profit model"
@@ -224,7 +231,10 @@ export function Landing() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => navigate(`/r/${m.reportId}`)}
+                    onClick={() => {
+                      posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.name });
+                      navigate(`/r/${m.reportId}`);
+                    }}
                     className="inline-flex items-center gap-1.5 text-sm font-semibold transition-opacity hover:opacity-80"
                     style={{ color: '#FDEAB4' }}
                   >
@@ -304,7 +314,7 @@ export function Landing() {
             </p>
             <button
               type="button"
-              onClick={() => navigate('/tariffs')}
+              onClick={() => { posthog?.capture('tariff_tool_started'); navigate('/tariffs'); }}
               className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
               style={{ backgroundColor: '#DBEAFE', color: '#1E3A8A' }}
               aria-label="Check your electricity tariff"
@@ -341,7 +351,7 @@ export function Landing() {
             </p>
             <button
               type="button"
-              onClick={() => setCtaOpen(true)}
+              onClick={() => openCta('heat_pump_section')}
               className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
               style={{ backgroundColor: '#92400E' }}
               aria-label="Register your interest in heat pump modelling"
