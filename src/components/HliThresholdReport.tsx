@@ -129,9 +129,9 @@ export function HliThresholdReport() {
         <div className="pointer-events-none absolute inset-0" style={GRID_DARK} />
         <div className="relative z-10 w-full max-w-3xl mx-auto px-5 md:px-8">
           <h1
-            className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold leading-[1.08] tracking-tight mt-5 mb-5 max-w-2xl" style={{ color: '#78350F' }}
+            className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold leading-[1.08] tracking-tight mt-5 mb-5" style={{ color: '#78350F' }}
           >
-            A simple, proven way to fix Ireland's domestic decarbonisation
+            Electrify first: a simple, proven way to fix Ireland's domestic decarbonisation
           </h1>
           <p className="text-lg md:text-xl leading-relaxed max-w-2xl text-stone-700">
             Our heat pump policy isn't working. We've handcuffed ourselves with rules the data
@@ -653,110 +653,115 @@ export function HliThresholdReport() {
         {/* SECTION 5: CONCLUSION                                         */}
         {/* ============================================================= */}
         <section className="border-t border-slate-200 pt-10">
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Two changes now, one for the future.</h2>
+          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>What needs to change.</h2>
 
-          <p className="text-xs font-medium tracking-widest uppercase mb-4" style={{ color: '#92400E' }}>Now</p>
-          <ol className="list-decimal list-inside space-y-5 text-[1.0625rem] text-slate-700 leading-[1.7]">
-            <li>
-              <strong>Raise the HLI threshold from 2.0 to 2.75.</strong> Costs rise smoothly through
-              the range; there is no cliff at 2.0. A 2.75 threshold would allow roughly 75% of
-              fossil-fuel homes to qualify using only cheap, non-invasive measures (attic
-              insulation, cavity fill, and air sealing) without touching walls or replacing
-              windows. A home at HLI 2.75 still runs a heat pump efficiently; it just
-              pays {fmt(costDiff20v275)}/year more in electricity than one at 2.0.
-            </li>
-            <li>
-              <strong>Create an "Electrify Your Heating" package bundling heat pump and solar
-              grants.</strong> A heat pump dramatically increases electricity consumption; the modelling
-              shows annual bills of €1,400–€2,000+. Solar PV directly offsets this load, especially
-              in summer when panels produce most and the heat pump is off. Bundling grants would
-              drive simultaneous installation, maximising self-consumption, reducing grid strain,
-              and strengthening electrification economics. The current system treats heating and
-              generation as separate decisions. They should be one package.
-            </li>
-          </ol>
-
-          <p className="text-xs font-medium tracking-widest uppercase mt-10 mb-4" style={{ color: '#92400E' }}>Future</p>
-          <ol start={3} className="list-decimal list-inside space-y-5 text-[1.0625rem] text-slate-700 leading-[1.7]">
-            <li>
-              <strong>Replace inspector-based grant verification with remote performance
-              data.</strong> Every heat pump, solar inverter, and battery already reports real-time
-              performance. Instead of sending inspectors to check insulation they cannot see behind
-              walls, require installers to submit seasonal performance reports: verified SCOP for
-              heat pumps, measured kWh yield for solar, battery cycle data if installed. If the
-              system misses its targets after one heating season, the installer must fix it or
-              return the grant. The data shows exactly what is wrong and who installed it. No
-              ambiguity. This shifts verification from subjective site visits to objective,
-              automated, national-scale accountability, entirely remote. No inspectors, no
-              scheduling, no gaming.
-            </li>
-          </ol>
-
-          <p className="text-xs font-medium tracking-widest uppercase mt-10 mb-4" style={{ color: '#92400E' }}>Further</p>
-          <ol start={4} className="list-decimal list-inside space-y-5 text-[1.0625rem] text-slate-700 leading-[1.7]">
-            <li>
-              <strong>Fix DEAP's treatment of pre-1940 solid walls.</strong> Raising the HLI
-              threshold to 2.75 unlocks post-1978 and 1940–78 homes, roughly 75% of the
-              stock. But pre-1940 solid-wall homes (~10–15%) face a separate barrier: DEAP
-              assigns them a U-value of 2.1 W/m²K regardless of wall thickness or
-              material. <a href="https://www.tandfonline.com/doi/full/10.1080/09613218.2014.967977" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">In
-              situ measurements</a> (Biddulph et al.) found a mean of
-              1.3 W/m²K, <strong>40% better</strong>, because thermal mass buffers heat in ways
-              a steady-state calculation cannot capture.
-              The <a href="https://link.springer.com/chapter/10.1007/978-3-031-71145-9_36" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">FabTrads
-              project</a> (TU Dublin) is measuring Irish traditional walls now. If confirmed,
-              these homes are excluded by a model error, not by physics.
-            </li>
-          </ol>
-          <div className="overflow-x-auto rounded-lg border border-slate-200 mt-8 mb-6">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-[0.6875rem] font-medium tracking-wide uppercase text-slate-400">
-                <tr>
-                  <th className="px-4 py-3 text-left">Era</th>
-                  <th className="px-4 py-3 text-left">Wall type</th>
-                  <th className="px-4 py-3 text-right">~% of stock</th>
-                  <th className="px-4 py-3 text-right">Typical HLI</th>
-                  <th className="px-4 py-3 text-left">Cheapest path to qualify (no walls, no windows)</th>
-                  <th className="px-4 py-3 text-right">HLI after</th>
-                  <th className="px-4 py-3 text-right">Qualifies at 2.75?</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr className="bg-green-50">
-                  <td className="px-4 py-2 font-medium">Post-1978</td>
-                  <td className="px-4 py-2 text-slate-600">Cavity block</td>
-                  <td className="px-4 py-2 text-right tabular-nums">~50%</td>
-                  <td className="px-4 py-2 text-right tabular-nums">2.5</td>
-                  <td className="px-4 py-2 text-slate-600">Attic + cavity fill + air sealing (€1,650)</td>
-                  <td className="px-4 py-2 text-right tabular-nums">1.72</td>
-                  <td className="px-4 py-2 text-right"><span className="text-green-700 font-medium">Yes</span></td>
-                </tr>
-                <tr className="bg-green-50">
-                  <td className="px-4 py-2 font-medium">1940–1978</td>
-                  <td className="px-4 py-2 text-slate-600">Hollow block / early cavity</td>
-                  <td className="px-4 py-2 text-right tabular-nums">~25%</td>
-                  <td className="px-4 py-2 text-right tabular-nums">3.5</td>
-                  <td className="px-4 py-2 text-slate-600">Attic + cavity fill + air sealing (€1,650)</td>
-                  <td className="px-4 py-2 text-right tabular-nums">2.72</td>
-                  <td className="px-4 py-2 text-right"><span className="text-green-700 font-medium">Yes</span></td>
-                </tr>
-                <tr className="bg-red-50">
-                  <td className="px-4 py-2 font-medium">Pre-1940</td>
-                  <td className="px-4 py-2 text-slate-600">Solid stone / brick</td>
-                  <td className="px-4 py-2 text-right tabular-nums">~10–15%</td>
-                  <td className="px-4 py-2 text-right tabular-nums">4.5</td>
-                  <td className="px-4 py-2 text-slate-600">Attic + air sealing (€1,250)</td>
-                  <td className="px-4 py-2 text-right tabular-nums">4.17</td>
-                  <td className="px-4 py-2 text-right"><span className="text-red-600 font-medium">No</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed mb-6">
-            Stock percentages are approximate, based on CSO Census 2022 dwelling age data and the TU Dublin housing stock study.
-            "Cheap measures" means attic insulation, cavity fill (where available), and air sealing. No wall insulation, no window replacement, no floor work.
-            Costs shown are net of SEAI grants.
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mb-6">
+            <strong>Raise the HLI threshold from 2.0 to 2.75.</strong> Costs rise smoothly through
+            the range; there is no cliff at 2.0. A 2.75 threshold would allow roughly 75% of
+            fossil-fuel homes to qualify using only cheap, non-invasive measures (attic
+            insulation, cavity fill, and air sealing) without touching walls or replacing
+            windows. A home at HLI 2.75 still runs a heat pump efficiently; it just
+            pays {fmt(costDiff20v275)}/year more in electricity than one at 2.0.
           </p>
+
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
+            This requires no new legislation, no new funding, and no new infrastructure. One
+            number change in SEAI's eligibility criteria.
+          </p>
+
+          <details className="mt-10 rounded-xl border border-slate-200 bg-white">
+            <summary className="px-6 py-4 cursor-pointer hover:bg-slate-50">
+              <h3 className="inline text-lg font-serif font-semibold tracking-tight" style={{ color: '#78350F' }}>Go further</h3>
+              <p className="text-sm text-slate-500 mt-1">Three more changes that would accelerate decarbonisation</p>
+            </summary>
+            <div className="px-6 pb-6 border-t border-slate-100">
+            <ol className="list-decimal list-inside space-y-5 text-[1.0625rem] text-slate-700 leading-[1.7] mt-5">
+              <li>
+                <strong>Bundle heat pump and solar grants into one "Electrify Your Heating"
+                package.</strong> A heat pump dramatically increases electricity consumption; the modelling
+                shows annual bills of €1,400–€2,000+. Solar PV directly offsets this load, especially
+                in summer when panels produce most and the heat pump is off. Bundling grants would
+                drive simultaneous installation, maximising self-consumption, reducing grid strain,
+                and strengthening electrification economics. The current system treats heating and
+                generation as separate decisions. They should be one package.
+              </li>
+              <li>
+                <strong>Replace inspector-based grant verification with remote performance
+                data.</strong> Every heat pump, solar inverter, and battery already reports real-time
+                performance. Instead of sending inspectors to check insulation they cannot see behind
+                walls, require installers to submit seasonal performance reports: verified SCOP for
+                heat pumps, measured kWh yield for solar, battery cycle data if installed. If the
+                system misses its targets after one heating season, the installer must fix it or
+                return the grant. This shifts verification from subjective site visits to objective,
+                automated, national-scale accountability.
+              </li>
+              <li>
+                <strong>Fix DEAP's treatment of pre-1940 solid walls.</strong> Raising the HLI
+                threshold to 2.75 unlocks post-1978 and 1940–78 homes, roughly 75% of the
+                stock. But pre-1940 solid-wall homes (~10–15%) face a separate barrier: DEAP
+                assigns them a U-value of 2.1 W/m²K regardless of wall thickness or
+                material. <a href="https://www.tandfonline.com/doi/full/10.1080/09613218.2014.967977" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">In
+                situ measurements</a> (Biddulph et al.) found a mean of
+                1.3 W/m²K, <strong>40% better</strong>, because thermal mass buffers heat in ways
+                a steady-state calculation cannot capture.
+                The <a href="https://link.springer.com/chapter/10.1007/978-3-031-71145-9_36" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">FabTrads
+                project</a> (TU Dublin) is measuring Irish traditional walls now. If confirmed,
+                these homes are excluded by a model error, not by physics.
+              </li>
+            </ol>
+
+              <div className="overflow-x-auto rounded-lg border border-slate-200 mt-6 mb-2">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50 text-[0.6875rem] font-medium tracking-wide uppercase text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Era</th>
+                      <th className="px-4 py-3 text-left">Wall type</th>
+                      <th className="px-4 py-3 text-right">~% of stock</th>
+                      <th className="px-4 py-3 text-right">Typical HLI</th>
+                      <th className="px-4 py-3 text-left">Cheapest path (no walls, no windows)</th>
+                      <th className="px-4 py-3 text-right">HLI after</th>
+                      <th className="px-4 py-3 text-right">Qualifies at 2.75?</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    <tr className="bg-green-50">
+                      <td className="px-4 py-2 font-medium">Post-1978</td>
+                      <td className="px-4 py-2 text-slate-600">Cavity block</td>
+                      <td className="px-4 py-2 text-right tabular-nums">~50%</td>
+                      <td className="px-4 py-2 text-right tabular-nums">2.5</td>
+                      <td className="px-4 py-2 text-slate-600">Attic + cavity fill + air sealing (€1,650)</td>
+                      <td className="px-4 py-2 text-right tabular-nums">1.72</td>
+                      <td className="px-4 py-2 text-right"><span className="text-green-700 font-medium">Yes</span></td>
+                    </tr>
+                    <tr className="bg-green-50">
+                      <td className="px-4 py-2 font-medium">1940–1978</td>
+                      <td className="px-4 py-2 text-slate-600">Hollow block / early cavity</td>
+                      <td className="px-4 py-2 text-right tabular-nums">~25%</td>
+                      <td className="px-4 py-2 text-right tabular-nums">3.5</td>
+                      <td className="px-4 py-2 text-slate-600">Attic + cavity fill + air sealing (€1,650)</td>
+                      <td className="px-4 py-2 text-right tabular-nums">2.72</td>
+                      <td className="px-4 py-2 text-right"><span className="text-green-700 font-medium">Yes</span></td>
+                    </tr>
+                    <tr className="bg-red-50">
+                      <td className="px-4 py-2 font-medium">Pre-1940</td>
+                      <td className="px-4 py-2 text-slate-600">Solid stone / brick</td>
+                      <td className="px-4 py-2 text-right tabular-nums">~10–15%</td>
+                      <td className="px-4 py-2 text-right tabular-nums">4.5</td>
+                      <td className="px-4 py-2 text-slate-600">Attic + air sealing (€1,250)</td>
+                      <td className="px-4 py-2 text-right tabular-nums">4.17</td>
+                      <td className="px-4 py-2 text-right"><span className="text-red-600 font-medium">No</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Stock percentages are approximate, based on CSO Census 2022 dwelling age data and the TU Dublin housing stock study.
+                "Cheap measures" means attic insulation, cavity fill (where available), and air sealing. No wall insulation, no window replacement, no floor work.
+                Costs shown are net of SEAI grants.
+              </p>
+            </div>
+          </details>
+
 
         </section>
 
