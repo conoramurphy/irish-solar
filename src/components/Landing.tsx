@@ -140,7 +140,11 @@ export function Landing() {
                 What profit will<br />solar make you?
               </h1>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Your business's electricity bill is rising. Third time in four years.
+                Your business's electricity bills{' '}
+                <a href="https://www.irishtimes.com/business/2026/04/17/households-face-electricity-bill-increases-in-weeks-industry-warns/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">are rising again</a>
+                .{' '}
+                <a href="https://www.thejournal.ie/esri-electricity-prices-7011725-Apr2026/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">Third time in four years</a>
+                .
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 Installers quote to win contracts. We partner with you and model your business's current and future energy — real usage, real sunlight, real export rates through 2033.
