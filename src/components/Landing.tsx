@@ -155,7 +155,7 @@ export function Landing() {
                 We're your partner. We model your business in 48 hours — real usage, real roof, real export rates through 2033 — then size it right with the installer you pick.
               </p>
               <p className="text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                A mistake costs 200k+. A 15-minute chat is free.
+                A mistake costs 200k+ over 10 years. A 15-minute chat is free.
               </p>
 
               {/* CTA */}
