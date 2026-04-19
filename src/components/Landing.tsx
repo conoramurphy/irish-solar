@@ -97,18 +97,15 @@ export function Landing() {
     <>
       <CTAModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
 
-      {/* Floating CTA */}
+      {/* Floating CTA — hidden on mobile */}
       <button
         type="button"
         onClick={() => openCta('floating_button')}
-        className="fixed bottom-5 right-4 sm:bottom-6 sm:right-6 z-40 flex items-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-white hover:-translate-y-0.5 transition-all duration-200"
-        style={{ backgroundColor: '#3A7A5C', boxShadow: '0 0 0 6px rgba(58,122,92,0.18), 0 4px 16px rgba(0,0,0,0.25)' }}
+        className="hidden sm:inline-flex fixed bottom-6 right-6 z-40 items-center gap-3 rounded-2xl px-8 py-4 text-base font-semibold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-200"
+        style={{ backgroundColor: '#1A4A35', color: '#FDEAB4' }}
         aria-label="Get your solar profit model"
       >
-        <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
-        </svg>
-        <span>Free 15 minute walkthrough</span>
+        Free 15 minute walkthrough
       </button>
 
       <div>
