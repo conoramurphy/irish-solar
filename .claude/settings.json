@@ -8,7 +8,6 @@
       "Read(*)"
     ],
     "deny": [
-      "Bash(git push*)"
     ]
   }
 }
