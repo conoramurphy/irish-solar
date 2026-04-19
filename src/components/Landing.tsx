@@ -74,7 +74,7 @@ const STEPS = [
 
 const EXAMPLE_MODELS = [
   { type: 'Dairy Farm', spec: '65–97.5 kWp · TAMS 3 grant', payback: '4.4 yrs', savingLabel: '10-yr return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
-  { type: 'Hotel', spec: '20 beds · 150–1,200 kWp · SEAI grant', payback: '2.9 yrs', savingLabel: '10-yr return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
+  { type: 'Hotel, 20 beds', spec: '150–1,200 kWp · SEAI grant', payback: '2.9 yrs', savingLabel: '10-yr return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
 ];
 
 const ARROW = (
@@ -211,11 +211,11 @@ export function Landing() {
                   <div className="flex gap-6 mb-4">
                     <div className="min-w-0">
                       <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Payback</p>
-                      <p className="text-2xl font-semibold font-sans tabular-nums text-white leading-none">{m.payback}</p>
+                      <p className="text-xl font-semibold font-sans tabular-nums text-white leading-none">{m.payback}</p>
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>{m.savingLabel}</p>
-                      <p className="text-2xl font-semibold font-sans tabular-nums leading-none" style={{ color: '#FDEAB4' }}>{m.saving}</p>
+                      <p className="text-xl font-semibold font-sans tabular-nums leading-none" style={{ color: 'rgba(253,234,180,0.8)' }}>{m.saving}</p>
                     </div>
                   </div>
                   <span
