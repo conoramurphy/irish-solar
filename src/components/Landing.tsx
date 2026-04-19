@@ -140,7 +140,7 @@ export function Landing() {
                 What profit will<br />solar make you?
               </h1>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Your electricity bill is rising. Third time in four years.
+                Your business's electricity bill is rising. Third time in four years.
               </p>
               <p className="text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 Installers quote to win contracts. We model to tell you the truth — your hotel's real usage, real roof, real export rates through 2033.
