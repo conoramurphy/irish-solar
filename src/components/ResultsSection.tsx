@@ -371,7 +371,7 @@ export function ResultsSection({
       {isEditMode && (
         <AdminBar locked={reportLocked} onLockToggle={onLockToggle} />
       )}
-      <div className="px-8 py-7 md:px-10 md:py-8 border-b border-slate-100">
+      <div className="px-4 py-5 md:px-10 md:py-8 border-b border-slate-100">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
           <div className="flex-1 min-w-0">
             {isEditMode && onTitleChange ? (
@@ -494,7 +494,7 @@ export function ResultsSection({
         </div>
       )}
 
-      <div className="p-6 md:p-8">
+      <div className="p-3 md:p-8">
         
         {/* Tab Navigation */}
         <div className="flex border-b border-slate-200 mb-8">
