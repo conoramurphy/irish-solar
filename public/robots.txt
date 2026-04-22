@@ -1,6 +1,7 @@
 User-agent: *
 Disallow: /r/
 Disallow: /links
+Disallow: /old-home-page
 
 Sitemap: https://wattprofit.ie/sitemap.xml
 

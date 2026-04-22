@@ -36,6 +36,7 @@ import type { ParsedPriceData } from './utils/priceTimeseriesParser';
 import { CalendarSidebar } from './components/CalendarSidebar';
 
 import { Landing } from './components/Landing';
+import { OldLanding } from './components/OldLanding';
 import { Privacy } from './components/Privacy';
 import { CookieConsent } from './components/CookieConsent';
 import { applyStoredConsent } from './utils/consent';
@@ -1043,6 +1044,7 @@ function App() {
     <>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/old-home-page" element={<OldLanding />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/full-model/*" element={<WizardApp defaultMode="solar-battery" />} />
         <Route path="/tariffs/*" element={<WizardApp defaultMode="tariff" />} />

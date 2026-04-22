@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CTAModal } from './CTAModal';
 import { usePostHog } from '@posthog/react';
@@ -12,6 +12,13 @@ const GRID_LIGHT: React.CSSProperties = {
   backgroundSize: '48px 48px',
 };
 
+const GRID_DARK: React.CSSProperties = {
+  backgroundImage: [
+    'linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px)',
+    'linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)',
+  ].join(', '),
+  backgroundSize: '48px 48px',
+};
 
 const SUN_ICON = (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-5 h-5">
@@ -66,42 +73,8 @@ const STEPS = [
 ];
 
 const EXAMPLE_MODELS = [
-  {
-    type: 'Hotel, 20 beds',
-    spec: '150–1,200 kWp · SEAI grant',
-    payback: '2.9 yrs',
-    savingLabel: '10-yr return',
-    saving: '+€391,143',
-    reportId: 'GXz4-_lMwsjVbgc3GzBww',
-    // Navy scheme — exact match to old tariff section
-    theme: {
-      cardBg: '#1B3A72',
-      titleColor: '#FFFFFF',
-      mutedColor: 'rgba(219,234,254,0.6)',
-      primaryColor: '#FFFFFF',
-      savingColor: '#DBEAFE',
-      ctaBg: '#DBEAFE',
-      ctaText: '#1E3A8A',
-    },
-  },
-  {
-    type: 'Dairy Farm',
-    spec: '65–97.5 kWp · TAMS 3 grant',
-    payback: '4.4 yrs',
-    savingLabel: '10-yr return',
-    saving: '+€122,887',
-    reportId: 'WZ9EWvHnXsJsk8gH7GUQN',
-    // Amber scheme — exact match to old heat pump section
-    theme: {
-      cardBg: '#FEF3C7',
-      titleColor: '#78350F',
-      mutedColor: 'rgba(146,64,14,0.6)',
-      primaryColor: '#78350F',
-      savingColor: '#92400E',
-      ctaBg: '#92400E',
-      ctaText: '#FFFFFF',
-    },
-  },
+  { type: 'Hotel, 20 beds', spec: '150–1,200 kWp · SEAI grant', payback: '2.9 yrs', savingLabel: '10-yr return', saving: '+€391,143', reportId: 'GXz4-_lMwsjVbgc3GzBww' },
+  { type: 'Dairy Farm', spec: '65–97.5 kWp · TAMS 3 grant', payback: '4.4 yrs', savingLabel: '10-yr return', saving: '+€122,887', reportId: 'WZ9EWvHnXsJsk8gH7GUQN' },
 ];
 
 const ARROW = (
@@ -110,10 +83,18 @@ const ARROW = (
   </svg>
 );
 
-export function Landing() {
+export function OldLanding() {
   const navigate = useNavigate();
   const posthog = usePostHog();
   const [ctaOpen, setCtaOpen] = useState(false);
+
+  useEffect(() => {
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, nofollow';
+    document.head.appendChild(meta);
+    return () => { document.head.removeChild(meta); };
+  }, []);
 
   function openCta(source: string) {
     posthog?.capture('cta_modal_opened', { source });
@@ -130,9 +111,9 @@ export function Landing() {
         onClick={() => openCta('floating_button')}
         className="hidden sm:inline-flex fixed bottom-6 right-6 z-40 items-center gap-3 rounded-2xl px-8 py-4 text-base font-semibold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-200"
         style={{ backgroundColor: '#1A4A35', color: '#FDEAB4' }}
-        aria-label="Get your own solar ROI"
+        aria-label="Get your solar profit model"
       >
-        Get your own solar ROI
+        Free 15 minute walkthrough
       </button>
 
       <div>
@@ -171,7 +152,7 @@ export function Landing() {
                 However, most solar jobs are wrongly sized, losing you €200k over 10 years.
               </p>
               <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                We don't sell panels, we're your partner. We model your real business data in 48 hours — real usage, real sunlight, real export rates through 2033 — then size it right with the installer we pick together.
+                We're your partner. We model your real business data in 48 hours — real usage, real sunlight, real export rates through 2033 — then size it right with the installer we pick together.
               </p>
               <p className="text-base sm:text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 A mistake costs €200k+. A 15-minute chat is free.
@@ -195,7 +176,7 @@ export function Landing() {
                   key={m.type}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. See the solar ROI.`}
+                  aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. See the real savings.`}
                   onClick={() => {
                     posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
                     navigate(`/r/${m.reportId}`);
@@ -207,31 +188,31 @@ export function Landing() {
                       navigate(`/r/${m.reportId}`);
                     }
                   }}
-                  className="group rounded-2xl p-5 cursor-pointer hover:-translate-y-1 active:translate-y-0 transition-all duration-200 shadow-xl hover:shadow-2xl flex flex-col"
-                  style={{ backgroundColor: m.theme.cardBg }}
+                  className="rounded-2xl p-5 cursor-pointer border border-white/20 hover:border-white/40 hover:scale-[1.02] hover:bg-white/10 active:scale-[0.99] transition-all duration-200 shadow-lg hover:shadow-xl"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(4px)' }}
                 >
-                  <div className="mb-4 flex-1">
-                    <p className="text-lg sm:text-2xl font-serif font-bold leading-snug mb-1" style={{ color: m.theme.titleColor }}>{m.type}</p>
-                    <p className="text-xs font-medium" style={{ color: m.theme.mutedColor }}>
+                  <div className="mb-4">
+                    <p className="text-lg sm:text-2xl font-serif font-bold text-white leading-snug mb-1">{m.type}</p>
+                    <p className="text-xs font-medium" style={{ color: 'rgba(255,255,255,0.6)' }}>
                       {m.spec}
                     </p>
                   </div>
-                  <div className="flex gap-6 mb-5">
+                  <div className="flex gap-6 mb-4">
                     <div className="min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: m.theme.mutedColor }}>Payback</p>
-                      <p className="text-xl font-semibold font-sans tabular-nums leading-none" style={{ color: m.theme.primaryColor }}>{m.payback}</p>
+                      <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>Payback</p>
+                      <p className="text-xl font-semibold font-sans tabular-nums text-white leading-none">{m.payback}</p>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-medium mb-1" style={{ color: m.theme.mutedColor }}>{m.savingLabel}</p>
-                      <p className="text-xl font-semibold font-sans tabular-nums leading-none" style={{ color: m.theme.savingColor }}>{m.saving}</p>
+                      <p className="text-xs font-medium mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>{m.savingLabel}</p>
+                      <p className="text-xl font-semibold font-sans tabular-nums leading-none" style={{ color: 'rgba(253,234,180,0.8)' }}>{m.saving}</p>
                     </div>
                   </div>
                   <span
-                    className="inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold self-start transition-all duration-200 group-hover:gap-3 shadow-md"
-                    style={{ backgroundColor: m.theme.ctaBg, color: m.theme.ctaText }}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold"
+                    style={{ color: '#FDEAB4' }}
                     aria-hidden="true"
                   >
-                    See the solar ROI {ARROW}
+                    See the real savings {ARROW}
                   </span>
                 </div>
               ))}
@@ -244,9 +225,9 @@ export function Landing() {
                 onClick={() => openCta('hero_button')}
                 className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
                 style={{ backgroundColor: '#1A4A35' }}
-                aria-label="Get your own solar ROI"
+                aria-label="Get your solar profit model"
               >
-                Get your own solar ROI {ARROW}
+                Free 15 minute walkthrough {ARROW}
               </button>
             </div>
             <p className="text-sm font-medium mb-8" style={{ color: 'rgba(255,255,255,0.55)' }}>
@@ -295,6 +276,78 @@ export function Landing() {
               </p>
             </div>
 
+          </div>
+        </section>
+
+        {/* ─────────────────────────────────────────────
+            SECTION 2 — TARIFF MODELLER  (navy)
+        ───────────────────────────────────────────── */}
+        <section
+          aria-labelledby="tariff-heading"
+          className="relative py-20 md:py-28"
+          style={{ backgroundColor: '#1B3A72' }}
+        >
+          <div className="pointer-events-none absolute inset-0" style={GRID_LIGHT} />
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-5 md:px-8">
+            <p className="text-xs font-medium tracking-widest uppercase mb-5" style={{ color: 'rgba(219,234,254,0.6)' }}>
+              Business electricity
+            </p>
+            <h2
+              id="tariff-heading"
+              className="text-4xl md:text-5xl font-serif font-bold text-white leading-[1.08] tracking-tight mb-7 max-w-xl"
+            >
+              Are you on the right tariff?
+            </h2>
+            <p className="text-xl font-light leading-relaxed mb-10 max-w-2xl" style={{ color: 'rgba(219,234,254,0.85)' }}>
+              Most Irish businesses overpay by switching at the wrong time or on the wrong contract.
+              Find your best rate in two minutes.
+            </p>
+            <button
+              type="button"
+              onClick={() => { posthog?.capture('tariff_tool_started'); navigate('/tariffs'); }}
+              className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ backgroundColor: '#DBEAFE', color: '#1E3A8A' }}
+              aria-label="Check your electricity tariff"
+            >
+              Check your tariff {ARROW}
+            </button>
+          </div>
+        </section>
+
+        {/* ─────────────────────────────────────────────
+            SECTION 3 — HEAT PUMP  (amber)
+        ───────────────────────────────────────────── */}
+        <section
+          id="heatpump"
+          aria-labelledby="heatpump-heading"
+          className="relative py-20 md:py-28"
+          style={{ backgroundColor: '#FEF3C7' }}
+        >
+          <div className="pointer-events-none absolute inset-0" style={GRID_DARK} />
+          <div className="relative z-10 w-full max-w-5xl mx-auto px-5 md:px-8">
+            <p className="text-xs font-medium tracking-widest uppercase mb-5" style={{ color: 'rgba(146,64,14,0.6)' }}>
+              Coming soon
+            </p>
+            <h2
+              id="heatpump-heading"
+              className="text-4xl md:text-5xl font-serif font-bold leading-[1.08] tracking-tight mb-7 max-w-xl"
+              style={{ color: '#78350F' }}
+            >
+              Domestic and business heat pump modelling.
+            </h2>
+            <p className="text-xl font-light leading-relaxed mb-10 max-w-2xl" style={{ color: 'rgba(120,53,15,0.8)' }}>
+              The same approach — half-hourly data, real costs, independent numbers.
+              Register your interest and we'll let you know when it's live.
+            </p>
+            <button
+              type="button"
+              onClick={() => openCta('heat_pump_section')}
+              className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ backgroundColor: '#92400E' }}
+              aria-label="Register your interest in heat pump modelling"
+            >
+              Register interest {ARROW}
+            </button>
           </div>
         </section>
 
