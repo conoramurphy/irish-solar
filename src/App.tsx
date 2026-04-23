@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { usePostHog } from '@posthog/react';
 import { SharedReportView } from './components/SharedReportView';
@@ -39,7 +39,7 @@ import { Landing } from './components/Landing';
 import { OldLanding } from './components/OldLanding';
 import { Privacy } from './components/Privacy';
 import { CookieConsent } from './components/CookieConsent';
-import { applyStoredConsent } from './utils/consent';
+import { setConsent } from './utils/consent';
 import { UnifiedWizardBar } from './components/UnifiedWizardBar';
 
 import { TariffModeller } from './components/TariffModeller';
@@ -1036,8 +1036,9 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
 }
 
 function App() {
-  useEffect(() => {
-    applyStoredConsent();
+  // TEMP — revert after Google Ads debugging: force grant + persist (overrides prior deny in LS)
+  useLayoutEffect(() => {
+    setConsent('granted');
   }, []);
 
   return (

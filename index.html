@@ -63,12 +63,12 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
 
-      // Consent Mode v2 — default deny until the user accepts (GDPR)
+      // TEMP — revert after Google Ads debugging: default grant (was deny-until-accept)
       gtag('consent', 'default', {
-        ad_storage: 'denied',
-        ad_user_data: 'denied',
-        ad_personalization: 'denied',
-        analytics_storage: 'denied',
+        ad_storage: 'granted',
+        ad_user_data: 'granted',
+        ad_personalization: 'granted',
+        analytics_storage: 'granted',
         functionality_storage: 'granted',
         security_storage: 'granted',
         wait_for_update: 500

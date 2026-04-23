@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getConsent, setConsent } from '../utils/consent';
 
 export function CookieConsent() {
   const [visible, setVisible] = useState(() => getConsent() === null);
+
+  // TEMP — sync with App forcing grant on load so banner does not flash
+  useLayoutEffect(() => {
+    if (getConsent() !== null) setVisible(false);
+  }, []);
 
   if (!visible) return null;
 
