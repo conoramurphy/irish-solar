@@ -138,7 +138,7 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
             </div>
             <h3 className="text-lg font-semibold text-slate-800 mb-1.5">We're on it</h3>
             <p className="text-sm text-slate-500 mb-6">
-              We'll be in touch with your personalised energy model shortly.
+              We'll contact you so we can chat through your model.
             </p>
             <button
               onClick={onClose}
