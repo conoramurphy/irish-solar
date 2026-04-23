@@ -330,16 +330,22 @@ export function HliThresholdReport() {
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {paths.map((path) => (
+            {paths.map((path, idx) => {
+              const other = paths[1 - idx];
+              const better = (val: number, otherVal: number, lowerIsBetter: boolean) =>
+                (lowerIsBetter ? val < otherVal : val > otherVal) ? 'text-green-700' : 'text-red-600';
+              const payback = path.annualSavingEur > 0 ? path.totalNet / path.annualSavingEur : Infinity;
+              const otherPayback = other.annualSavingEur > 0 ? other.totalNet / other.annualSavingEur : Infinity;
+              return (
               <div key={path.id} className={`rounded-xl border-2 p-5 ${path.id === 'pragmatic' ? 'border-blue-300 bg-blue-50/30' : 'border-amber-300 bg-amber-50/30'}`}>
                 <h3 className="text-base font-semibold text-slate-900">{path.label}</h3>
                 <p className="text-sm text-slate-500 leading-relaxed mt-1">{path.subtitle}</p>
-                <p className="text-xs text-slate-400 mt-1">BER after: {path.berRating} · HLI: {path.hliAfter.toFixed(2)}</p>
+                <p className={`text-xs mt-1 ${better(path.hliAfter, other.hliAfter, true)}`}>BER after: {path.berRating} · HLI: {path.hliAfter.toFixed(2)}</p>
 
                 <div className="grid grid-cols-3 gap-3 mt-4">
                   <div>
                     <p className="text-xs text-slate-400">Gross cost</p>
-                    <p className="text-lg font-semibold tabular-nums text-slate-900">{fmt(path.totalGross)}</p>
+                    <p className={`text-lg font-semibold tabular-nums ${better(path.totalGross, other.totalGross, true)}`}>{fmt(path.totalGross)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">Total grants</p>
@@ -347,34 +353,34 @@ export function HliThresholdReport() {
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">You pay</p>
-                    <p className="text-lg font-semibold tabular-nums text-slate-900">{fmt(path.totalNet)}</p>
+                    <p className={`text-lg font-semibold tabular-nums ${better(path.totalNet, other.totalNet, true)}`}>{fmt(path.totalNet)}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 mt-3">
                   <div>
                     <p className="text-xs text-slate-400">Annual bill</p>
-                    <p className="text-base font-semibold tabular-nums text-slate-700">{fmt(path.annualBillEur)}</p>
+                    <p className={`text-base font-semibold tabular-nums ${better(path.annualBillEur, other.annualBillEur, true)}`}>{fmt(path.annualBillEur)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">Saving vs gas</p>
-                    <p className="text-base font-semibold tabular-nums text-green-700">{fmt(path.annualSavingEur)}/yr</p>
+                    <p className={`text-base font-semibold tabular-nums ${better(path.annualSavingEur, other.annualSavingEur, false)}`}>{fmt(path.annualSavingEur)}/yr</p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">SCOP</p>
-                    <p className="text-base font-semibold tabular-nums text-slate-700">{path.scop.toFixed(2)}</p>
+                    <p className={`text-base font-semibold tabular-nums ${better(path.scop, other.scop, false)}`}>{path.scop.toFixed(2)}</p>
                   </div>
                 </div>
 
                 <div className="mt-3 flex items-center gap-4 text-sm">
                   <div>
                     <span className="text-slate-400">Work days: </span>
-                    <span className="font-semibold tabular-nums text-slate-700">{Math.round(path.totalWorkerHours / 8)}</span>
+                    <span className={`font-semibold tabular-nums ${better(path.totalWorkerHours, other.totalWorkerHours, true)}`}>{Math.round(path.totalWorkerHours / 8)}</span>
                   </div>
                   <div>
                     <span className="text-slate-400">Payback: </span>
-                    <span className="font-semibold tabular-nums text-slate-700">
-                      {path.annualSavingEur > 0 ? `${(path.totalNet / path.annualSavingEur).toFixed(1)} yrs` : '—'}
+                    <span className={`font-semibold tabular-nums ${better(payback, otherPayback, true)}`}>
+                      {path.annualSavingEur > 0 ? `${payback.toFixed(1)} yrs` : '—'}
                     </span>
                   </div>
                 </div>
@@ -420,7 +426,8 @@ export function HliThresholdReport() {
                   </div>
                 </details>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {paths.length === 2 && (() => {
