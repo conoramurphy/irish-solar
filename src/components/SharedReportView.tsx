@@ -193,7 +193,16 @@ export function SharedReportView() {
           href="https://wa.me/353858082080?text=Hey%2C%20I%20just%20want%20to%20chat%20through%20my%20business%27s%20potential%20solar%20and%20energy%20savings%20with%20you.%20What%20time%20works%3F"
           target="_blank"
           rel="noopener noreferrer"
-          onClick={() => posthog?.capture('meeting_booking_started', { source: 'report_floating_cta' })}
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.gtag) {
+              window.gtag('event', 'conversion', {
+                send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
+                value: 25.0,
+                currency: 'EUR',
+              });
+            }
+            posthog?.capture('meeting_booking_started', { source: 'report_floating_cta' });
+          }}
           className="fixed bottom-5 left-1/2 -translate-x-1/2 z-30 inline-flex items-center gap-3 rounded-2xl px-8 py-4 text-base md:text-lg font-semibold shadow-xl hover:shadow-2xl transition-all duration-200 whitespace-nowrap"
           style={{ backgroundColor: '#1A4A35', color: '#FDEAB4' }}
           aria-label="Book your free call on WhatsApp"

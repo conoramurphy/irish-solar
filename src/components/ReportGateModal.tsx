@@ -50,8 +50,8 @@ export function ReportGateModal({ reportId, onComplete }: ReportGateModalProps) 
       const hashedEmail = await sha256Hex(email.trim().toLowerCase());
       window.gtag('event', 'generate_lead', { form: 'report_gate' });
       window.gtag('event', 'conversion', {
-        send_to: 'AW-18091029484/pqP0CI21qJwcEOznvLJD',
-        value: 1.0,
+        send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
+        value: 25.0,
         currency: 'EUR',
         user_data: { sha256_email_address: hashedEmail },
       });

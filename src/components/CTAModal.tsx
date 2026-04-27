@@ -91,8 +91,8 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
         form: 'cta_modal',
       });
       window.gtag('event', 'conversion', {
-        send_to: 'AW-18091029484/pqP0CI21qJwcEOznvLJD',
-        value: 1.0,
+        send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
+        value: 25.0,
         currency: 'EUR',
         user_data: { sha256_email_address: hashedEmail },
       });
@@ -111,6 +111,16 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
       href={waHref}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={() => {
+        if (typeof window !== 'undefined' && window.gtag) {
+          window.gtag('event', 'conversion', {
+            send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
+            value: 25.0,
+            currency: 'EUR',
+          });
+        }
+        posthog?.capture('whatsapp_clicked', { source: 'cta_modal' });
+      }}
       className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
     >
       {WHATSAPP_ICON}
