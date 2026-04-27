@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { usePostHog } from '@posthog/react';
 import { SharedReportView } from './components/SharedReportView';
@@ -55,6 +55,7 @@ import type { HpHandoff } from './components/HeatPumpResults';
 import { endSpan as endSolarSpan, logError as logSolarError, logInfo as logSolarInfo, logWarn, startSpan as startSolarSpan } from './utils/logger';
 import { normalizeSolarTimeseriesYear, type SolarNormalizationCorrections } from './utils/solarTimeseriesParser';
 import type { BuildingTypeSelection } from './types';
+import { setConsent } from './utils/consent';
 
 const grantsData = rawGrantsData as unknown as Grant[];
 const tariffsData = rawTariffsData as unknown as Tariff[];
@@ -1035,6 +1036,11 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
 }
 
 function App() {
+  // TEMP — revert after Google Ads debugging: force grant + persist (overrides prior deny in LS)
+  useLayoutEffect(() => {
+    setConsent('granted');
+  }, []);
+
   return (
     <>
       <Routes>
