@@ -612,51 +612,6 @@ export function HliThresholdReport() {
         </section>
 
         {/* ============================================================= */}
-        {/* SECTION: LOOKING TO THE FUTURE                               */}
-        {/* ============================================================= */}
-        <section>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold leading-snug tracking-tight mb-6" style={{ color: '#78350F' }}>Insulation can't be measured. Electrification can.</h2>
-
-          <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
-            The ESRI's own research exposes a fundamental problem with fabric-first policy:
-            insulation's real-world impact is unmeasurable. A study
-            of <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8550629/" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">nearly 10,000 Irish households</a> (Meles,
-            Farrell &amp; Curtis, 2021) found that F/G-rated homes use <strong>56% less energy</strong> than
-            their BER predicts; A/B-rated homes use <strong>40% more</strong>. A G-rated house consumes
-            just 3.7% more energy per year than an A-rated one. The BER predicts a fivefold
-            difference. The real difference is almost nothing.
-          </p>
-          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            This isn't a rounding error, it's a systemic measurement failure. People in cold
-            homes heat less; people in warm homes heat more. The BER assumes everyone heats to 21°C
-            for 8 hours daily. Nobody does. And once cavity fill is injected or attic insulation
-            boarded over, work quality
-            is <a href="https://www.esri.ie/publications/bunching-of-residential-building-energy-performance-certificates-at-threshold-values" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">essentially non-verifiable</a> without
-            destructive inspection. Collins &amp; Curtis (2018) found systematic bunching of BER
-            certificates at grade boundaries, with assessors nudging inputs to push ratings over the line.
-          </p>
-          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            Electrification is the opposite. A solar panel's output is metered to the watt. A heat
-            pump's SCOP is measured by comparing electricity in to heat out. A battery's cycling is
-            logged by its management system. All readable remotely, verifiable nationally, auditable
-            in seconds. No inspector subjectivity, no hidden workmanship, no performance gap.
-          </p>
-          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            The economics point the same way. Insulation is labour and raw materials, costs
-            that only rise, competing with a construction sector that can't find enough workers
-            for housing. Solar and batteries are manufactured technologies on global learning
-            curves, costs that fall every year. A residential solar system that cost
-            €12,000 five years ago costs €6,000 today. Deep retrofit costs have moved the other way:
-            the average SEAI-supported upgrade went from €2,600 in 2015 to €29,000 in 2025.
-          </p>
-          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mt-4">
-            Electrify-first aligns Ireland with technologies getting cheaper, faster to deploy,
-            and verifiable at national scale. Fabric-first locks us into technologies getting more
-            expensive, taking months to install, and unmeasurable even after completion.
-          </p>
-        </section>
-
-        {/* ============================================================= */}
         {/* SECTION 5: CONCLUSION                                         */}
         {/* ============================================================= */}
         <section className="border-t border-slate-200 pt-10">
@@ -671,105 +626,20 @@ export function HliThresholdReport() {
             pays {fmt(costDiff20v275)}/year more in electricity than one at 2.0.
           </p>
 
-          <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7] mb-6">
             This requires no new legislation, no new funding, and no new infrastructure. One
             number change in SEAI's eligibility criteria.
           </p>
 
-          <details className="mt-10 rounded-xl border border-slate-200 bg-white">
-            <summary className="px-6 py-4 cursor-pointer hover:bg-slate-50">
-              <h3 className="inline text-lg font-serif font-semibold tracking-tight" style={{ color: '#78350F' }}>Go further</h3>
-              <p className="text-sm text-slate-500 mt-1">Three more changes that would accelerate decarbonisation</p>
-            </summary>
-            <div className="px-6 pb-6 border-t border-slate-100">
-            <ol className="list-decimal list-inside space-y-5 text-[1.0625rem] text-slate-700 leading-[1.7] mt-5">
-              <li>
-                <strong>Bundle heat pump and solar grants into one "Electrify Your Heating"
-                package.</strong> A heat pump dramatically increases electricity consumption; the modelling
-                shows annual bills of €1,400–€2,000+. Solar PV directly offsets this load, especially
-                in summer when panels produce most and the heat pump is off. Bundling grants would
-                drive simultaneous installation, maximising self-consumption, reducing grid strain,
-                and strengthening electrification economics. The current system treats heating and
-                generation as separate decisions. They should be one package.
-              </li>
-              <li>
-                <strong>Replace inspector-based grant verification with remote performance
-                data.</strong> Every heat pump, solar inverter, and battery already reports real-time
-                performance. Instead of sending inspectors to check insulation they cannot see behind
-                walls, require installers to submit seasonal performance reports: verified SCOP for
-                heat pumps, measured kWh yield for solar, battery cycle data if installed. If the
-                system misses its targets after one heating season, the installer must fix it or
-                return the grant. This shifts verification from subjective site visits to objective,
-                automated, national-scale accountability.
-              </li>
-              <li>
-                <strong>Fix DEAP's treatment of pre-1940 solid walls.</strong> Raising the HLI
-                threshold to 2.75 unlocks post-1978 and 1940–78 homes, roughly 75% of the
-                stock. But pre-1940 solid-wall homes (~10–15%) face a separate barrier: DEAP
-                assigns them a U-value of 2.1 W/m²K regardless of wall thickness or
-                material. <a href="https://www.tandfonline.com/doi/full/10.1080/09613218.2014.967977" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">In
-                situ measurements</a> (Biddulph et al.) found a mean of
-                1.3 W/m²K, <strong>40% better</strong>, because thermal mass buffers heat in ways
-                a steady-state calculation cannot capture.
-                The <a href="https://link.springer.com/chapter/10.1007/978-3-031-71145-9_36" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">FabTrads
-                project</a> (TU Dublin) is measuring Irish traditional walls now. If confirmed,
-                these homes are excluded by a model error, not by physics.
-              </li>
-            </ol>
-
-              <div className="overflow-x-auto rounded-lg border border-slate-200 mt-6 mb-2">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-[0.6875rem] font-medium tracking-wide uppercase text-slate-400">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Era</th>
-                      <th className="px-4 py-3 text-left">Wall type</th>
-                      <th className="px-4 py-3 text-right">~% of stock</th>
-                      <th className="px-4 py-3 text-right">Typical HLI</th>
-                      <th className="px-4 py-3 text-left">Cheapest path (no walls, no windows)</th>
-                      <th className="px-4 py-3 text-right">HLI after</th>
-                      <th className="px-4 py-3 text-right">Qualifies at 2.75?</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    <tr className="bg-green-50">
-                      <td className="px-4 py-2 font-medium">Post-1978</td>
-                      <td className="px-4 py-2 text-slate-600">Cavity block</td>
-                      <td className="px-4 py-2 text-right tabular-nums">~50%</td>
-                      <td className="px-4 py-2 text-right tabular-nums">2.5</td>
-                      <td className="px-4 py-2 text-slate-600">Attic + cavity fill + air sealing (€1,650)</td>
-                      <td className="px-4 py-2 text-right tabular-nums">1.72</td>
-                      <td className="px-4 py-2 text-right"><span className="text-green-700 font-medium">Yes</span></td>
-                    </tr>
-                    <tr className="bg-green-50">
-                      <td className="px-4 py-2 font-medium">1940–1978</td>
-                      <td className="px-4 py-2 text-slate-600">Hollow block / early cavity</td>
-                      <td className="px-4 py-2 text-right tabular-nums">~25%</td>
-                      <td className="px-4 py-2 text-right tabular-nums">3.5</td>
-                      <td className="px-4 py-2 text-slate-600">Attic + cavity fill + air sealing (€1,650)</td>
-                      <td className="px-4 py-2 text-right tabular-nums">2.72</td>
-                      <td className="px-4 py-2 text-right"><span className="text-green-700 font-medium">Yes</span></td>
-                    </tr>
-                    <tr className="bg-red-50">
-                      <td className="px-4 py-2 font-medium">Pre-1940</td>
-                      <td className="px-4 py-2 text-slate-600">Solid stone / brick</td>
-                      <td className="px-4 py-2 text-right tabular-nums">~10–15%</td>
-                      <td className="px-4 py-2 text-right tabular-nums">4.5</td>
-                      <td className="px-4 py-2 text-slate-600">Attic + air sealing (€1,250)</td>
-                      <td className="px-4 py-2 text-right tabular-nums">4.17</td>
-                      <td className="px-4 py-2 text-right"><span className="text-red-600 font-medium">No</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Stock percentages are approximate, based on CSO Census 2022 dwelling age data and the TU Dublin housing stock study.
-                "Cheap measures" means attic insulation, cavity fill (where available), and air sealing. No wall insulation, no window replacement, no floor work.
-                Costs shown are net of SEAI grants.
-              </p>
-            </div>
-          </details>
-
-
+          <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
+            <strong>Bundle heat pump and solar grants into one "Electrify Your Heating"
+            package.</strong> A heat pump dramatically increases electricity consumption; the modelling
+            shows annual bills of €1,400–€2,000+. Solar PV directly offsets this load, especially
+            in summer when panels produce most and the heat pump is off. Bundling grants would
+            drive simultaneous installation, maximising self-consumption, reducing grid strain,
+            and strengthening electrification economics. The current system treats heating and
+            generation as separate decisions. They should be one package.
+          </p>
         </section>
 
         {/* ============================================================= */}
