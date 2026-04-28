@@ -632,8 +632,7 @@ export function HliThresholdReport() {
           </p>
 
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
-            <strong>Bundle heat pump and solar grants into one "Electrify Your Heating"
-            package.</strong> A heat pump dramatically increases electricity consumption; the modelling
+            <strong>Increase the grant when heat pump and solar are installed together.</strong> A heat pump dramatically increases electricity consumption; the modelling
             shows annual bills of €1,400–€2,000+. Solar PV directly offsets this load year-round — with enough panels, a well-sized system
             still generates meaningfully through winter, exactly when the heat pump is working hardest.
             A typical residential solar installation is complete in a single day. Bundling grants would
