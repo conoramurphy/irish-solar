@@ -634,8 +634,8 @@ export function HliThresholdReport() {
           <p className="text-[1.0625rem] text-slate-700 leading-[1.7]">
             <strong>Bundle heat pump and solar grants into one "Electrify Your Heating"
             package.</strong> A heat pump dramatically increases electricity consumption; the modelling
-            shows annual bills of €1,400–€2,000+. Solar PV directly offsets this load, especially
-            in summer when panels produce most and the heat pump is off. Bundling grants would
+            shows annual bills of €1,400–€2,000+. Solar PV directly offsets this load year-round — with enough panels, a well-sized system
+            still generates meaningfully through winter, exactly when the heat pump is working hardest. Bundling grants would
             drive simultaneous installation, maximising self-consumption, reducing grid strain,
             and strengthening electrification economics. The current system treats heating and
             generation as separate decisions. They should be one package.
