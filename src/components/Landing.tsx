@@ -60,9 +60,9 @@ const STEPS = [
   },
   {
     n: '04',
-    title: 'We verify it',
-    time: '1 hr',
-    body: 'Real quotes run back through the digital twin. Every number is confirmed before you commit.',
+    title: 'We verify and manage the whole process',
+    time: '',
+    body: '',
   },
 ];
 
@@ -278,9 +278,11 @@ export function Landing() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                        {s.body}
-                      </p>
+                      {s.body && (
+                        <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                          {s.body}
+                        </p>
+                      )}
                     </div>
                   </li>
                 ))}
