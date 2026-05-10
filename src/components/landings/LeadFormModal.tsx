@@ -42,11 +42,8 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
               id="lead-modal-heading"
               className="text-lg font-semibold text-slate-900 leading-tight"
             >
-              Get your free Solar ROI
+              Get your free Solar ROI in 1 minute
             </h3>
-            <p className="text-sm text-slate-500 mt-1.5 leading-snug">
-              See your ROI in 1 min.
-            </p>
           </div>
           <button
             onClick={onClose}
