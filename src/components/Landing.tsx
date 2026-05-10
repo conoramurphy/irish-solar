@@ -160,9 +160,10 @@ export function Landing() {
             <div className="pt-10 pb-7 md:pt-14 md:pb-10 max-w-3xl">
               <h1
                 id="hero-heading"
-                className="text-4xl sm:text-6xl md:text-7xl font-serif font-bold text-white leading-[1.05] tracking-tight mb-7"
+                className="text-3xl sm:text-5xl md:text-6xl font-serif font-bold text-white leading-[1.08] tracking-tight mb-7"
               >
-                Independent solar modelling for Irish businesses.
+                Irish businesses make half what they should from solar.{' '}
+                <span style={{ color: '#FDEAB4' }}>We fix that.</span>
               </h1>
               <p className="text-base sm:text-xl font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 We don&rsquo;t sell panels. We model your business properly using real
