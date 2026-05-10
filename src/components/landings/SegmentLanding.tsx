@@ -1,34 +1,40 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LeadForm } from './LeadForm';
+import { usePostHog } from '@posthog/react';
+import { LeadFormModal } from './LeadFormModal';
 import { FiveWaysGrid } from './FiveWaysGrid';
 import { Faq } from './Faq';
 import type { FunnelSegment } from './funnelConstants';
 
 interface SegmentCopy {
-  heroSubhead: string;
+  /** "{Irish hotels|Irish dairy farms} make half what they should from solar." */
+  headlineLead: string;
+  /** First paragraph of the subhead — the positioning. */
+  subheadIntro: string;
+  /** Second paragraph of the subhead — the methodology. */
+  subheadBody: string;
+  /** Small credibility line just before the CTA. */
   baselineLine: string;
-  formIntro: string;
-  formSubmitLabel: string;
 }
 
 const COPY: Record<FunnelSegment, SegmentCopy> = {
   hotel: {
-    heroSubhead:
-      'Your installer\'s free model is a sales tool. Get an independent one instantly.',
+    headlineLead: 'Irish hotels make half what they should from solar.',
+    subheadIntro:
+      'We don\'t sell panels. We\'re independent solar advice, brokerage and management for Irish hotels.',
+    subheadBody:
+      'We model your hotel properly using your real consumption profile, daytime occupancy patterns, real sunlight, real export rates through 2033, and every grant and capital allowance you\'re entitled to. Then we manage the installer process end to end so you don\'t have to. Most quotes oversell batteries and undersize panels. We fix that before you spend a euro.',
     baselineLine:
-      'Built on a real 20-bed Irish hotel model, scaled to your bill. Not a brochure.',
-    formIntro:
-      'Tell us four things and we\'ll build your independent ROI right now.',
-    formSubmitLabel: 'Get your free Solar ROI',
+      'Built on a real 20-bed Cavan hotel model, scaled to your bill. Not a brochure.',
   },
   dairy: {
-    heroSubhead:
-      'Your installer\'s free model is a sales tool. Get an independent one instantly.',
+    headlineLead: 'Irish dairy farms make half what they should from solar.',
+    subheadIntro:
+      'We don\'t sell panels. We\'re independent solar advice, brokerage and management for Irish dairy farms.',
+    subheadBody:
+      'We model your farm properly using your real milking parlour load, real sunlight, real export rates through 2033, and the full TAMS 3 grant treatment. Then we manage the installer process end to end so you don\'t have to. Most quotes oversell batteries and undersize panels. We fix that before you spend a euro.',
     baselineLine:
       'Built on a real 100-head Longford dairy farm model, scaled to your bill. Not a brochure.',
-    formIntro:
-      'Tell us four things and we\'ll build your independent ROI right now.',
-    formSubmitLabel: 'Get your free Solar ROI',
   },
 };
 
@@ -46,6 +52,12 @@ const SUN_ICON = (
   </svg>
 );
 
+const ARROW = (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+  </svg>
+);
+
 const GRID_LIGHT: React.CSSProperties = {
   backgroundImage: [
     'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)',
@@ -60,10 +72,24 @@ interface SegmentLandingProps {
 
 export function SegmentLanding({ segment }: SegmentLandingProps) {
   const copy = COPY[segment];
-  const segmentDisplay = segment === 'hotel' ? 'hotel' : 'dairy farm';
+  const posthog = usePostHog();
+  const [ctaOpen, setCtaOpen] = useState(false);
+  const source = segment === 'hotel' ? 'hotels_landing' : 'dairy_landing';
+
+  function openCta(buttonSource: string) {
+    posthog?.capture('cta_modal_opened', { source: `${source}:${buttonSource}` });
+    setCtaOpen(true);
+  }
 
   return (
     <main>
+      <LeadFormModal
+        open={ctaOpen}
+        onClose={() => setCtaOpen(false)}
+        fixedSegment={segment}
+        source={source}
+      />
+
       {/* Hero */}
       <section className="relative" style={{ backgroundColor: '#3A7A5C' }}>
         <div className="pointer-events-none absolute inset-0" style={GRID_LIGHT} />
@@ -85,44 +111,47 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
               className="hidden md:block text-sm font-semibold"
               style={{ color: 'rgba(255,255,255,0.6)' }}
             >
-              Independent Irish energy advice · 2020–25
+              Independent of every installer in Ireland
             </span>
           </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 pt-8 pb-12 md:pt-12 md:pb-16 items-start">
-            <div>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-serif font-bold text-white leading-[1.05] tracking-tight mb-6">
-                Get your free{' '}
-                <span style={{ color: '#FDEAB4' }}>independent of installer</span>
-                {' '}solar ROI for your {segmentDisplay}.
-              </h1>
-              <p
-                className="text-lg sm:text-xl font-light leading-relaxed mb-4"
-                style={{ color: 'rgba(255,255,255,0.92)' }}
-              >
-                {copy.heroSubhead}
-              </p>
-              <p
-                className="text-sm sm:text-base font-light leading-relaxed"
-                style={{ color: 'rgba(255,255,255,0.78)' }}
-              >
-                {copy.baselineLine}
-              </p>
-            </div>
+          {/* Hero copy + CTA — single column to mirror the homepage */}
+          <div className="pt-10 pb-14 md:pt-14 md:pb-20 max-w-3xl">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif font-bold text-white leading-[1.08] tracking-tight mb-7">
+              {copy.headlineLead}{' '}
+              <span style={{ color: '#FDEAB4' }}>We fix that.</span>
+            </h1>
 
-            {/* Form column */}
-            <div className="lg:pt-2">
-              <p
-                className="text-xs font-semibold tracking-widest uppercase mb-3"
-                style={{ color: 'rgba(253,234,180,0.85)' }}
+            <p
+              className="text-base sm:text-xl font-light leading-relaxed mb-4"
+              style={{ color: 'rgba(255,255,255,0.92)' }}
+            >
+              {copy.subheadIntro}
+            </p>
+            <p
+              className="text-base sm:text-xl font-light leading-relaxed"
+              style={{ color: 'rgba(255,255,255,0.92)' }}
+            >
+              {copy.subheadBody}
+            </p>
+
+            <p
+              className="text-sm sm:text-base font-light leading-relaxed mt-6"
+              style={{ color: 'rgba(255,255,255,0.78)' }}
+            >
+              {copy.baselineLine}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-4 mt-8">
+              <button
+                type="button"
+                onClick={() => openCta('hero_button')}
+                className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                style={{ backgroundColor: '#1A4A35' }}
+                aria-label="Get your free Solar ROI"
               >
-                {copy.formIntro}
-              </p>
-              <LeadForm
-                fixedSegment={segment}
-                source={segment === 'hotel' ? 'hotels_landing' : 'dairy_landing'}
-                submitLabel={copy.formSubmitLabel}
-              />
+                Get your free Solar ROI {ARROW}
+              </button>
             </div>
           </div>
         </div>

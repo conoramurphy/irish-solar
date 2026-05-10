@@ -1,17 +1,27 @@
 import { useEffect } from 'react';
 import { LeadForm } from './LeadForm';
+import type { FunnelSegment } from './funnelConstants';
 
 interface LeadFormModalProps {
   open: boolean;
   onClose: () => void;
+  /** When set, the chooser is hidden inside the modal (segment pages already imply the segment). */
+  fixedSegment?: FunnelSegment;
+  /** PostHog source attribution for the modal. */
+  source?: 'root_landing_modal' | 'hotels_landing' | 'dairy_landing';
 }
 
 /**
- * Modal wrapper around LeadForm with the "what's your business?" chooser shown.
- * Used by the existing root landing (`Landing.tsx`) — its CTAs all open this
- * modal. /hotels and /dairy render LeadForm inline (segment fixed) instead.
+ * Modal wrapper around LeadForm. By default shows the "what's your business?"
+ * chooser; pass `fixedSegment` to hide it (used by /hotels and /dairy where
+ * the page already implies the segment).
  */
-export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
+export function LeadFormModal({
+  open,
+  onClose,
+  fixedSegment,
+  source = 'root_landing_modal',
+}: LeadFormModalProps) {
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -57,7 +67,8 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
         </div>
         <div className="px-6 pb-6">
           <LeadForm
-            source="root_landing_modal"
+            source={source}
+            fixedSegment={fixedSegment}
             submitLabel="Get your free Solar ROI"
             onConfirmationDismiss={onClose}
             bare
