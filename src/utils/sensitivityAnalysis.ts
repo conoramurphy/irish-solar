@@ -141,7 +141,10 @@ function computeScenarioMetrics(
 export function runSensitivityAnalysis(context: AnalysisContext): SensitivityAnalysis {
   const { config } = context;
 
-  const scaleFactors = [0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0];
+  // 0.25 added at the bottom so the funnel's 33% pick can step well below
+  // the 50% pick when the baseline is large; without it both targets often
+  // collapse onto the same scaled-down cell.
+  const scaleFactors = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0];
 
   const baseKwp =
     config.systemSizeKwp && config.systemSizeKwp > 0

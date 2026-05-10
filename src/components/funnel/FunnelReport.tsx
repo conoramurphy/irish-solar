@@ -114,10 +114,10 @@ const CARD_GRID_BY_COUNT: Record<number, string> = {
   3: 'grid grid-cols-1 md:grid-cols-3 gap-4',
 };
 
-// Total cells the sensitivity sweep models (8 scale factors × 4 battery options).
-// `pickPathsFromSensitivity` walks all 32 to choose the picks; the heading
+// Total cells the sensitivity sweep models (9 scale factors × 4 battery options).
+// `pickPathsFromSensitivity` walks all 36 to choose the picks; the heading
 // surfaces this so the user knows we didn't pick 3 at random.
-const MODELLED_CELL_COUNT = 32;
+const MODELLED_CELL_COUNT = 36;
 
 function FunnelPathCardsTrio({ paths }: { paths: PathRecommendation[] }) {
   const cardGridClass = CARD_GRID_BY_COUNT[paths.length] ?? CARD_GRID_BY_COUNT[3];
