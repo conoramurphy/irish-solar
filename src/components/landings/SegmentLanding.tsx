@@ -14,21 +14,21 @@ interface SegmentCopy {
 const COPY: Record<FunnelSegment, SegmentCopy> = {
   hotel: {
     heroSubhead:
-      'Your installer\'s free model is a sales tool. Get an independent one in your inbox today.',
+      'Your installer\'s free model is a sales tool. Get an independent one instantly.',
     baselineLine:
-      'Built on a real 20-bed Irish hotel model, scaled to your bill — not a brochure.',
+      'Built on a real 20-bed Irish hotel model, scaled to your bill. Not a brochure.',
     formIntro:
-      'Tell us four things and we\'ll build your independent ROI model right now.',
-    formSubmitLabel: 'Get my free Solar ROI',
+      'Tell us four things and we\'ll build your independent ROI right now.',
+    formSubmitLabel: 'Get your free Solar ROI',
   },
   dairy: {
     heroSubhead:
-      'Your installer\'s free model is a sales tool. Get an independent one in your inbox today.',
+      'Your installer\'s free model is a sales tool. Get an independent one instantly.',
     baselineLine:
-      'Built on a real 100-head Longford dairy farm model, scaled to your bill — not a brochure.',
+      'Built on a real 100-head Longford dairy farm model, scaled to your bill. Not a brochure.',
     formIntro:
-      'Tell us four things and we\'ll build your independent ROI model right now.',
-    formSubmitLabel: 'Get my free Solar ROI',
+      'Tell us four things and we\'ll build your independent ROI right now.',
+    formSubmitLabel: 'Get your free Solar ROI',
   },
 };
 

@@ -50,13 +50,13 @@ const STEPS = [
     n: '02',
     title: 'We walk you through it',
     time: '1 hr',
-    body: 'One call to talk through the real trade-offs — no jargon, no pressure.',
+    body: 'One call to talk through the real trade-offs. No jargon, no pressure.',
   },
   {
     n: '03',
     title: 'We shop it',
     time: '~3 weeks',
-    body: 'We get quotes from installers on your behalf, or you can go direct — either way, against a specification built around the systems that pay you the most.',
+    body: 'We get quotes from installers on your behalf, or you can go direct. Either way, against a specification built around the systems that pay you the most.',
   },
   {
     n: '04',
@@ -73,8 +73,8 @@ const EXAMPLE_MODELS = [
     payback: '4.5 yrs',
     savingLabel: '10-yr return',
     saving: '+€82,400',
-    reportId: 'GXz4-_lMwsjVbgc3GzBww',
-    // Navy scheme — exact match to old tariff section
+    href: '/hotels',
+    // Navy scheme, matches the old tariff section
     theme: {
       cardBg: '#1B3A72',
       titleColor: '#FFFFFF',
@@ -91,8 +91,8 @@ const EXAMPLE_MODELS = [
     payback: '4.4 yrs',
     savingLabel: '10-yr return',
     saving: '+€122,887',
-    reportId: 'WZ9EWvHnXsJsk8gH7GUQN',
-    // Amber scheme — exact match to old heat pump section
+    href: '/dairy',
+    // Amber scheme, matches the old heat pump section
     theme: {
       cardBg: '#FEF3C7',
       titleColor: '#78350F',
@@ -152,7 +152,7 @@ export function Landing() {
             <header className="flex items-center justify-between pt-6 pb-2" role="banner">
               {LOGO}
               <span className="hidden md:block text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                Irish energy advisor · Independent advice · 2020–25
+                Independent of every installer in Ireland · Since 2020
               </span>
             </header>
 
@@ -162,20 +162,14 @@ export function Landing() {
                 id="hero-heading"
                 className="text-4xl sm:text-6xl md:text-7xl font-serif font-bold text-white leading-[1.05] tracking-tight mb-7"
               >
-                Your bills{' '}
-                <a href="https://www.thejournal.ie/esri-electricity-prices-7011725-Apr2026/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">are</a>
-                {' '}
-                <a href="https://www.irishtimes.com/business/2026/04/17/households-face-electricity-bill-increases-in-weeks-industry-warns/" target="_blank" rel="noopener noreferrer" className="underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity">rising</a>
-                ,<br />solar can halve them.
+                Independent solar modelling for Irish businesses.
               </h1>
-              <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Right-sized solar — independent of any installer's interests — typically saves €50k+ over the system an installer would quote you, across 10 years.
-              </p>
-              <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                We don't sell panels, we're your partner. We model your real business data in 48 hours — real usage, real sunlight, real export rates through 2033 — then size it right with the installer we pick together.
-              </p>
-              <p className="text-base sm:text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Saving €50k+ versus an installer's spec is normal. A 15-minute chat is free.
+              <p className="text-base sm:text-xl font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                We don&rsquo;t sell panels. We model your business properly using real
+                usage, real sunlight, real export rates through 2033, and every grant and
+                tariff you&rsquo;re entitled to. Then we manage the installer process end
+                to end so you don&rsquo;t have to. Most quotes oversell batteries and
+                undersize panels. We fix that before you spend a euro.
               </p>
 
             </div>
@@ -198,7 +192,7 @@ export function Landing() {
 
             {/* Example model cards label */}
             <p className="text-xs font-semibold tracking-widest uppercase mb-3 max-w-2xl" style={{ color: 'rgba(253,234,180,0.75)' }}>
-              Or review our real anonymised reports first
+              Or see how we&rsquo;ve modelled real Irish businesses
             </p>
 
             {/* Example model cards */}
@@ -212,16 +206,16 @@ export function Landing() {
                   key={m.type}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. See the solar ROI.`}
+                  aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. Get your free Solar ROI for this segment.`}
                   onClick={() => {
-                    posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
-                    navigate(`/r/${m.reportId}`);
+                    posthog?.capture('example_model_opened', { href: m.href, model_name: m.type });
+                    navigate(m.href);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
-                      navigate(`/r/${m.reportId}`);
+                      posthog?.capture('example_model_opened', { href: m.href, model_name: m.type });
+                      navigate(m.href);
                     }
                   }}
                   className="group rounded-2xl p-5 cursor-pointer hover:-translate-y-1 active:translate-y-0 transition-all duration-200 shadow-xl hover:shadow-2xl flex flex-col"
@@ -248,7 +242,7 @@ export function Landing() {
                     style={{ backgroundColor: m.theme.ctaBg, color: m.theme.ctaText }}
                     aria-hidden="true"
                   >
-                    See the solar ROI {ARROW}
+                    Get your free Solar ROI {ARROW}
                   </span>
                 </div>
               ))}
@@ -331,7 +325,7 @@ export function Landing() {
                   <div className="flex gap-3">
                     <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[1]</span>
                     <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                      Sustainable Energy Authority of Ireland. <span className="italic">Solar PV Grant — Domestic.</span>{' '}
+                      Sustainable Energy Authority of Ireland. <span className="italic">Solar PV Grant: Domestic.</span>{' '}
                       <a href="https://www.seai.ie/grants/home-energy-grants/solar-electricity-grant/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>seai.ie</a>.
                       {' '}<span style={{ color: 'rgba(255,255,255,0.4)' }}>Last verified 22 Feb 2025.</span>
                     </p>
@@ -364,14 +358,14 @@ export function Landing() {
                   <div className="flex gap-3">
                     <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[4]</span>
                     <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                      Copernicus Atmosphere Monitoring Service. <span className="italic">CAMS Radiation Service — Global Horizontal Irradiance, 36 Irish locations, 2020–2025.</span>{' '}
+                      Copernicus Atmosphere Monitoring Service. <span className="italic">CAMS Radiation Service: Global Horizontal Irradiance, 36 Irish locations, 2020–2025.</span>{' '}
                       <a href="https://www.soda-pro.com/web-services/radiation/cams-radiation-service" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>soda-pro.com</a>.
                     </p>
                   </div>
                   <div className="flex gap-3">
                     <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[5]</span>
                     <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                      European Commission Joint Research Centre. <span className="italic">PVGIS — Photovoltaic Geographical Information System (PVGIS-SARAH3).</span>{' '}
+                      European Commission Joint Research Centre. <span className="italic">PVGIS: Photovoltaic Geographical Information System (PVGIS-SARAH3).</span>{' '}
                       <a href="https://re.jrc.ec.europa.eu/pvgis/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>re.jrc.ec.europa.eu</a>.
                     </p>
                   </div>
@@ -387,7 +381,7 @@ export function Landing() {
                   <div className="flex gap-3">
                     <span className="font-mono text-xs flex-shrink-0 mt-0.5 w-5 text-right" style={{ color: 'rgba(253,234,180,0.45)' }}>[6]</span>
                     <p className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                      Single Electricity Market Operator. <span className="italic">SEMOpx Day-Ahead Market Reports — ROI-DA, 30-minute intervals, 2021–present.</span>{' '}
+                      Single Electricity Market Operator. <span className="italic">SEMOpx Day-Ahead Market Reports: ROI-DA, 30-minute intervals, 2021–present.</span>{' '}
                       <a href="https://reports.semopx.com" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 decoration-dotted hover:opacity-100 transition-opacity" style={{ color: 'rgba(253,234,180,0.7)' }}>reports.semopx.com</a>.
                     </p>
                   </div>

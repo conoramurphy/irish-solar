@@ -61,7 +61,7 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
         <div className="px-6 pb-6">
           <LeadForm
             source="root_landing_modal"
-            submitLabel="Get my free Solar ROI"
+            submitLabel="Get your free Solar ROI"
             onConfirmationDismiss={onClose}
           />
         </div>

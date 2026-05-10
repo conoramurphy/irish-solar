@@ -41,8 +41,10 @@ const SKIN_BY_TARGET: Record<33 | 50 | 100, CardSkin> = {
   },
 };
 
+const PAYBACK_UNKNOWN = 'n/a';
+
 function formatPaybackYears(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return '—';
+  if (!Number.isFinite(value) || value <= 0) return PAYBACK_UNKNOWN;
   if (value >= 25) return '25+ years';
   return `${value.toFixed(1)} years`;
 }
@@ -62,13 +64,13 @@ export function PathCard({ path }: PathCardProps) {
   const showBattery = path.batterySizeKwh > 0;
   const paybackText = formatPaybackYears(path.simplePaybackYears);
   const tagline =
-    paybackText === '—'
+    paybackText === PAYBACK_UNKNOWN
       ? `${skin.taglinePrefix}.`
-      : `${skin.taglinePrefix} — paid back in ${paybackText}.`;
+      : `${skin.taglinePrefix}. Paid back in ${paybackText}.`;
 
   const footer = `${formatKwp(path.systemSizeKwp)}${
     showBattery ? ` · ${formatBatteryKwh(path.batterySizeKwh)} battery` : ' · No battery'
-  } — Est. ${formatCurrency(path.capexNet)} after grants`;
+  } · Est. ${formatCurrency(path.capexNet)} after grants`;
 
   return (
     <div
@@ -92,7 +94,7 @@ export function PathCard({ path }: PathCardProps) {
 
       {!path.targetMet && (
         <p className="text-xs text-amber-800 mt-2">
-          As close as the rough model gets — the call will model larger systems.
+          As close as the rough model gets. The call will model larger systems.
         </p>
       )}
 

@@ -39,7 +39,7 @@ const BRAND_GREEN_DARK = '#1A4A35';
 export function LeadForm({
   fixedSegment,
   source,
-  submitLabel = 'Get my free Solar ROI',
+  submitLabel = 'Get your free Solar ROI',
   onConfirmationDismiss,
 }: LeadFormProps) {
   const navigate = useNavigate();
@@ -68,7 +68,7 @@ export function LeadForm({
     }
     const spend = Number(annualSpend.replace(/[^\d]/g, ''));
     if (!Number.isFinite(spend) || spend < 1000) {
-      next.annualSpend = 'Annual spend looks too low — should be at least €1,000.';
+      next.annualSpend = 'Annual spend looks too low. Needs to be at least €1,000.';
     }
     return next;
   }
@@ -131,7 +131,7 @@ export function LeadForm({
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         </div>
-        <h3 className="text-base font-semibold text-slate-800 mb-1.5">Thanks — we&rsquo;re on it</h3>
+        <h3 className="text-base font-semibold text-slate-800 mb-1.5">Thanks, we&rsquo;re on it</h3>
         <p className="text-sm text-slate-500 mb-5">
           We&rsquo;ll come back to you with an independent ROI within one business day.
         </p>

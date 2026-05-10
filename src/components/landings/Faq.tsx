@@ -12,27 +12,27 @@ const FAQ_ITEMS: FaqItem[] = [
       <>
         <p className="mb-3">
           We&rsquo;re an advisory and brokerage, not an installer. There are three small,
-          transparent fees across the project — no commission stack, no hidden margins.
+          transparent fees across the project. No commission stack, no hidden margins.
         </p>
         <ol className="list-decimal pl-5 space-y-2.5">
           <li>
             <span className="font-semibold">In-depth model.</span> A small fixed fee from
             you to build the independent ROI model on your real data. This is what makes
-            us independent — we&rsquo;re paid to size the system right, not paid by whoever
+            us independent: we&rsquo;re paid to size the system right, not paid by whoever
             sells you panels.
           </li>
           <li>
             <span className="font-semibold">Brokerage.</span> If you decide to go ahead, we
             tender at least three quotes from reputable solar installers benchmarked on
             the same spec. You pick the installer; we receive a small standard flat
-            brokerage fee from them &mdash; flat, not percentage, so we have no incentive
-            to push a bigger system.
+            brokerage fee from them. Flat, not percentage, so we have no incentive to
+            push a bigger system.
           </li>
           <li>
             <span className="font-semibold">Tariff switch.</span> Once solar is live your
             load shape changes. We re-tender supply and broker the best tariff for the
             new profile (a typical 5&ndash;10% extra savings on top). A small broker fee
-            from the supplier &mdash; same model as any switching site.
+            from the supplier, same model as any switching site.
           </li>
         </ol>
       </>
@@ -49,15 +49,15 @@ const FAQ_ITEMS: FaqItem[] = [
         <ul className="list-disc pl-5 space-y-2">
           <li>
             Write the technical spec from your real load data, so every quote is on the
-            same basis &mdash; no apples-to-oranges comparison.
+            same basis. No apples-to-oranges comparison.
           </li>
           <li>
             Run the tender: invite three benchmarked installers, chase responses, surface
             differences in writing.
           </li>
           <li>
-            Negotiate against the spec on your behalf &mdash; system size, battery, export
-            cap, warranty, payment milestones.
+            Negotiate against the spec on your behalf: system size, battery, export cap,
+            warranty, payment milestones.
           </li>
           <li>
             Track the install: ESB Networks application, planning if needed, scheduling,
@@ -81,7 +81,7 @@ const FAQ_ITEMS: FaqItem[] = [
         <p className="mb-3">
           An installer&rsquo;s &ldquo;free&rdquo; ROI is a sales tool. They&rsquo;re paid
           per kWp installed and per kWh of battery, so their model leans toward whichever
-          system pays them most &mdash; not the system that pays you back fastest.
+          system pays them most, not the system that pays you back fastest.
         </p>
         <p>
           We&rsquo;re paid by you to build the model and a flat brokerage fee from the
@@ -98,7 +98,7 @@ const FAQ_ITEMS: FaqItem[] = [
       <>
         <p className="mb-3">
           Yes. Solar is usually the first move, but you can come back any time for a
-          stand-alone independent model on either of these &mdash; same approach, same
+          stand-alone independent model on either of these. Same approach, same
           independence from installers.
         </p>
         <ul className="list-disc pl-5 space-y-2">
@@ -106,8 +106,7 @@ const FAQ_ITEMS: FaqItem[] = [
             <span className="font-semibold">Battery-only model.</span> If you already have
             solar (ours or someone else&rsquo;s), we model what a battery actually adds at
             your real load shape and current tariff. Many systems get oversold a battery
-            that doesn&rsquo;t pay back &mdash; we tell you, on your data, whether yours
-            does.
+            that doesn&rsquo;t pay back. We tell you, on your data, whether yours does.
           </li>
           <li>
             <span className="font-semibold">Heat-pump model.</span> Electrifying heat
