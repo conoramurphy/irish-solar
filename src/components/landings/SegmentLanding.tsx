@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { LeadForm } from './LeadForm';
 import { FiveWaysGrid } from './FiveWaysGrid';
+import { Faq } from './Faq';
 import type { FunnelSegment } from './funnelConstants';
 
 interface SegmentCopy {
@@ -128,6 +129,7 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
       </section>
 
       <FiveWaysGrid />
+      <Faq />
     </main>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LeadFormModal } from './landings/LeadFormModal';
+import { Faq } from './landings/Faq';
 import { usePostHog } from '@posthog/react';
 
 // Grid overlay styles — white lines for dark sections, dark lines for light sections
@@ -297,6 +298,8 @@ export function Landing() {
 
           </div>
         </section>
+
+        <Faq bgClassName="bg-slate-50" />
 
         {/* ─────────────────────────────────────────────
             FOOTER
