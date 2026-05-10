@@ -124,12 +124,17 @@ function FunnelPathCardsTrio({ paths }: { paths: PathRecommendation[] }) {
   const optionsLabel = paths.length === 1 ? 'option' : 'options';
   return (
     <section aria-labelledby="funnel-paths-heading" className="mb-8">
-      <h3
-        id="funnel-paths-heading"
-        className="text-lg md:text-xl font-serif font-semibold text-slate-900 mb-4"
-      >
-        {paths.length} savings {optionsLabel} from {MODELLED_CELL_COUNT} modelled
-      </h3>
+      <div className="mb-6">
+        <h3
+          id="funnel-paths-heading"
+          className="text-2xl font-serif font-bold text-tines-dark mb-2"
+        >
+          {paths.length} savings {optionsLabel} from {MODELLED_CELL_COUNT} modelled
+        </h3>
+        <p className="text-sm text-slate-600">
+          Each option is the cheapest system in our sweep that hits its bill-reduction target.
+        </p>
+      </div>
       <div className={cardGridClass} role="list" aria-label="Recommended setups">
         {paths.map((path) => (
           <div key={path.targetReductionPct} role="listitem">
