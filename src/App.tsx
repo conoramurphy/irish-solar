@@ -6,6 +6,8 @@ import ReportsListView from './components/ReportsListView';
 import LinksPage from './components/LinksPage';
 import { HeatPumpCalculator } from './components/HeatPumpCalculator';
 import { HliThresholdReport } from './components/HliThresholdReport';
+import { HotelsLanding, DairyLanding } from './components/landings/SegmentLanding';
+import { FunnelReport } from './components/funnel/FunnelReport';
 
 import { endSpan, logError, logInfo, startSpan } from './utils/logger';
 import rawGrantsData from './data/grants.json';
@@ -1054,6 +1056,10 @@ function App() {
         <Route path="/links" element={<LinksPage />} />
         <Route path="/r" element={<ReportsListView />} />
         <Route path="/r/:id" element={<SharedReportView />} />
+        <Route path="/hotels" element={<HotelsLanding />} />
+        <Route path="/dairy" element={<DairyLanding />} />
+        <Route path="/report/hotel/:id" element={<FunnelReport segment="hotel" />} />
+        <Route path="/report/dairy/:id" element={<FunnelReport segment="dairy" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <CookieConsent />

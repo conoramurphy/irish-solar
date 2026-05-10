@@ -24,8 +24,11 @@ export const onRequestOptions: PagesFunction<Env> = async ({ request, env }) => 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const headers = { 'Content-Type': 'application/json', ...corsHeaders(request, env) };
 
+  // /r listing is the curated wizard-saved reports view. Funnel-generated
+  // reports (kind='funnel') are still readable by URL but are filtered out
+  // here so they don't pollute the curated examples list.
   const { results } = await env.DB.prepare(
-    'SELECT id, name, description, locked, created_at FROM reports ORDER BY created_at DESC'
+    "SELECT id, name, description, locked, created_at FROM reports WHERE kind = 'wizard' ORDER BY created_at DESC"
   ).all<{ id: string; name: string | null; description: string | null; locked: number; created_at: number }>();
 
   const reports = (results ?? []).map((r) => ({
