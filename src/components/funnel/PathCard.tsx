@@ -3,6 +3,8 @@ import type { PathRecommendation } from '../../utils/pickPathsFromSensitivity';
 
 interface PathCardProps {
   path: PathRecommendation;
+  /** When true, render a "Detailed below" highlight + thicker ring. */
+  isDefault?: boolean;
 }
 
 interface CardSkin {
@@ -59,7 +61,7 @@ function formatBatteryKwh(value: number): string {
   return `${value.toFixed(1)} kWh`;
 }
 
-export function PathCard({ path }: PathCardProps) {
+export function PathCard({ path, isDefault = false }: PathCardProps) {
   const skin = SKIN_BY_TARGET[path.targetReductionPct];
   const showBattery = path.batterySizeKwh > 0;
   const paybackText = formatPaybackYears(path.simplePaybackYears);
@@ -72,10 +74,25 @@ export function PathCard({ path }: PathCardProps) {
     showBattery ? ` · ${formatBatteryKwh(path.batterySizeKwh)} battery` : ' · No battery'
   } · Est. ${formatCurrency(path.capexNet)} after grants`;
 
+  // The default-detail card gets a thicker ring + a small "Detailed below"
+  // pill, so the user can connect the highlighted card to the numbers
+  // shown in the rest of the report.
+  const ringClass = isDefault
+    ? 'ring-2 ring-offset-2 ring-offset-white ring-emerald-500 shadow-md'
+    : '';
+
   return (
     <div
-      className={`relative rounded-2xl border ${skin.accentBorder} ${skin.accentBg} p-6 text-left`}
+      className={`relative rounded-2xl border ${skin.accentBorder} ${skin.accentBg} p-6 text-left ${ringClass}`}
     >
+      {isDefault && (
+        <span
+          className="absolute -top-2.5 right-4 inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shadow"
+          aria-label="Detail shown below is for this option"
+        >
+          Detailed below
+        </span>
+      )}
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xl" aria-hidden="true">
           {skin.icon}

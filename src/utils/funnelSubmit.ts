@@ -158,75 +158,111 @@ export function computeFunnelPaths(
   };
 }
 
+/** Pick the path that should drive the persisted report's detail view. */
+export function findDefaultDetailPick(
+  paths: PathRecommendation[]
+): PathRecommendation | null {
+  if (paths.length === 0) return null;
+  const fifty = paths.find((p) => p.targetReductionPct === 50);
+  if (fifty) return fifty;
+  return paths.reduce((best, p) =>
+    Math.abs(p.actualReductionPct - 50) < Math.abs(best.actualReductionPct - 50) ? p : best
+  );
+}
+
 /**
  * Build a personalised SavedReport-shaped object to persist alongside the lead.
- * Scales consumption arrays and the result.sensitivityAnalysis. Other fields
- * (config, financing, grants, tariff, location) stay identical to the baseline
- * so the rendered report matches the model the user "owns".
+ * Scales consumption arrays and the result.sensitivityAnalysis. The persisted
+ * `result` and `config` are pinned to the **50% pick** (or the closest
+ * available path) so the funnel report's detail tab shows numbers consistent
+ * with the highlighted card.
  */
 export function buildPersonalisedReport(
   baseline: SavedReport,
   scaleFactor: number,
   scaledSensitivity: SensitivityAnalysis,
-  scaledBaselineAnnualBill: number
+  scaledBaselineAnnualBill: number,
+  paths: PathRecommendation[] = []
 ): SavedReport {
   const scaledMonthly = baseline.curvedMonthlyKwh.map((k) => k * scaleFactor);
   const scaledBills = baseline.estimatedMonthlyBills.map((b) => b * scaleFactor);
 
   const baselineResult = baseline.result as CalculationResult | undefined;
+  const detailPick = findDefaultDetailPick(paths);
 
-  // Trim heavy fields from the persisted payload before POSTing to /api/leads.
-  // The full SavedReport is ~6.6MB on the canonical baselines: 6.5MB of that
-  // is `result.audit.hourly` (the 8760-hour simulation log) and ~320KB is
-  // `hourlyConsumptionOverride`. Cloudflare's edge bounces request bodies at
-  // that size with an HTML error, which `funnelSubmit` then trips over with
-  // "Unexpected token '<'".
-  // The funnel report renders ResultsSection at reportMode='view' — Top Picks
-  // are overridden with our path cards, monthly tables come from
-  // `audit.monthly`, and sensitivity from `result.sensitivityAnalysis`. None
-  // of those need `audit.hourly`. Charts that key off hourly will simply
-  // render empty for the rough report, which is consistent with the ±20%
-  // accuracy bar's framing. The full call follow-up rebuilds the model on
-  // real data.
+  // Compute the proportional ratio between the detail-pick's annualSavings
+  // and the (scaled) baseline's annualSavings. Used to project the breakdown
+  // fields (solar-to-load, battery-to-load, export revenue, audit.monthly
+  // savings rows) onto the detail pick's system size. A perfect projection
+  // would re-run the engine; this is the cheap-and-cheerful version that
+  // keeps the rough-report numbers internally consistent. The ±20% bar
+  // covers the residual error.
+  const baselineScaledAnnualSavings =
+    (baselineResult?.annualSavings ?? 0) * scaleFactor;
+  const detailRatio =
+    detailPick && baselineScaledAnnualSavings > 0
+      ? detailPick.annualSavings / baselineScaledAnnualSavings
+      : 1;
+
+  // Trim heavy fields from the persisted payload before POSTing to /api/leads
+  // (~6.6MB → ~50KB). See earlier commit for context.
   const scaledResult: CalculationResult | undefined = baselineResult
     ? {
         ...baselineResult,
-        annualGeneration: baselineResult.annualGeneration, // production unchanged
-        annualSavings: baselineResult.annualSavings * scaleFactor,
+        annualGeneration: baselineResult.annualGeneration,
+        annualSavings: detailPick
+          ? detailPick.annualSavings
+          : baselineResult.annualSavings * scaleFactor,
         annualSolarToLoadSavings:
-          (baselineResult.annualSolarToLoadSavings ?? 0) * scaleFactor,
+          (baselineResult.annualSolarToLoadSavings ?? 0) * scaleFactor * detailRatio,
         annualBatteryToLoadSavings:
-          (baselineResult.annualBatteryToLoadSavings ?? 0) * scaleFactor,
+          (baselineResult.annualBatteryToLoadSavings ?? 0) * scaleFactor * detailRatio,
+        annualExportRevenue:
+          (baselineResult.annualExportRevenue ?? 0) * scaleFactor * detailRatio,
+        systemCost: detailPick ? detailPick.capexGross : baselineResult.systemCost,
+        netCost: detailPick ? detailPick.capexNet : baselineResult.netCost,
+        simplePayback: detailPick
+          ? detailPick.simplePaybackYears
+          : baselineResult.simplePayback,
         sensitivityAnalysis: scaledSensitivity,
         audit: baselineResult.audit
           ? {
               ...baselineResult.audit,
-              hourly: [], // trimmed: see comment above
+              hourly: [],
               monthly: baselineResult.audit.monthly.map((m) => ({
                 ...m,
                 consumption: m.consumption * scaleFactor,
-                baselineCost:
-                  (m.baselineCost ?? 0) * scaleFactor +
-                  // standing-charge piece intentionally not scaled here; the
-                  // ±20% bar admits this approximation.
-                  0,
+                baselineCost: (m.baselineCost ?? 0) * scaleFactor,
+                // System-size-dependent fields project to the detail pick.
+                savings: (m.savings ?? 0) * scaleFactor * detailRatio,
+                exportRevenue: (m.exportRevenue ?? 0) * scaleFactor * detailRatio,
+                importCost: (m.importCost ?? 0) * scaleFactor * detailRatio,
               })),
             }
           : undefined,
       }
     : undefined;
 
+  // Override config to reflect the detail pick. The clarifier banner in
+  // ResultsSection reads config.systemSizeKwp / batterySizeKwh, so this
+  // makes the banner copy match the highlighted card.
+  const scaledConfig = baseline.config && detailPick
+    ? {
+        ...baseline.config,
+        systemSizeKwp: detailPick.systemSizeKwp,
+        batterySizeKwh: detailPick.batterySizeKwh,
+      }
+    : baseline.config;
+
   return {
     ...baseline,
+    config: scaledConfig,
     curvedMonthlyKwh: scaledMonthly,
-    // Trimmed (see audit.hourly comment): the engine falls back to
-    // curvedMonthlyKwh when the override is absent, which is what we want
-    // for the rough report rendering.
     hourlyConsumptionOverride: undefined,
     estimatedMonthlyBills: scaledBills,
     result: scaledResult,
     name: `funnel-${baseline.config?.businessType ?? 'segment'}-${Math.round(scaledBaselineAnnualBill)}`,
-    id: '', // server assigns id
+    id: '',
   };
 }
 
@@ -260,7 +296,8 @@ export async function submitFunnelLead(fields: LeadFields): Promise<FunnelSubmit
         baseline,
         scaleFactor,
         scaledSensitivity,
-        scaledBaselineAnnualBill
+        scaledBaselineAnnualBill,
+        p
       );
       paths = p;
     }

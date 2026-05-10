@@ -49,6 +49,13 @@ interface ResultsSectionProps {
    * (the default), the wizard's built-in picker logic runs.
    */
   topPicksOverride?: ReactNode;
+  /**
+   * Replace the "Detail below models a {kWp} kWp..." clarifier banner that
+   * sits above the savings-breakdown grid. The funnel report passes a
+   * funnel-specific message that frames the detail around the highlighted
+   * 50% pick.
+   */
+  detailBannerOverride?: ReactNode;
 }
 
 const ANALYSIS_YEARS = 25;
@@ -181,6 +188,7 @@ export function ResultsSection({
   onTitleChange,
   onDescriptionChange,
   topPicksOverride,
+  detailBannerOverride,
 }: ResultsSectionProps) {
   // Derived flags from reportMode
   const isLockedMode = reportMode === 'locked';
@@ -710,14 +718,18 @@ export function ResultsSection({
             {isLockedMode && <LockedOverlay onContact={() => setCtaOpen(true)} />}
             <div className={isLockedMode ? 'pointer-events-none select-none blur-sm' : ''}>
             {/* Clarifier banner — the detail below models the reference system in
-                `config`, not any of the picks above. Without this label users wonder
-                which of the three the numbers belong to. */}
-            {config && (config.systemSizeKwp ?? 0) > 0 && (
-              <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <span className="font-semibold text-slate-900">Detail below models a {(config.systemSizeKwp ?? 0).toFixed(0)} kWp{config.batterySizeKwh > 0 ? ` · ${config.batterySizeKwh.toFixed(0)} kWh battery` : ''} reference system.</span>{' '}
-                Each card above is a different size pulled from the same sweep. Switch to the &ldquo;{(projectedSensitivity?.rows.length ?? 8) * 4} options&rdquo; tab to explore the full grid.
-              </div>
-            )}
+                `config`. Without this label users wonder which of the three picks the
+                numbers belong to. Callers (e.g. the ads-funnel) can override the
+                copy via `detailBannerOverride` to frame the detail around their
+                highlighted pick. */}
+            {detailBannerOverride !== undefined
+              ? detailBannerOverride
+              : config && (config.systemSizeKwp ?? 0) > 0 && (
+                  <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                    <span className="font-semibold text-slate-900">Detail below models a {(config.systemSizeKwp ?? 0).toFixed(0)} kWp{config.batterySizeKwh > 0 ? ` · ${config.batterySizeKwh.toFixed(0)} kWh battery` : ''} reference system.</span>{' '}
+                    Each card above is a different size pulled from the same sweep. Switch to the &ldquo;{(projectedSensitivity?.rows.length ?? 8) * 4} options&rdquo; tab to explore the full grid.
+                  </div>
+                )}
             {/* Savings Breakdown Compact Section */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">

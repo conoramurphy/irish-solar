@@ -6,6 +6,7 @@ import { PathCard } from './PathCard';
 import { ResultsSection } from '../ResultsSection';
 import { CTAModal } from '../CTAModal';
 import { migrateReport } from '../../utils/migrateReport';
+import { findDefaultDetailPick } from '../../utils/funnelSubmit';
 import type { PathRecommendation } from '../../utils/pickPathsFromSensitivity';
 import type { FunnelSegment } from '../landings/funnelConstants';
 import type { SavedReport } from '../../types/savedReports';
@@ -193,6 +194,7 @@ const MODELLED_CELL_COUNT = 36;
 function FunnelPathCardsTrio({ paths }: { paths: PathRecommendation[] }) {
   const cardGridClass = CARD_GRID_BY_COUNT[paths.length] ?? CARD_GRID_BY_COUNT[3];
   const optionsLabel = paths.length === 1 ? 'option' : 'options';
+  const defaultPick = findDefaultDetailPick(paths);
   return (
     <section aria-labelledby="funnel-paths-heading" className="mb-8">
       <div className="mb-6">
@@ -209,7 +211,10 @@ function FunnelPathCardsTrio({ paths }: { paths: PathRecommendation[] }) {
       <div className={cardGridClass} role="list" aria-label="Recommended setups">
         {paths.map((path) => (
           <div key={path.targetReductionPct} role="listitem">
-            <PathCard path={path} />
+            <PathCard
+              path={path}
+              isDefault={defaultPick?.targetReductionPct === path.targetReductionPct}
+            />
           </div>
         ))}
       </div>
@@ -352,6 +357,14 @@ export function FunnelReport({ segment }: FunnelReportProps) {
             reportTitle={`${leadName}, here's your independent ROI`}
             reportDescription={`${segment === 'hotel' ? 'Hotel' : 'Dairy farm'} · ${leadEircode}. Your usage patterns will differ from this ${segmentNoun}'s.`}
             topPicksOverride={<FunnelPathCardsTrio paths={paths} />}
+            detailBannerOverride={
+              <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-slate-800">
+                <span className="font-semibold text-emerald-900">
+                  We detail the 50% option here as it&rsquo;s often what people go for.
+                </span>{' '}
+                We can break out the detail on whatever suits your financial goals.
+              </div>
+            }
           />
         )}
 
