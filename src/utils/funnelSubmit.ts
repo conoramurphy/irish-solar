@@ -164,19 +164,30 @@ export function computeFunnelPaths(
  * (config, financing, grants, tariff, location) stay identical to the baseline
  * so the rendered report matches the model the user "owns".
  */
-function buildPersonalisedReport(
+export function buildPersonalisedReport(
   baseline: SavedReport,
   scaleFactor: number,
   scaledSensitivity: SensitivityAnalysis,
   scaledBaselineAnnualBill: number
 ): SavedReport {
   const scaledMonthly = baseline.curvedMonthlyKwh.map((k) => k * scaleFactor);
-  const scaledHourlyOverride = baseline.hourlyConsumptionOverride
-    ? baseline.hourlyConsumptionOverride.map((h) => h * scaleFactor)
-    : undefined;
   const scaledBills = baseline.estimatedMonthlyBills.map((b) => b * scaleFactor);
 
   const baselineResult = baseline.result as CalculationResult | undefined;
+
+  // Trim heavy fields from the persisted payload before POSTing to /api/leads.
+  // The full SavedReport is ~6.6MB on the canonical baselines: 6.5MB of that
+  // is `result.audit.hourly` (the 8760-hour simulation log) and ~320KB is
+  // `hourlyConsumptionOverride`. Cloudflare's edge bounces request bodies at
+  // that size with an HTML error, which `funnelSubmit` then trips over with
+  // "Unexpected token '<'".
+  // The funnel report renders ResultsSection at reportMode='view' — Top Picks
+  // are overridden with our path cards, monthly tables come from
+  // `audit.monthly`, and sensitivity from `result.sensitivityAnalysis`. None
+  // of those need `audit.hourly`. Charts that key off hourly will simply
+  // render empty for the rough report, which is consistent with the ±20%
+  // accuracy bar's framing. The full call follow-up rebuilds the model on
+  // real data.
   const scaledResult: CalculationResult | undefined = baselineResult
     ? {
         ...baselineResult,
@@ -190,14 +201,14 @@ function buildPersonalisedReport(
         audit: baselineResult.audit
           ? {
               ...baselineResult.audit,
+              hourly: [], // trimmed: see comment above
               monthly: baselineResult.audit.monthly.map((m) => ({
                 ...m,
                 consumption: m.consumption * scaleFactor,
                 baselineCost:
                   (m.baselineCost ?? 0) * scaleFactor +
-                  // keep the standing-charge piece fixed: this is approximate
-                  // since we already scaled, but the per-month allocation is
-                  // consistent with the original baseline.
+                  // standing-charge piece intentionally not scaled here; the
+                  // ±20% bar admits this approximation.
                   0,
               })),
             }
@@ -208,10 +219,12 @@ function buildPersonalisedReport(
   return {
     ...baseline,
     curvedMonthlyKwh: scaledMonthly,
-    hourlyConsumptionOverride: scaledHourlyOverride,
+    // Trimmed (see audit.hourly comment): the engine falls back to
+    // curvedMonthlyKwh when the override is absent, which is what we want
+    // for the rough report rendering.
+    hourlyConsumptionOverride: undefined,
     estimatedMonthlyBills: scaledBills,
     result: scaledResult,
-    // Suppress baseline metadata so it's clear this is a derivative.
     name: `funnel-${baseline.config?.businessType ?? 'segment'}-${Math.round(scaledBaselineAnnualBill)}`,
     id: '', // server assigns id
   };

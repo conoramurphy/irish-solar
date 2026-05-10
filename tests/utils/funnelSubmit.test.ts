@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeFunnelPaths } from '../../src/utils/funnelSubmit';
+import { computeFunnelPaths, buildPersonalisedReport } from '../../src/utils/funnelSubmit';
 import type { SavedReport } from '../../src/types/savedReports';
 import type {
   CalculationResult,
@@ -136,5 +136,92 @@ describe('computeFunnelPaths', () => {
     const baseline = makeBaseline(24_000);
     const broken = { ...baseline, result: undefined };
     expect(() => computeFunnelPaths(broken, 24_000)).toThrow(/sensitivityAnalysis/);
+  });
+});
+
+describe('buildPersonalisedReport — payload trimming', () => {
+  function baselineWithHourly(): SavedReport {
+    const base = makeBaseline(24_000);
+    // Inject a fake hourly array + override to verify they're trimmed.
+    const baseResult = base.result as CalculationResult;
+    return {
+      ...base,
+      hourlyConsumptionOverride: new Array(17520).fill(1),
+      result: {
+        ...baseResult,
+        audit: {
+          ...(baseResult.audit ?? {}),
+          hourly: new Array(8760).fill({ stamp: 'x', generation: 0 }),
+          monthly: baseResult.audit?.monthly ?? [],
+        },
+      } as unknown as CalculationResult,
+    };
+  }
+
+  it('drops result.audit.hourly so the persisted payload stays small', () => {
+    const baseline = baselineWithHourly();
+    const { scaledSensitivity, scaledBaselineAnnualBill } = computeFunnelPaths(
+      baseline,
+      24_000
+    );
+    const out = buildPersonalisedReport(
+      baseline,
+      1.0,
+      scaledSensitivity,
+      scaledBaselineAnnualBill
+    );
+    expect(out.result?.audit?.hourly).toEqual([]);
+  });
+
+  it('drops hourlyConsumptionOverride so the persisted payload stays small', () => {
+    const baseline = baselineWithHourly();
+    const { scaledSensitivity, scaledBaselineAnnualBill } = computeFunnelPaths(
+      baseline,
+      24_000
+    );
+    const out = buildPersonalisedReport(
+      baseline,
+      1.0,
+      scaledSensitivity,
+      scaledBaselineAnnualBill
+    );
+    expect(out.hourlyConsumptionOverride).toBeUndefined();
+  });
+
+  it('still scales monthly consumption, savings, and bills by the scale factor', () => {
+    const baseline = baselineWithHourly();
+    const { scaledSensitivity, scaledBaselineAnnualBill } = computeFunnelPaths(
+      baseline,
+      48_000 // ~2x scale
+    );
+    const out = buildPersonalisedReport(
+      baseline,
+      2.0,
+      scaledSensitivity,
+      scaledBaselineAnnualBill
+    );
+    // curvedMonthlyKwh is [1000 × 12] in the fixture; scaled by 2 → [2000 × 12]
+    expect(out.curvedMonthlyKwh.every((k) => k === 2000)).toBe(true);
+    // estimatedMonthlyBills was annualBill / 12 = 2000; scaled by 2 → 4000
+    expect(out.estimatedMonthlyBills.every((b) => b === 4000)).toBe(true);
+    // result.annualSavings was the baseline's; scaled by 2
+    const before = (baseline.result as CalculationResult).annualSavings;
+    expect(out.result?.annualSavings).toBeCloseTo(before * 2, 5);
+  });
+
+  it('produces a JSON-serializable payload well under 100KB so Cloudflare accepts the POST', () => {
+    const baseline = baselineWithHourly();
+    const { scaledSensitivity, scaledBaselineAnnualBill } = computeFunnelPaths(
+      baseline,
+      24_000
+    );
+    const out = buildPersonalisedReport(
+      baseline,
+      1.0,
+      scaledSensitivity,
+      scaledBaselineAnnualBill
+    );
+    const size = JSON.stringify(out).length;
+    expect(size).toBeLessThan(100_000);
   });
 });
