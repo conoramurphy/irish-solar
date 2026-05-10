@@ -152,7 +152,7 @@ export function Landing() {
             <header className="flex items-center justify-between pt-6 pb-2" role="banner">
               {LOGO}
               <span className="hidden md:block text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                Independent of every installer in Ireland · Since 2020
+                Independent of every installer in Ireland
               </span>
             </header>
 
