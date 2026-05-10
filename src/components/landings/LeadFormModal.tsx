@@ -36,15 +36,15 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
         className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between px-6 pt-6 pb-2">
+        <div className="flex items-start justify-between px-6 pt-6 pb-3">
           <div>
             <h3
               id="lead-modal-heading"
-              className="text-base font-semibold text-slate-800 leading-snug"
+              className="text-lg font-semibold text-slate-900 leading-tight"
             >
               Get your free Solar ROI
             </h3>
-            <p className="text-xs text-slate-500 mt-1 leading-snug">
+            <p className="text-sm text-slate-500 mt-1.5 leading-snug">
               Independent of any installer. Built on a real Irish business model.
             </p>
           </div>
@@ -63,6 +63,7 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
             source="root_landing_modal"
             submitLabel="Get your free Solar ROI"
             onConfirmationDismiss={onClose}
+            bare
           />
         </div>
       </div>

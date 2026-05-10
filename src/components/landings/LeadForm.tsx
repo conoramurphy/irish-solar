@@ -16,12 +16,14 @@ import {
 interface LeadFormProps {
   /** When set, segment is fixed and the chooser is hidden. */
   fixedSegment?: FunnelSegment;
-  /** Where this form lives — passed to PostHog for funnel attribution. */
+  /** Where this form lives, passed to PostHog for funnel attribution. */
   source: 'hotels_landing' | 'dairy_landing' | 'root_landing_modal';
   /** Optional override for the submit-button label. */
   submitLabel?: string;
   /** Called when the user dismisses the inline confirmation (root-landing 'other' path only). */
   onConfirmationDismiss?: () => void;
+  /** When true, drops the white card wrapper around the form fields (used inside the modal where the modal itself is the white card). */
+  bare?: boolean;
 }
 
 interface FieldErrors {
@@ -41,6 +43,7 @@ export function LeadForm({
   source,
   submitLabel = 'Get your free Solar ROI',
   onConfirmationDismiss,
+  bare = false,
 }: LeadFormProps) {
   const navigate = useNavigate();
   const posthog = usePostHog();
@@ -153,10 +156,14 @@ export function LeadForm({
   const labelClass = 'text-xs font-medium text-slate-600 mb-1.5 block';
   const errorClass = 'text-xs text-red-600 mt-1';
 
+  const formClass = bare
+    ? 'space-y-3.5'
+    : 'rounded-2xl bg-white border border-slate-200 p-5 sm:p-6 shadow-sm space-y-3.5';
+
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl bg-white border border-slate-200 p-5 sm:p-6 shadow-sm space-y-3.5"
+      className={formClass}
       noValidate
     >
       {showChooser && (
