@@ -191,9 +191,7 @@ export function Landing() {
                 Get your free Solar ROI {ARROW}
               </button>
             </div>
-            <p className="text-sm font-medium mb-10" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              2 min to submit · results in 48 hrs
-            </p>
+            <div className="mb-10" />
 
             {/* Example model cards label */}
             <p className="text-xs font-semibold tracking-widest uppercase mb-3 max-w-2xl" style={{ color: 'rgba(253,234,180,0.75)' }}>
