@@ -165,12 +165,16 @@ export function Landing() {
                 Irish businesses make half what they should from solar.{' '}
                 <span style={{ color: '#FDEAB4' }}>We fix that.</span>
               </h1>
+              <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                We don&rsquo;t sell panels. We&rsquo;re independent solar advice,
+                brokerage and management.
+              </p>
               <p className="text-base sm:text-xl font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                We don&rsquo;t sell panels. We model your business properly using real
-                usage, real sunlight, real export rates through 2033, and every grant and
-                tariff you&rsquo;re entitled to. Then we manage the installer process end
-                to end so you don&rsquo;t have to. Most quotes oversell batteries and
-                undersize panels. We fix that before you spend a euro.
+                We model your business properly using real usage, real sunlight, real
+                export rates through 2033, and every grant and tariff you&rsquo;re
+                entitled to. Then we manage the installer process end to end so you
+                don&rsquo;t have to. Most quotes oversell batteries and undersize panels.
+                We fix that before you spend a euro.
               </p>
 
             </div>
