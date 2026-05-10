@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CTAModal } from './CTAModal';
+import { LeadFormModal } from './landings/LeadFormModal';
 import { usePostHog } from '@posthog/react';
 
 // Grid overlay styles — white lines for dark sections, dark lines for light sections
@@ -122,7 +122,7 @@ export function Landing() {
 
   return (
     <>
-      <CTAModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
+      <LeadFormModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
 
       {/* Floating CTA — hidden on mobile */}
       <button
