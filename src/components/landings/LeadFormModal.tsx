@@ -45,7 +45,7 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
               Get your free Solar ROI
             </h3>
             <p className="text-sm text-slate-500 mt-1.5 leading-snug">
-              Independent of any installer. Built on a real Irish business model.
+              See your ROI in 1 min.
             </p>
           </div>
           <button

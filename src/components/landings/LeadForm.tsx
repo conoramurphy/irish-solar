@@ -153,7 +153,7 @@ export function LeadForm({
 
   const fieldClass =
     'w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent bg-white';
-  const labelClass = 'text-xs font-medium text-slate-600 mb-1.5 block';
+  const labelClass = 'text-sm font-medium text-slate-700 mb-2 block';
   const errorClass = 'text-xs text-red-600 mt-1';
 
   const formClass = bare
@@ -183,7 +183,7 @@ export function LeadForm({
                   role="radio"
                   aria-checked={selected}
                   onClick={() => setBusinessType(o.value)}
-                  className={`flex items-center justify-center rounded-lg border px-1.5 py-2 text-[11px] sm:text-xs font-medium leading-tight text-center min-h-[2.5rem] transition-all ${
+                  className={`flex items-center justify-center rounded-lg border px-2 py-2.5 text-sm font-medium leading-tight text-center min-h-[2.75rem] transition-all ${
                     selected
                       ? 'border-green-700 bg-green-50 text-green-800 shadow-sm'
                       : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
@@ -270,7 +270,7 @@ export function LeadForm({
       <button
         type="submit"
         disabled={submitting}
-        className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+        className="w-full py-3.5 rounded-xl text-[15px] font-semibold text-white transition-opacity disabled:opacity-60"
         style={{ backgroundColor: BRAND_GREEN }}
       >
         {submitting ? 'Building your ROI…' : submitLabel}
@@ -282,7 +282,7 @@ export function LeadForm({
         </div>
       )}
 
-      <p className="text-[11px] leading-snug text-slate-400 text-center pt-1">
+      <p className="text-xs leading-snug text-slate-400 text-center pt-1">
         Independent of any installer.{' '}
         <a
           href="/privacy"
