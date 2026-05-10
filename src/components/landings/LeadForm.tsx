@@ -165,7 +165,7 @@ export function LeadForm({
           <div
             role="radiogroup"
             aria-invalid={!!errors.businessType}
-            className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+            className="grid grid-cols-4 gap-1.5"
           >
             {BUSINESS_TYPE_OPTIONS.map((o) => {
               const selected = businessType === o.value;
@@ -176,13 +176,13 @@ export function LeadForm({
                   role="radio"
                   aria-checked={selected}
                   onClick={() => setBusinessType(o.value)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-all text-left ${
+                  className={`flex items-center justify-center rounded-lg border px-1.5 py-2 text-[11px] sm:text-xs font-medium leading-tight text-center min-h-[2.5rem] transition-all ${
                     selected
                       ? 'border-green-700 bg-green-50 text-green-800 shadow-sm'
                       : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                 >
-                  {o.label}
+                  <span className="break-words">{o.label}</span>
                 </button>
               );
             })}

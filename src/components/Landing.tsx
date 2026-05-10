@@ -68,10 +68,10 @@ const STEPS = [
 const EXAMPLE_MODELS = [
   {
     type: 'Hotel, 20 beds',
-    spec: '150–1,200 kWp · SEAI grant',
-    payback: '2.9 yrs',
+    spec: '50–250 kWp · SEAI grant',
+    payback: '4.5 yrs',
     savingLabel: '10-yr return',
-    saving: '+€391,143',
+    saving: '+€82,400',
     reportId: 'GXz4-_lMwsjVbgc3GzBww',
     // Navy scheme — exact match to old tariff section
     theme: {
@@ -168,20 +168,36 @@ export function Landing() {
                 ,<br />solar can halve them.
               </h1>
               <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                However, most solar jobs are wrongly sized, losing your business up to €200k over 10 years.
+                Right-sized solar — independent of any installer's interests — typically saves €50k–€200k over the system an installer would quote you, across 10 years.
               </p>
               <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 We don't sell panels, we're your partner. We model your real business data in 48 hours — real usage, real sunlight, real export rates through 2033 — then size it right with the installer we pick together.
               </p>
               <p className="text-base sm:text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                A mistake costs €200k+. A 15-minute chat is free.
+                Saving €50k–€200k versus an installer's spec is normal. A 15-minute chat is free.
               </p>
 
             </div>
 
+            {/* CTA — above the example cards so the form is the first action */}
+            <div className="flex flex-wrap items-center gap-4 mb-3">
+              <button
+                type="button"
+                onClick={() => openCta('hero_button')}
+                className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                style={{ backgroundColor: '#1A4A35' }}
+                aria-label="Get your free Solar ROI"
+              >
+                Get your free Solar ROI {ARROW}
+              </button>
+            </div>
+            <p className="text-sm font-medium mb-10" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              2 min to submit · results in 48 hrs
+            </p>
+
             {/* Example model cards label */}
             <p className="text-xs font-semibold tracking-widest uppercase mb-3 max-w-2xl" style={{ color: 'rgba(253,234,180,0.75)' }}>
-              Review our real anonymised reports for free
+              Or review our real anonymised reports first
             </p>
 
             {/* Example model cards */}
@@ -236,22 +252,6 @@ export function Landing() {
                 </div>
               ))}
             </div>
-
-            {/* CTA */}
-            <div className="mt-8 flex flex-wrap items-center gap-4 mb-2">
-              <button
-                type="button"
-                onClick={() => openCta('hero_button')}
-                className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
-                style={{ backgroundColor: '#1A4A35' }}
-                aria-label="Get your free Solar ROI"
-              >
-                Get your free Solar ROI {ARROW}
-              </button>
-            </div>
-            <p className="text-sm font-medium mb-8" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              2 min to submit · results in 48 hrs
-            </p>
 
             {/* ── Process steps — merged into hero, compressed ── */}
             <div className="mt-8 pb-14 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>

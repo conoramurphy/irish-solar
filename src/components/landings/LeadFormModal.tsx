@@ -33,7 +33,7 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
       aria-labelledby="lead-modal-heading"
     >
       <div
-        className="bg-white rounded-2xl w-full max-w-md shadow-2xl"
+        className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between px-6 pt-6 pb-2">

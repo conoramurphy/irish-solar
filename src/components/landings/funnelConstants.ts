@@ -25,7 +25,7 @@ export const BUSINESS_TYPE_OPTIONS = [
   { value: 'restaurant', label: 'Restaurant', segment: 'other' as const },
   { value: 'office', label: 'Office', segment: 'other' as const },
   { value: 'retail', label: 'Retail', segment: 'other' as const },
-  { value: 'manufacturing', label: 'Manufacturing', segment: 'other' as const },
+  { value: 'manufacturing', label: 'Factory', segment: 'other' as const },
   { value: 'home', label: 'Home', segment: 'other' as const },
   { value: 'other', label: 'Other', segment: 'other' as const },
 ] as const;
