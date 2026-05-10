@@ -61,8 +61,8 @@ const STEPS = [
   {
     n: '04',
     title: 'We verify and manage the whole process',
-    time: '',
-    body: '',
+    time: '~8 weeks',
+    body: 'Real quotes run back through the digital twin so the install delivers what the model promised. We project-manage ESB Networks, commissioning sign-off, and a fresh tariff tender for your new load shape.',
   },
 ];
 
