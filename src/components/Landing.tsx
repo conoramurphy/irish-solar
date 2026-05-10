@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LeadFormModal } from './landings/LeadFormModal';
 import { Faq } from './landings/Faq';
+import { CTAModal } from './CTAModal';
 import { usePostHog } from '@posthog/react';
 
 // Grid overlay styles — white lines for dark sections, dark lines for light sections
@@ -117,15 +118,22 @@ export function Landing() {
   const navigate = useNavigate();
   const posthog = usePostHog();
   const [ctaOpen, setCtaOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
 
   function openCta(source: string) {
     posthog?.capture('cta_modal_opened', { source });
     setCtaOpen(true);
   }
 
+  function openContact(source: string) {
+    posthog?.capture('contact_modal_opened', { source });
+    setContactOpen(true);
+  }
+
   return (
     <>
       <LeadFormModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
+      <CTAModal open={contactOpen} onClose={() => setContactOpen(false)} />
 
       {/* Floating CTA — hidden on mobile */}
       <button
@@ -301,6 +309,31 @@ export function Landing() {
         </section>
 
         <Faq bgClassName="bg-slate-50" />
+
+        {/* ─────────────────────────────────────────────
+            CONTACT BAND — opens the CTAModal (email + WhatsApp)
+        ───────────────────────────────────────────── */}
+        <section className="bg-white py-14 md:py-20 border-t border-slate-100" aria-labelledby="contact-heading">
+          <div className="max-w-3xl mx-auto px-5 md:px-8 text-center">
+            <h2
+              id="contact-heading"
+              className="text-2xl md:text-3xl font-serif font-bold text-tines-dark mb-3"
+            >
+              Want to chat first?
+            </h2>
+            <p className="text-base text-slate-600 mb-7">
+              Email or WhatsApp — we&rsquo;ll come back to you.
+            </p>
+            <button
+              type="button"
+              onClick={() => openContact('homepage_bottom_contact')}
+              className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              style={{ backgroundColor: '#1A4A35', color: '#FDEAB4' }}
+            >
+              Contact us
+            </button>
+          </div>
+        </section>
 
         {/* ─────────────────────────────────────────────
             FOOTER

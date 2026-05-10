@@ -4,6 +4,7 @@ import { usePostHog } from '@posthog/react';
 import { LeadFormModal } from './LeadFormModal';
 import { FiveWaysGrid } from './FiveWaysGrid';
 import { Faq } from './Faq';
+import { CTAModal } from '../CTAModal';
 import type { FunnelSegment } from './funnelConstants';
 
 interface SegmentCopy {
@@ -74,11 +75,17 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
   const copy = COPY[segment];
   const posthog = usePostHog();
   const [ctaOpen, setCtaOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const source = segment === 'hotel' ? 'hotels_landing' : 'dairy_landing';
 
   function openCta(buttonSource: string) {
     posthog?.capture('cta_modal_opened', { source: `${source}:${buttonSource}` });
     setCtaOpen(true);
+  }
+
+  function openContact(buttonSource: string) {
+    posthog?.capture('contact_modal_opened', { source: `${source}:${buttonSource}` });
+    setContactOpen(true);
   }
 
   return (
@@ -88,6 +95,11 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
         onClose={() => setCtaOpen(false)}
         fixedSegment={segment}
         source={source}
+      />
+      <CTAModal
+        open={contactOpen}
+        onClose={() => setContactOpen(false)}
+        leadContext={{ segment }}
       />
 
       {/* Hero */}
@@ -159,6 +171,30 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
 
       <FiveWaysGrid />
       <Faq />
+
+      {/* Contact band — opens the CTAModal (email + WhatsApp) for visitors who
+          want to chat without going through the lead form. */}
+      <section className="bg-white py-14 md:py-20 border-t border-slate-100" aria-labelledby="contact-heading">
+        <div className="max-w-3xl mx-auto px-5 md:px-8 text-center">
+          <h2
+            id="contact-heading"
+            className="text-2xl md:text-3xl font-serif font-bold text-tines-dark mb-3"
+          >
+            Want to chat first?
+          </h2>
+          <p className="text-base text-slate-600 mb-7">
+            Email or WhatsApp — we&rsquo;ll come back to you.
+          </p>
+          <button
+            type="button"
+            onClick={() => openContact('bottom_contact')}
+            className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+            style={{ backgroundColor: '#1A4A35', color: '#FDEAB4' }}
+          >
+            Contact us
+          </button>
+        </div>
+      </section>
     </main>
   );
 }
