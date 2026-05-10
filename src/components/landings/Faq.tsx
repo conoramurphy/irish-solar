@@ -92,6 +92,37 @@ const FAQ_ITEMS: FaqItem[] = [
       </>
     ),
   },
+  {
+    question: 'Can you model batteries or a heat pump independently down the line?',
+    answer: (
+      <>
+        <p className="mb-3">
+          Yes. Solar is usually the first move, but you can come back any time for a
+          stand-alone independent model on either of these &mdash; same approach, same
+          independence from installers.
+        </p>
+        <ul className="list-disc pl-5 space-y-2">
+          <li>
+            <span className="font-semibold">Battery-only model.</span> If you already have
+            solar (ours or someone else&rsquo;s), we model what a battery actually adds at
+            your real load shape and current tariff. Many systems get oversold a battery
+            that doesn&rsquo;t pay back &mdash; we tell you, on your data, whether yours
+            does.
+          </li>
+          <li>
+            <span className="font-semibold">Heat-pump model.</span> Electrifying heat
+            changes your load and your tariff economics. We model the heat pump against
+            your real building and current setup, factor in SEAI grants and the right
+            night-rate tariff, and tell you the honest payback before you commit.
+          </li>
+        </ul>
+        <p className="mt-3">
+          Same flat-fee model: you pay us to build it, we broker quotes if you want to go
+          ahead, and you keep control end to end.
+        </p>
+      </>
+    ),
+  },
 ];
 
 interface FaqProps {

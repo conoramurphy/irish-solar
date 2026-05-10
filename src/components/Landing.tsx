@@ -169,13 +169,13 @@ export function Landing() {
                 ,<br />solar can halve them.
               </h1>
               <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Right-sized solar — independent of any installer's interests — typically saves €50k–€200k over the system an installer would quote you, across 10 years.
+                Right-sized solar — independent of any installer's interests — typically saves €50k+ over the system an installer would quote you, across 10 years.
               </p>
               <p className="text-base sm:text-xl font-light leading-relaxed mb-4" style={{ color: 'rgba(255,255,255,0.9)' }}>
                 We don't sell panels, we're your partner. We model your real business data in 48 hours — real usage, real sunlight, real export rates through 2033 — then size it right with the installer we pick together.
               </p>
               <p className="text-base sm:text-xl font-light" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Saving €50k–€200k versus an installer's spec is normal. A 15-minute chat is free.
+                Saving €50k+ versus an installer's spec is normal. A 15-minute chat is free.
               </p>
 
             </div>
