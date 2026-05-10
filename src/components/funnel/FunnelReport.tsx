@@ -107,6 +107,77 @@ function ContactCTAs({ source, onEmailClick }: ContactCTAsProps) {
   );
 }
 
+interface WalkthroughFloaterProps {
+  leadName: string;
+  segment: FunnelSegment;
+  onEmailClick: () => void;
+}
+
+/**
+ * Sticky bottom-right (desktop) / bottom-strip (mobile) CTA panel that follows
+ * the user as they scroll the funnel report. The submission already captured
+ * name + eircode + phone, so this surface just routes to email or WhatsApp.
+ * The WhatsApp message text prefills the lead's name and segment so the
+ * conversation has context without retyping.
+ */
+function WalkthroughFloater({
+  leadName,
+  segment,
+  onEmailClick,
+}: WalkthroughFloaterProps) {
+  const posthog = usePostHog();
+  const segmentNoun = segment === 'hotel' ? 'hotel' : 'dairy farm';
+  const whatsappHref = `https://wa.me/353858082080?text=${encodeURIComponent(
+    `Hi, this is ${leadName}. I just got my Watt Profit independent ${segmentNoun} ROI and would like a detailed walkthrough.`
+  )}`;
+  return (
+    <div
+      className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:bottom-6 z-30 max-w-md sm:max-w-sm"
+      role="region"
+      aria-label="Get a free detailed walkthrough"
+    >
+      <div className="rounded-2xl bg-white shadow-2xl border border-slate-200 p-4 sm:p-5">
+        <p className="text-sm sm:text-base font-serif font-bold text-slate-900 mb-3 leading-snug">
+          Get a free detailed walkthrough
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              posthog?.capture('funnel_walkthrough_email_clicked');
+              onEmailClick();
+            }}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5"
+            style={{ backgroundColor: '#1A4A35', color: '#FDEAB4' }}
+          >
+            {MAIL_ICON}
+            Email me
+          </button>
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => {
+              posthog?.capture('funnel_walkthrough_whatsapp_clicked');
+              if (typeof window !== 'undefined' && window.gtag) {
+                window.gtag('event', 'conversion', {
+                  send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
+                  value: 25.0,
+                  currency: 'EUR',
+                });
+              }
+            }}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <span className="text-emerald-600">{WHATSAPP_ICON}</span>
+            WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Tailwind needs literal class names at build time, so map count → grid class.
 const CARD_GRID_BY_COUNT: Record<number, string> = {
   1: 'grid grid-cols-1 gap-4 max-w-md',
@@ -242,9 +313,14 @@ export function FunnelReport({ segment }: FunnelReportProps) {
   const standardResult = report.result as CalculationResult | undefined;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 pb-32 sm:pb-24">
       <AccuracyBar />
       <CTAModal open={contactOpen} onClose={() => setContactOpen(false)} />
+      <WalkthroughFloater
+        leadName={leadName}
+        segment={segment}
+        onEmailClick={() => setContactOpen(true)}
+      />
 
       <nav
         className="flex items-center px-5 md:px-8 py-4 bg-white border-b border-slate-100"
