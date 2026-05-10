@@ -141,41 +141,25 @@ function makeBaseline(annualBill: number): SavedReport {
 }
 
 describe('computeFunnelPaths', () => {
-  it('scales sensitivity savings linearly with the commodity-only spend ratio', async () => {
-    // ei-business-24hr standing charge is 0.822 €/day = 300.03 €/year.
-    const STANDING_ANNUAL = 0.822 * 365;
-    const baselineBill = 24_000; // commodity = 23,700ish
-    const baseline = makeBaseline(baselineBill);
-
-    // User spend exactly equal to baseline — scaleFactor should be ~1.0
-    const sameSpend = await computeFunnelPaths(baseline, baselineBill, stubSolarLoader);
-    expect(sameSpend.scaleFactor).toBeCloseTo(1, 2);
-
-    // User spend at half the baseline commodity bill — scaleFactor ~0.5 on the commodity portion only
-    const halfSpend = await computeFunnelPaths(baseline, baselineBill * 0.5 + STANDING_ANNUAL, stubSolarLoader);
-    expect(halfSpend.scaleFactor).toBeCloseTo(0.5, 1);
-
-    // User spend at double the baseline commodity bill
-    const doubleSpend = await computeFunnelPaths(baseline, baselineBill * 2 - STANDING_ANNUAL, stubSolarLoader);
-    expect(doubleSpend.scaleFactor).toBeGreaterThan(1.5);
-    expect(doubleSpend.scaleFactor).toBeLessThan(2.5);
-  });
-
   it('throws a user-facing error when spend is below the standing-charge floor', async () => {
     const baseline = makeBaseline(24_000);
     await expect(computeFunnelPaths(baseline, 200, stubSolarLoader)).rejects.toThrow(/standing charges/);
-  });
-
-  it('returns three paths in ascending target order', async () => {
-    const baseline = makeBaseline(24_000);
-    const { paths } = await computeFunnelPaths(baseline, 24_000, stubSolarLoader);
-    expect(paths.map((p) => p.targetReductionPct)).toEqual([33, 50, 100]);
   });
 
   it('throws when the baseline has no sensitivityAnalysis snapshot', async () => {
     const baseline = makeBaseline(24_000);
     const broken = { ...baseline, result: undefined };
     await expect(computeFunnelPaths(broken, 24_000, stubSolarLoader)).rejects.toThrow(/sensitivityAnalysis/);
+  });
+
+  it('throws when the baseline has no hourlyConsumptionOverride', async () => {
+    // Linear-scaling fallback was removed (see AGENTS.md "re-run the engine").
+    // A baseline without an hourly profile can't be re-run on user-scaled load,
+    // so the funnel must fail loudly rather than producing inflated savings.
+    const baseline = makeBaseline(24_000);
+    await expect(computeFunnelPaths(baseline, 24_000, stubSolarLoader)).rejects.toThrow(
+      /hourlyConsumptionOverride/
+    );
   });
 });
 
@@ -200,16 +184,22 @@ describe('buildPersonalisedReport — payload trimming', () => {
 
   it('drops result.audit.hourly so the persisted payload stays small', async () => {
     const baseline = baselineWithHourly();
-    const { scaledSensitivity, scaledBaselineAnnualBill } = await computeFunnelPaths(
-      baseline,
-      24_000,
-      stubSolarLoader
-    );
+    const {
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      freshDetailResult,
+      scaledHourlyConsumption,
+      paths,
+      scaleFactor,
+    } = await computeFunnelPaths(baseline, 24_000, stubSolarLoader);
     const out = buildPersonalisedReport(
       baseline,
-      1.0,
+      scaleFactor,
       scaledSensitivity,
-      scaledBaselineAnnualBill
+      scaledBaselineAnnualBill,
+      paths,
+      freshDetailResult,
+      scaledHourlyConsumption
     );
     expect(out.result?.audit?.hourly).toEqual([]);
   });
@@ -222,6 +212,8 @@ describe('buildPersonalisedReport — payload trimming', () => {
       scaledSensitivity,
       scaledBaselineAnnualBill,
       scaledHourlyConsumption,
+      freshDetailResult,
+      paths,
       scaleFactor,
     } = await computeFunnelPaths(baseline, 48_000, stubSolarLoader); // ~2x scale
     const out = buildPersonalisedReport(
@@ -229,9 +221,8 @@ describe('buildPersonalisedReport — payload trimming', () => {
       scaleFactor,
       scaledSensitivity,
       scaledBaselineAnnualBill,
-      [],
-      null,
-      null,
+      paths,
+      freshDetailResult,
       scaledHourlyConsumption
     );
     expect(out.hourlyConsumptionOverride).toBeDefined();
@@ -244,127 +235,33 @@ describe('buildPersonalisedReport — payload trimming', () => {
     expect(out.hourlyConsumptionOverride!.every((k) => Math.abs(k - expected) < 5e-5)).toBe(true);
   });
 
-  it('still scales monthly consumption, savings, and bills by the scale factor', async () => {
+  it('still scales monthly consumption and bills by the scale factor', async () => {
     const baseline = baselineWithHourly();
-    const { scaledSensitivity, scaledBaselineAnnualBill } = await computeFunnelPaths(
-      baseline,
-      48_000, // ~2x scale
-      stubSolarLoader
-    );
-    const out = buildPersonalisedReport(
-      baseline,
-      2.0,
+    const {
       scaledSensitivity,
-      scaledBaselineAnnualBill
-    );
-    // curvedMonthlyKwh is [1000 × 12] in the fixture; scaled by 2 → [2000 × 12]
-    expect(out.curvedMonthlyKwh.every((k) => k === 2000)).toBe(true);
-    // estimatedMonthlyBills was annualBill / 12 = 2000; scaled by 2 → 4000
-    expect(out.estimatedMonthlyBills.every((b) => b === 4000)).toBe(true);
-    // result.annualSavings was the baseline's; scaled by 2
-    const before = (baseline.result as CalculationResult).annualSavings;
-    expect(out.result?.annualSavings).toBeCloseTo(before * 2, 5);
-  });
-
-  it('preserves the annualSavings = solar + battery + export invariant on the persisted result', async () => {
-    // Mirror the screenshot: baseline is a hotel (200 kWp + 50 kWh) where
-    // components algebraically sum to total. Build a personalised report
-    // pinned to the 50% pick (a smaller config) and assert the persisted
-    // result's components still sum to its annualSavings.
-    //
-    // If they don't, the report renders with a "Total Annual Savings" card
-    // that doesn't match its own breakdown — which is exactly the symptom
-    // we're chasing.
-    const baseline = makeBaseline(24_000);
-    const baselineResult = baseline.result as CalculationResult;
-
-    // Set realistic baseline component values that sum to a known total.
-    // Pretend the baseline simulation produced these for 200 kWp + 50 kWh.
-    const baselineSolar = 8_000;
-    const baselineBattery = 3_500;
-    const baselineExport = 4_500;
-    const baselineTotal = baselineSolar + baselineBattery + baselineExport; // 16,000
-
-    const fixedBaseline: SavedReport = {
-      ...baseline,
-      result: {
-        ...baselineResult,
-        annualSavings: baselineTotal,
-        annualSolarToLoadSavings: baselineSolar,
-        annualBatteryToLoadSavings: baselineBattery,
-        annualExportRevenue: baselineExport,
-      } as unknown as CalculationResult,
-    };
-
-    // Use the linear-scaling fallback for this test (no hourly profile),
-    // because the baseline uses synthetic component values that don't
-    // correspond to a runnable simulation.
-    const { paths, scaledSensitivity, scaledBaselineAnnualBill, scaleFactor } =
-      await computeFunnelPaths(fixedBaseline, 24_000, stubSolarLoader);
-
+      scaledBaselineAnnualBill,
+      freshDetailResult,
+      scaledHourlyConsumption,
+      paths,
+      scaleFactor,
+    } = await computeFunnelPaths(baseline, 48_000, stubSolarLoader); // ~2x scale
     const out = buildPersonalisedReport(
-      fixedBaseline,
+      baseline,
       scaleFactor,
       scaledSensitivity,
       scaledBaselineAnnualBill,
-      paths
+      paths,
+      freshDetailResult,
+      scaledHourlyConsumption
     );
-
-    const r = out.result as CalculationResult;
-    const componentSum =
-      (r.annualSolarToLoadSavings ?? 0) +
-      (r.annualBatteryToLoadSavings ?? 0) +
-      (r.annualExportRevenue ?? 0);
-
-    // This is what the screenshot violates — total ≠ sum of components.
-    expect(r.annualSavings).toBeCloseTo(componentSum, 0);
+    // curvedMonthlyKwh is [1000 × 12] in the fixture; scaled by scaleFactor.
+    const expectedKwh = 1000 * scaleFactor;
+    expect(out.curvedMonthlyKwh.every((k) => Math.abs(k - expectedKwh) < 1e-6)).toBe(true);
+    // estimatedMonthlyBills was annualBill / 12 = 2000; scaled by scaleFactor.
+    const expectedBill = 2000 * scaleFactor;
+    expect(out.estimatedMonthlyBills.every((b) => Math.abs(b - expectedBill) < 1e-6)).toBe(true);
   });
 
-  it('re-run path produces lower savings than linear-scaling fallback for big-bill users', async () => {
-    // Linear-scaling overstates savings because solar generation is bounded
-    // by physical capacity, not by user spend. For a baseline with 100% solar
-    // generation already self-consumed at small bills, scaling the bill 4×
-    // doesn't 4× the savings — the system is already saturated.
-    //
-    // Build a fixture where the baseline's solar output is small relative to
-    // a 4× scaled load, so the re-run "self-consumes more, exports less"
-    // physics produces materially different (lower) savings than naive
-    // linear scaling.
-    //
-    // The exact magnitudes here are sensitive to the synthetic solar profile,
-    // but the *direction* — re-run < linear scaling — is the contract that
-    // protects the user from inflated IRRs.
-    const baseline = baselineWithHourly();
-    const SCALE = 4; // 4× spend ratio
-
-    // Re-run path (current default behaviour)
-    const rerun = await computeFunnelPaths(
-      baseline,
-      24_000 * SCALE,
-      stubSolarLoader
-    );
-    expect(rerun.freshBaselineResult).not.toBeNull();
-
-    // Linear-scaling fallback (legacy path, still used when baseline has no
-    // hourly profile)
-    const linearOnly = { ...baseline, hourlyConsumptionOverride: undefined };
-    const linear = await computeFunnelPaths(
-      linearOnly,
-      24_000 * SCALE,
-      stubSolarLoader
-    );
-    expect(linear.freshBaselineResult).toBeNull();
-
-    // Compare scaled per-cell annualSavings between paths.
-    const rerunNoBatt = rerun.scaledSensitivity.rows[0]?.noBattery.annualSavings ?? 0;
-    const linearNoBatt = linear.scaledSensitivity.rows[0]?.noBattery.annualSavings ?? 0;
-
-    // Linear scaling multiplies by ~SCALE; re-run is bounded by physics.
-    // The contract: linear must be at least as large as re-run for big bills.
-    // (Equality can hold only when the system is small enough that linear and
-    // physical agree.)
-    expect(linearNoBatt).toBeGreaterThanOrEqual(rerunNoBatt - 1);
-  });
 
   it('persisted result satisfies annualSavings === solar + battery + export to floating-point precision', async () => {
     // Pre-3d4d8df, the persisted result was approximate (componentScaleFactor ×
@@ -375,7 +272,6 @@ describe('buildPersonalisedReport — payload trimming', () => {
     const {
       scaledSensitivity,
       scaledBaselineAnnualBill,
-      freshBaselineResult,
       freshDetailResult,
       scaledHourlyConsumption,
       paths,
@@ -387,7 +283,6 @@ describe('buildPersonalisedReport — payload trimming', () => {
       scaledSensitivity,
       scaledBaselineAnnualBill,
       paths,
-      freshBaselineResult,
       freshDetailResult,
       scaledHourlyConsumption
     );
@@ -415,7 +310,6 @@ describe('buildPersonalisedReport — payload trimming', () => {
     const {
       scaledSensitivity,
       scaledBaselineAnnualBill,
-      freshBaselineResult,
       freshDetailResult,
       scaledHourlyConsumption,
       paths,
@@ -427,7 +321,6 @@ describe('buildPersonalisedReport — payload trimming', () => {
       scaledSensitivity,
       scaledBaselineAnnualBill,
       paths,
-      freshBaselineResult,
       freshDetailResult,
       scaledHourlyConsumption
     );
@@ -461,7 +354,6 @@ describe('buildPersonalisedReport — payload trimming', () => {
     const {
       scaledSensitivity,
       scaledBaselineAnnualBill,
-      freshBaselineResult,
       freshDetailResult,
       scaledHourlyConsumption,
       paths,
@@ -473,7 +365,6 @@ describe('buildPersonalisedReport — payload trimming', () => {
       scaledSensitivity,
       scaledBaselineAnnualBill,
       paths,
-      freshBaselineResult,
       freshDetailResult,
       scaledHourlyConsumption
     );
@@ -491,7 +382,6 @@ describe('buildPersonalisedReport — payload trimming', () => {
     const {
       scaledSensitivity,
       scaledBaselineAnnualBill,
-      freshBaselineResult,
       freshDetailResult,
       scaledHourlyConsumption,
       paths,
@@ -502,7 +392,6 @@ describe('buildPersonalisedReport — payload trimming', () => {
       scaledSensitivity,
       scaledBaselineAnnualBill,
       paths,
-      freshBaselineResult,
       freshDetailResult,
       scaledHourlyConsumption
     );

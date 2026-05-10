@@ -19,6 +19,35 @@ alwaysApply: true
 - **Domestic tariff data**: import from `domesticTariffParser.ts`, never directly from `domesticTariffs.json`.
 - **Formatting**: `src/utils/format.ts` (`formatCurrency`, `formatKwh`, etc.). No local formatting functions in components.
 
+## Calculations: re-run the engine, never duplicate or approximate it
+
+`runCalculation` (`src/utils/calculations.ts`) and `simulateHourlyEnergyFlow`
+(`src/utils/hourlyEnergyFlow.ts`) are the engine. Every reported number — savings,
+component breakdown, IRR, payback, sensitivity — must be the engine's actual output for
+the inputs that produced it.
+
+**Always**:
+- When you need a result for a different scenario, change the **inputs** and call the
+  engine again. Don't carry a previous result forward and scale, project, or adjust it.
+- Save inputs, not outputs you can re-derive. Persist enough on every saved report that
+  `rebuildResultFromSavedReport` (`src/utils/funnelSubmit.ts`) can recompute the result
+  from scratch.
+- If perf matters on a hot path, move the re-run to a Web Worker. Don't write a
+  "lighter" approximation.
+
+**Never**:
+- Linearly scale a sensitivity / savings / cash-flow array by a ratio because re-running
+  feels slower. (This is exactly the bug that produced the 83% IRR — the linear scaler
+  multiplied savings by the bill ratio without re-checking physical limits.)
+- Multiply a baseline result's component breakdown by a `detailRatio` to project it
+  onto a different config. Re-run the engine for that config.
+- Save calculated outputs in a place where they'll later be assumed equal to a fresh
+  re-run. Shortcuts become permanent bugs.
+
+If you find yourself wanting an approximation because re-running is slow, surface the
+cost and ask before adding the shortcut. Approximations gather error silently — the
+funnel's "±20%" disclaimer covered ±230% in practice.
+
 ## Hourly simulation invariants
 - Hour-of-day and month attribution must use canonical `stamp`/`hourKey`, never `index % 24` or fixed block math.
 - Monthly figures must be strict sums of hourly rows grouped by `timeStamps[i].monthIndex` — never recomputed independently.
