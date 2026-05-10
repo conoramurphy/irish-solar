@@ -73,7 +73,8 @@ const EXAMPLE_MODELS = [
     payback: '4.5 yrs',
     savingLabel: '10-yr return',
     saving: '+€82,400',
-    href: '/hotels',
+    reportId: 'GXz4-_lMwsjVbgc3GzBww',
+    cta: 'See a real Hotel ROI',
     // Navy scheme, matches the old tariff section
     theme: {
       cardBg: '#1B3A72',
@@ -91,7 +92,8 @@ const EXAMPLE_MODELS = [
     payback: '4.4 yrs',
     savingLabel: '10-yr return',
     saving: '+€122,887',
-    href: '/dairy',
+    reportId: 'WZ9EWvHnXsJsk8gH7GUQN',
+    cta: 'See a real Dairy farm ROI',
     // Amber scheme, matches the old heat pump section
     theme: {
       cardBg: '#FEF3C7',
@@ -209,16 +211,16 @@ export function Landing() {
                   key={m.type}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. Get your free Solar ROI for this segment.`}
+                  aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. See the full model.`}
                   onClick={() => {
-                    posthog?.capture('example_model_opened', { href: m.href, model_name: m.type });
-                    navigate(m.href);
+                    posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
+                    navigate(`/r/${m.reportId}`);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      posthog?.capture('example_model_opened', { href: m.href, model_name: m.type });
-                      navigate(m.href);
+                      posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
+                      navigate(`/r/${m.reportId}`);
                     }
                   }}
                   className="group rounded-2xl p-5 cursor-pointer hover:-translate-y-1 active:translate-y-0 transition-all duration-200 shadow-xl hover:shadow-2xl flex flex-col"
@@ -245,7 +247,7 @@ export function Landing() {
                     style={{ backgroundColor: m.theme.ctaBg, color: m.theme.ctaText }}
                     aria-hidden="true"
                   >
-                    Get your free Solar ROI {ARROW}
+                    {m.cta} {ARROW}
                   </span>
                 </div>
               ))}
