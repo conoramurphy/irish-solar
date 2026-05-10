@@ -2,10 +2,11 @@
 // honestly and points to the call as the path to a tighter number — the
 // entire funnel exists to earn that call.
 
-const PHONE_HREF =
-  'https://wa.me/353858082080?text=Hey%2C%20I%20just%20got%20my%20Watt%20Profit%20independent%20ROI%20and%20want%20to%20chat%20through%20it.%20What%20time%20works%3F';
+interface AccuracyBarProps {
+  onContact: () => void;
+}
 
-export function AccuracyBar() {
+export function AccuracyBar({ onContact }: AccuracyBarProps) {
   return (
     <div
       role="status"
@@ -16,14 +17,13 @@ export function AccuracyBar() {
           <span className="font-semibold">Accurate to ±20%.</span>{' '}
           When we use your real data it&rsquo;s ±5% accurate.
         </p>
-        <a
-          href={PHONE_HREF}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs sm:text-sm font-semibold underline underline-offset-2 hover:text-amber-700 transition-colors whitespace-nowrap"
+        <button
+          type="button"
+          onClick={onContact}
+          className="text-xs sm:text-sm font-semibold underline underline-offset-2 hover:text-amber-700 transition-colors whitespace-nowrap cursor-pointer"
         >
           Contact me for a full ROI →
-        </a>
+        </button>
       </div>
     </div>
   );
