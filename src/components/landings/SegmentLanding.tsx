@@ -18,7 +18,7 @@ const COPY: Record<FunnelSegment, SegmentCopy> = {
       'Built on a real 20-bed Irish hotel model, scaled to your bill — not a brochure.',
     formIntro:
       'Tell us four things and we\'ll build your independent ROI model right now.',
-    formSubmitLabel: 'Build my hotel ROI',
+    formSubmitLabel: 'Get my free Solar ROI',
   },
   dairy: {
     heroSubhead:
@@ -27,7 +27,7 @@ const COPY: Record<FunnelSegment, SegmentCopy> = {
       'Built on a real 100-head Longford dairy farm model, scaled to your bill — not a brochure.',
     formIntro:
       'Tell us four things and we\'ll build your independent ROI model right now.',
-    formSubmitLabel: 'Build my dairy ROI',
+    formSubmitLabel: 'Get my free Solar ROI',
   },
 };
 

@@ -130,9 +130,9 @@ export function Landing() {
         onClick={() => openCta('floating_button')}
         className="hidden sm:inline-flex fixed bottom-6 right-6 z-40 items-center gap-3 rounded-2xl px-8 py-4 text-base font-semibold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-200"
         style={{ backgroundColor: '#1A4A35', color: '#FDEAB4' }}
-        aria-label="Get your own solar ROI"
+        aria-label="Get your free Solar ROI"
       >
-        Get your own solar ROI
+        Get your free Solar ROI
       </button>
 
       <div>
@@ -244,9 +244,9 @@ export function Landing() {
                 onClick={() => openCta('hero_button')}
                 className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
                 style={{ backgroundColor: '#1A4A35' }}
-                aria-label="Get your own solar ROI"
+                aria-label="Get your free Solar ROI"
               >
-                Get your own solar ROI {ARROW}
+                Get your free Solar ROI {ARROW}
               </button>
             </div>
             <p className="text-sm font-medium mb-8" style={{ color: 'rgba(255,255,255,0.55)' }}>

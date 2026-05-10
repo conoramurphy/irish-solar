@@ -22,7 +22,7 @@ export function AccuracyBar() {
           rel="noopener noreferrer"
           className="text-xs sm:text-sm font-semibold underline underline-offset-2 hover:text-amber-700 transition-colors whitespace-nowrap"
         >
-          Contact for a full ROI →
+          Contact me for a full ROI →
         </a>
       </div>
     </div>

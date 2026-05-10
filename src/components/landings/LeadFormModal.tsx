@@ -42,7 +42,7 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
               id="lead-modal-heading"
               className="text-base font-semibold text-slate-800 leading-snug"
             >
-              Get your free independent ROI
+              Get your free Solar ROI
             </h3>
             <p className="text-xs text-slate-500 mt-1 leading-snug">
               Independent of any installer. Built on a real Irish business model.
@@ -61,7 +61,7 @@ export function LeadFormModal({ open, onClose }: LeadFormModalProps) {
         <div className="px-6 pb-6">
           <LeadForm
             source="root_landing_modal"
-            submitLabel="Build my independent ROI"
+            submitLabel="Get my free Solar ROI"
             onConfirmationDismiss={onClose}
           />
         </div>

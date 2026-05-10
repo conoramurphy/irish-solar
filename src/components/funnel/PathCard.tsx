@@ -5,16 +5,46 @@ interface PathCardProps {
   path: PathRecommendation;
 }
 
-const TARGET_LABELS: Record<33 | 50 | 100, string> = {
-  33: 'Cut bills by a third',
-  50: 'Halve your bill',
-  100: 'Eliminate your bill',
+interface CardSkin {
+  icon: string;
+  kicker: string;
+  taglinePrefix: string;
+  accent: string;
+  accentBg: string;
+  accentBorder: string;
+}
+
+const SKIN_BY_TARGET: Record<33 | 50 | 100, CardSkin> = {
+  33: {
+    icon: '⚡',
+    kicker: '33% Target',
+    taglinePrefix: 'Cut your bill by a third',
+    accent: 'text-amber-700',
+    accentBg: 'bg-amber-50',
+    accentBorder: 'border-amber-200',
+  },
+  50: {
+    icon: '📈',
+    kicker: '50% Target',
+    taglinePrefix: 'Halve your bill',
+    accent: 'text-emerald-700',
+    accentBg: 'bg-emerald-50',
+    accentBorder: 'border-emerald-200',
+  },
+  100: {
+    icon: '🏠',
+    kicker: 'Net Zero Target',
+    taglinePrefix: 'Eliminate your bill',
+    accent: 'text-blue-700',
+    accentBg: 'bg-blue-50',
+    accentBorder: 'border-blue-200',
+  },
 };
 
 function formatPaybackYears(value: number): string {
   if (!Number.isFinite(value) || value <= 0) return '—';
-  if (value >= 25) return '25+ yrs';
-  return `${value.toFixed(1)} yrs`;
+  if (value >= 25) return '25+ years';
+  return `${value.toFixed(1)} years`;
 }
 
 function formatKwp(value: number): string {
@@ -28,56 +58,49 @@ function formatBatteryKwh(value: number): string {
 }
 
 export function PathCard({ path }: PathCardProps) {
+  const skin = SKIN_BY_TARGET[path.targetReductionPct];
   const showBattery = path.batterySizeKwh > 0;
+  const paybackText = formatPaybackYears(path.simplePaybackYears);
+  const tagline =
+    paybackText === '—'
+      ? `${skin.taglinePrefix}.`
+      : `${skin.taglinePrefix} — paid back in ${paybackText}.`;
+
+  const footer = `${formatKwp(path.systemSizeKwp)}${
+    showBattery ? ` · ${formatBatteryKwh(path.batterySizeKwh)} battery` : ' · No battery'
+  } — Est. ${formatCurrency(path.capexNet)} after grants`;
 
   return (
-    <article className="rounded-2xl bg-white border border-slate-200 p-6 shadow-sm flex flex-col">
-      <p className="text-xs font-semibold tracking-widest uppercase text-amber-600 mb-2">
-        {path.targetReductionPct === 100 ? 'Net zero target' : `${path.targetReductionPct}% target`}
-      </p>
-      <h3 className="text-xl md:text-2xl font-serif font-bold text-slate-900 leading-snug mb-4">
-        {TARGET_LABELS[path.targetReductionPct]}
-      </h3>
+    <div
+      className={`relative rounded-2xl border ${skin.accentBorder} ${skin.accentBg} p-6 text-left`}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xl" aria-hidden="true">
+          {skin.icon}
+        </span>
+        <span
+          className={`text-xs font-bold uppercase tracking-wider ${skin.accent}`}
+        >
+          {skin.kicker}
+        </span>
+      </div>
+
+      <div className={`text-3xl font-bold ${skin.accent} tabular-nums`}>
+        {formatCurrency(path.annualSavings)}
+        <span className="text-base font-medium opacity-70">/yr</span>
+      </div>
 
       {!path.targetMet && (
-        <p className="text-xs rounded-lg bg-amber-50 text-amber-800 p-2.5 mb-4">
-          This is as close as the rough model gets. The call will model larger systems.
+        <p className="text-xs text-amber-800 mt-2">
+          As close as the rough model gets — the call will model larger systems.
         </p>
       )}
 
-      <dl className="space-y-3 mb-6 flex-1">
-        <div className="flex justify-between items-baseline">
-          <dt className="text-xs font-medium tracking-widest uppercase text-slate-400">Solar</dt>
-          <dd className="text-sm font-semibold text-slate-800">{formatKwp(path.systemSizeKwp)}</dd>
-        </div>
-        {showBattery && (
-          <div className="flex justify-between items-baseline">
-            <dt className="text-xs font-medium tracking-widest uppercase text-slate-400">Battery</dt>
-            <dd className="text-sm font-semibold text-slate-800">{formatBatteryKwh(path.batterySizeKwh)}</dd>
-          </div>
-        )}
-        <div className="flex justify-between items-baseline">
-          <dt className="text-xs font-medium tracking-widest uppercase text-slate-400">Net cost (after grant)</dt>
-          <dd className="text-sm font-semibold text-slate-800">{formatCurrency(path.capexNet)}</dd>
-        </div>
-        <div className="flex justify-between items-baseline">
-          <dt className="text-xs font-medium tracking-widest uppercase text-slate-400">Annual savings</dt>
-          <dd className="text-sm font-semibold text-green-800">{formatCurrency(path.annualSavings)}</dd>
-        </div>
-        <div className="flex justify-between items-baseline">
-          <dt className="text-xs font-medium tracking-widest uppercase text-slate-400">Payback</dt>
-          <dd className="text-sm font-semibold text-slate-800">{formatPaybackYears(path.simplePaybackYears)}</dd>
-        </div>
-      </dl>
+      <p className="text-sm text-slate-600 mt-2 leading-relaxed">{tagline}</p>
 
-      <div className="border-t border-slate-100 pt-3">
-        <p className="text-[11px] tracking-widest uppercase font-medium text-slate-400 mb-1">
-          Estimated reduction
-        </p>
-        <p className="text-2xl font-serif font-bold text-green-800">
-          {Math.min(100, Math.round(path.actualReductionPct))}%
-        </p>
+      <div className="mt-4 pt-3 border-t border-slate-200/60 text-xs text-slate-500">
+        {footer}
       </div>
-    </article>
+    </div>
   );
 }

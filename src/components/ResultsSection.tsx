@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { usePostHog } from '@posthog/react';
 import type { CalculationResult, SensitivityVariant, SystemConfiguration, Tariff } from '../types';
 import { calculateAnnualBillSummary } from '../utils/billSummary';
@@ -42,6 +42,13 @@ interface ResultsSectionProps {
   onLockToggle?: (locked: boolean) => Promise<void>;
   onTitleChange?: (title: string) => Promise<void>;
   onDescriptionChange?: (description: string) => Promise<void>;
+  /**
+   * Replace the default Top Picks block (fastest payback / 10-yr return / energy
+   * independence cards) with a custom node — used by the ads-funnel report to
+   * surface its three reduction-target picks in the same slot. When `undefined`
+   * (the default), the wizard's built-in picker logic runs.
+   */
+  topPicksOverride?: ReactNode;
 }
 
 const ANALYSIS_YEARS = 25;
@@ -173,6 +180,7 @@ export function ResultsSection({
   onLockToggle,
   onTitleChange,
   onDescriptionChange,
+  topPicksOverride,
 }: ResultsSectionProps) {
   // Derived flags from reportMode
   const isLockedMode = reportMode === 'locked';
@@ -543,8 +551,11 @@ export function ResultsSection({
         {activeTab === 'standard' && activeResult && (
           <div className="animate-in fade-in duration-300">
 
-            {/* Top Picks from the heat map */}
-            {projectedSensitivity && (() => {
+            {/* Top Picks from the heat map.
+                Callers (e.g. the ads-funnel `FunnelReport`) can replace this
+                block with their own picks via `topPicksOverride`. */}
+            {topPicksOverride !== undefined && topPicksOverride}
+            {topPicksOverride === undefined && projectedSensitivity && (() => {
               const COLS = ['noBattery', 'halfBattery', 'fullBattery', 'doubleBattery'] as const;
 
               // Flatten every cell into a list with its row metadata

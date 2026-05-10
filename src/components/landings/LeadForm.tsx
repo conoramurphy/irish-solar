@@ -39,7 +39,7 @@ const BRAND_GREEN_DARK = '#1A4A35';
 export function LeadForm({
   fixedSegment,
   source,
-  submitLabel = 'Get my independent ROI',
+  submitLabel = 'Get my free Solar ROI',
   onConfirmationDismiss,
 }: LeadFormProps) {
   const navigate = useNavigate();
@@ -160,26 +160,35 @@ export function LeadForm({
       noValidate
     >
       {showChooser && (
-        <div>
-          <label htmlFor="businessType" className={labelClass}>
-            What&rsquo;s your business?
-          </label>
-          <select
-            id="businessType"
-            value={businessType}
-            onChange={(e) => setBusinessType(e.target.value as BusinessTypeValue)}
-            className={`${fieldClass} appearance-none`}
+        <fieldset>
+          <legend className={labelClass}>What&rsquo;s your business?</legend>
+          <div
+            role="radiogroup"
             aria-invalid={!!errors.businessType}
+            className="grid grid-cols-2 sm:grid-cols-4 gap-2"
           >
-            <option value="">Select one…</option>
-            {BUSINESS_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            {BUSINESS_TYPE_OPTIONS.map((o) => {
+              const selected = businessType === o.value;
+              return (
+                <button
+                  type="button"
+                  key={o.value}
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setBusinessType(o.value)}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-all text-left ${
+                    selected
+                      ? 'border-green-700 bg-green-50 text-green-800 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
           {errors.businessType && <p className={errorClass}>{errors.businessType}</p>}
-        </div>
+        </fieldset>
       )}
 
       <div>
@@ -257,7 +266,7 @@ export function LeadForm({
         className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
         style={{ backgroundColor: BRAND_GREEN }}
       >
-        {submitting ? 'Building your model…' : submitLabel}
+        {submitting ? 'Building your ROI…' : submitLabel}
       </button>
 
       {errors.submit && (
