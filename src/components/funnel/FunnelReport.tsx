@@ -288,7 +288,16 @@ export function FunnelReport({ segment }: FunnelReportProps) {
   return (
     <div className="min-h-screen bg-slate-50 pb-32 sm:pb-24">
       <AccuracyBar onContact={() => setContactOpen(true)} />
-      <CTAModal open={contactOpen} onClose={() => setContactOpen(false)} />
+      <CTAModal
+        open={contactOpen}
+        onClose={() => setContactOpen(false)}
+        leadContext={{
+          name: leadName,
+          eircode: leadEircode,
+          segment,
+          reportId: id,
+        }}
+      />
       <WalkthroughFloater onContactClick={() => setContactOpen(true)} />
 
       <nav

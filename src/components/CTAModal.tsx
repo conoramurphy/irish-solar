@@ -4,26 +4,43 @@ import { sha256Hex } from '../utils/sha256';
 
 const WHATSAPP_NUMBER = '353858082080';
 
-const ROLES = [
-  { value: 'homeowner', label: 'Homeowner' },
-  { value: 'installer', label: 'Installer / Contractor' },
-  { value: 'business_owner', label: 'Business owner' },
-  { value: 'farmer', label: 'Farmer' },
-  { value: 'other', label: 'Other' },
-] as const;
+/**
+ * Whatever the surrounding flow already knows about the user. Funnel reports
+ * fill this from the persisted lead row (name + eircode + segment); other call
+ * sites leave it undefined. The API joins on `reportId` server-side to recover
+ * the trusted phone + annual-spend.
+ */
+export interface LeadContext {
+  name?: string;
+  eircode?: string;
+  segment?: 'hotel' | 'dairy' | 'other';
+  reportId?: string;
+}
 
-function fireCapture(email: string, role: string, message: string, closedEarly: boolean) {
+function fireCapture(
+  email: string,
+  message: string,
+  closedEarly: boolean,
+  leadContext?: LeadContext
+) {
   if (!email.trim()) return;
   fetch('/api/contact', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim(), role, message, closedEarly }),
+    body: JSON.stringify({
+      email: email.trim(),
+      message,
+      closedEarly,
+      leadContext,
+    }),
   }).catch(() => {});
 }
 
 interface CTAModalProps {
   open: boolean;
   onClose: () => void;
+  /** Pre-known info about the user; passed through to /api/contact for the email. */
+  leadContext?: LeadContext;
 }
 
 const WHATSAPP_ICON = (
@@ -32,11 +49,10 @@ const WHATSAPP_ICON = (
   </svg>
 );
 
-export function CTAModal({ open, onClose }: CTAModalProps) {
+export function CTAModal({ open, onClose, leadContext }: CTAModalProps) {
   const posthog = usePostHog();
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -48,7 +64,6 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
     if (open) {
       setStep(1);
       setEmail('');
-      setRole('');
       setMessage('');
       setSending(false);
       setSent(false);
@@ -59,7 +74,7 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
   function handleClose() {
     if (!captured.current) {
       captured.current = true;
-      fireCapture(email, role, message, true);
+      fireCapture(email, message, true, leadContext);
     }
     onClose();
   }
@@ -81,13 +96,17 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
     if (sending) return;
     setSending(true);
     captured.current = true;
-    fireCapture(email, role, message, false);
-    posthog?.identify(email, { role: role || 'unspecified' });
-    posthog?.capture('lead_submitted', { role: role || 'unspecified', has_message: message.trim().length > 0 });
+    fireCapture(email, message, false, leadContext);
+    posthog?.identify(email, leadContext?.segment ? { segment: leadContext.segment } : undefined);
+    posthog?.capture('lead_submitted', {
+      segment: leadContext?.segment ?? 'unspecified',
+      has_message: message.trim().length > 0,
+      has_lead_context: leadContext != null,
+    });
     if (typeof window !== 'undefined' && window.gtag) {
       const hashedEmail = await sha256Hex(email.trim().toLowerCase());
       window.gtag('event', 'generate_lead', {
-        role: role || 'unspecified',
+        segment: leadContext?.segment ?? 'unspecified',
         form: 'cta_modal',
       });
       window.gtag('event', 'conversion', {
@@ -167,7 +186,7 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
                   Get your profit model
                 </h3>
                 <p className="text-sm text-slate-500 mt-1 leading-snug">
-                  Tell us about your setup and we'll build a free personalised energy analysis.
+                  Let&rsquo;s discuss your site in detail.
                 </p>
               </div>
               <button
@@ -191,7 +210,7 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
             </div>
 
             {step === 1 ? (
-              /* ── Step 1: email + role ── */
+              /* ── Step 1: email ── */
               <div className="px-6 pb-6 space-y-3">
                 <div>
                   <label className="text-xs font-medium text-slate-600 mb-1.5 block">
@@ -207,21 +226,6 @@ export function CTAModal({ open, onClose }: CTAModalProps) {
                     autoFocus
                     autoComplete="email"
                   />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1.5 block">
-                    I am a…
-                  </label>
-                  <select
-                    value={role}
-                    onChange={e => setRole(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-transparent bg-white appearance-none"
-                  >
-                    <option value="">Select…</option>
-                    {ROLES.map(r => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
                 </div>
                 <button
                   onClick={handleNext}
