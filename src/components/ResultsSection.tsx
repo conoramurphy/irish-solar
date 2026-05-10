@@ -730,17 +730,23 @@ export function ResultsSection({
                     Each card above is a different size pulled from the same sweep. Switch to the &ldquo;{(projectedSensitivity?.rows.length ?? 8) * 4} options&rdquo; tab to explore the full grid.
                   </div>
                 )}
-            {/* Savings Breakdown Compact Section */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
+            {/* Savings Breakdown — laid out as a literal equation:
+                Total = Solar + Battery + Export. The four numbers come from one
+                hourly simulation (see AGENTS.md "re-run the engine") so the
+                identity holds to floating-point precision; surfacing the
+                operators makes that obvious to a reader without mental arithmetic. */}
+            <div className="flex flex-col md:flex-row md:items-stretch gap-4 mb-8">
+              <div className="flex-1 bg-emerald-50 rounded-xl p-5 border border-emerald-100">
                  <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-1">
                    Total Annual Savings {config?.excludeVat && '(Ex. VAT)'}
                  </div>
                  <div className="text-2xl font-bold text-emerald-700">{formatCurrency(activeResult.annualSavings)}</div>
                  <div className="text-xs text-emerald-600/80 mt-1">Bill reduction + export credits (net)</div>
               </div>
-              
-              <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+
+              <div className="hidden md:flex items-center text-3xl font-bold text-slate-400 select-none flex-shrink-0" aria-hidden="true">=</div>
+
+              <div className="flex-1 bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                    Solar Displacement {config?.excludeVat && '(Ex. VAT)'}
                  </div>
@@ -756,7 +762,9 @@ export function ResultsSection({
                  )}
               </div>
 
-              <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+              <div className="hidden md:flex items-center text-3xl font-bold text-slate-400 select-none flex-shrink-0" aria-hidden="true">+</div>
+
+              <div className="flex-1 bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                    Battery Displacement {config?.excludeVat && '(Ex. VAT)'}
                  </div>
@@ -772,7 +780,9 @@ export function ResultsSection({
                  )}
               </div>
 
-              <div className="bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
+              <div className="hidden md:flex items-center text-3xl font-bold text-slate-400 select-none flex-shrink-0" aria-hidden="true">+</div>
+
+              <div className="flex-1 bg-white rounded-xl p-5 border border-slate-100 shadow-sm">
                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                    Export Credits {config?.excludeVat && '(Ex. VAT)'}
                  </div>
