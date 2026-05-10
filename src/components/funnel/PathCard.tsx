@@ -87,6 +87,9 @@ export function PathCard({ path }: PathCardProps) {
         </span>
       </div>
 
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-0.5">
+        Annual savings
+      </p>
       <div className={`text-3xl font-bold ${skin.accent} tabular-nums`}>
         {formatCurrency(path.annualSavings)}
         <span className="text-base font-medium opacity-70">/yr</span>

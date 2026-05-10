@@ -109,21 +109,35 @@ function ContactCTAs({ source, onEmailClick }: ContactCTAsProps) {
 
 // Tailwind needs literal class names at build time, so map count → grid class.
 const CARD_GRID_BY_COUNT: Record<number, string> = {
-  1: 'grid grid-cols-1 gap-4 max-w-md mx-auto mb-8',
-  2: 'grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto mb-8',
-  3: 'grid grid-cols-1 md:grid-cols-3 gap-4 mb-8',
+  1: 'grid grid-cols-1 gap-4 max-w-md',
+  2: 'grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl',
+  3: 'grid grid-cols-1 md:grid-cols-3 gap-4',
 };
+
+// Total cells the sensitivity sweep models (8 scale factors × 4 battery options).
+// `pickPathsFromSensitivity` walks all 32 to choose the picks; the heading
+// surfaces this so the user knows we didn't pick 3 at random.
+const MODELLED_CELL_COUNT = 32;
 
 function FunnelPathCardsTrio({ paths }: { paths: PathRecommendation[] }) {
   const cardGridClass = CARD_GRID_BY_COUNT[paths.length] ?? CARD_GRID_BY_COUNT[3];
+  const optionsLabel = paths.length === 1 ? 'option' : 'options';
   return (
-    <div className={cardGridClass} role="list" aria-label="Recommended setups">
-      {paths.map((path) => (
-        <div key={path.targetReductionPct} role="listitem">
-          <PathCard path={path} />
-        </div>
-      ))}
-    </div>
+    <section aria-labelledby="funnel-paths-heading" className="mb-8">
+      <h3
+        id="funnel-paths-heading"
+        className="text-lg md:text-xl font-serif font-semibold text-slate-900 mb-4"
+      >
+        {paths.length} savings {optionsLabel} from {MODELLED_CELL_COUNT} modelled
+      </h3>
+      <div className={cardGridClass} role="list" aria-label="Recommended setups">
+        {paths.map((path) => (
+          <div key={path.targetReductionPct} role="listitem">
+            <PathCard path={path} />
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -248,39 +262,16 @@ export function FunnelReport({ segment }: FunnelReportProps) {
       </nav>
 
       <main>
-        <div className="max-w-5xl mx-auto px-5 md:px-8 pt-10 md:pt-14 pb-8">
-          <header className="mb-8 md:mb-10">
-            <h1 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 leading-tight tracking-tight mb-3">
-              {leadName}, here&rsquo;s your{' '}
-              <span className="text-green-800">independent</span> ROI.
-            </h1>
-            <p className="text-sm text-slate-500 mb-3">
-              {segment === 'hotel' ? 'Hotel' : 'Dairy farm'} · {leadEircode}
-            </p>
-            <p className="text-sm md:text-base text-slate-700 leading-relaxed">
-              Your usage patterns{' '}
-              <span className="underline decoration-amber-500 decoration-2 underline-offset-2 font-semibold">
-                will
-              </span>{' '}
-              differ from this {segmentNoun}&rsquo;s.
-            </p>
-          </header>
-
-          <ContactCTAs source="top" onEmailClick={() => setContactOpen(true)} />
-        </div>
-
         {standardResult && (
-          <section aria-label="Full ROI report" className="border-t border-slate-100 bg-slate-50">
-            <ResultsSection
-              standardResult={standardResult}
-              config={report.config}
-              reportMode="view"
-              reportLocked={false}
-              reportTitle={null}
-              reportDescription={null}
-              topPicksOverride={<FunnelPathCardsTrio paths={paths} />}
-            />
-          </section>
+          <ResultsSection
+            standardResult={standardResult}
+            config={report.config}
+            reportMode="view"
+            reportLocked={false}
+            reportTitle={`${leadName}, here's your independent ROI`}
+            reportDescription={`${segment === 'hotel' ? 'Hotel' : 'Dairy farm'} · ${leadEircode}. Your usage patterns will differ from this ${segmentNoun}'s.`}
+            topPicksOverride={<FunnelPathCardsTrio paths={paths} />}
+          />
         )}
 
         <footer className="border-t border-slate-100 pt-10 md:pt-14 pb-14 px-5 md:px-8">

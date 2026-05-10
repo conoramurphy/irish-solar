@@ -14,7 +14,7 @@ export function AccuracyBar() {
       <div className="max-w-5xl mx-auto px-5 md:px-8 py-2.5 flex items-center justify-between gap-3 flex-wrap">
         <p className="text-xs sm:text-sm font-medium leading-snug">
           <span className="font-semibold">Accurate to ±20%.</span>{' '}
-          The real one is ±5%.
+          When we use your real data it&rsquo;s ±5% accurate.
         </p>
         <a
           href={PHONE_HREF}
