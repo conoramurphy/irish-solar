@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { computeFunnelPaths, buildPersonalisedReport } from '../../src/utils/funnelSubmit';
+import {
+  computeFunnelPaths,
+  buildPersonalisedReport,
+  rebuildResultFromSavedReport,
+} from '../../src/utils/funnelSubmit';
 import type { SavedReport } from '../../src/types/savedReports';
 import type {
   CalculationResult,
@@ -210,20 +214,34 @@ describe('buildPersonalisedReport — payload trimming', () => {
     expect(out.result?.audit?.hourly).toEqual([]);
   });
 
-  it('drops hourlyConsumptionOverride so the persisted payload stays small', async () => {
+  it('persists the scaled hourlyConsumptionOverride so the report can be re-rendered later', async () => {
+    // Used to drop this field; we now keep it so future engine updates can
+    // re-render the report from inputs alone via rebuildResultFromSavedReport.
     const baseline = baselineWithHourly();
-    const { scaledSensitivity, scaledBaselineAnnualBill } = await computeFunnelPaths(
-      baseline,
-      24_000,
-      stubSolarLoader
-    );
+    const {
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      scaledHourlyConsumption,
+      scaleFactor,
+    } = await computeFunnelPaths(baseline, 48_000, stubSolarLoader); // ~2x scale
     const out = buildPersonalisedReport(
       baseline,
-      1.0,
+      scaleFactor,
       scaledSensitivity,
-      scaledBaselineAnnualBill
+      scaledBaselineAnnualBill,
+      [],
+      null,
+      null,
+      scaledHourlyConsumption
     );
-    expect(out.hourlyConsumptionOverride).toBeUndefined();
+    expect(out.hourlyConsumptionOverride).toBeDefined();
+    expect(out.hourlyConsumptionOverride!.length).toBe(baseline.hourlyConsumptionOverride!.length);
+    // Every slot should be `baseline × scaleFactor` (commodity-corrected).
+    // Allow 5e-5 tolerance because the persisted values are rounded to 4 dp
+    // (0.1 Wh) to keep the payload small.
+    const baseSlot = baseline.hourlyConsumptionOverride![0];
+    const expected = baseSlot * scaleFactor;
+    expect(out.hourlyConsumptionOverride!.every((k) => Math.abs(k - expected) < 5e-5)).toBe(true);
   });
 
   it('still scales monthly consumption, savings, and bills by the scale factor', async () => {
@@ -348,20 +366,147 @@ describe('buildPersonalisedReport — payload trimming', () => {
     expect(linearNoBatt).toBeGreaterThanOrEqual(rerunNoBatt - 1);
   });
 
-  it('produces a JSON-serializable payload well under 100KB so Cloudflare accepts the POST', async () => {
+  it('persisted result satisfies annualSavings === solar + battery + export to floating-point precision', async () => {
+    // Pre-3d4d8df, the persisted result was approximate (componentScaleFactor ×
+    // detailRatio applied to baseline-config components). Now that
+    // freshDetailResult is the source of truth, every field comes from the
+    // same simulation, so the algebraic identity should hold exactly.
     const baseline = baselineWithHourly();
-    const { scaledSensitivity, scaledBaselineAnnualBill } = await computeFunnelPaths(
-      baseline,
-      24_000,
-      stubSolarLoader
-    );
+    const {
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      freshBaselineResult,
+      freshDetailResult,
+      scaledHourlyConsumption,
+      paths,
+      scaleFactor,
+    } = await computeFunnelPaths(baseline, 48_000, stubSolarLoader);
     const out = buildPersonalisedReport(
       baseline,
-      1.0,
+      scaleFactor,
       scaledSensitivity,
-      scaledBaselineAnnualBill
+      scaledBaselineAnnualBill,
+      paths,
+      freshBaselineResult,
+      freshDetailResult,
+      scaledHourlyConsumption
+    );
+
+    const r = out.result as CalculationResult;
+    const sum =
+      (r.annualSolarToLoadSavings ?? 0) +
+      (r.annualBatteryToLoadSavings ?? 0) +
+      (r.annualExportRevenue ?? 0);
+
+    // Engine produces all four numbers from the same hourly simulation, so the
+    // identity holds to floating-point precision.
+    expect(Math.abs((r.annualSavings ?? 0) - sum)).toBeLessThan(1e-6);
+  });
+
+  it('round-trip: rebuildResultFromSavedReport reproduces the persisted result from inputs alone', async () => {
+    // The "all inputs persisted forever" contract: take the SavedReport
+    // emitted by buildPersonalisedReport, hand it to rebuildResultFromSavedReport
+    // (which knows nothing about the original baseline or the user's spend),
+    // and the recomputed result must match the persisted result.
+    //
+    // This is what makes "I update the engine, all reports refresh cleanly"
+    // work — every input runCalculation needs is on the SavedReport.
+    const baseline = baselineWithHourly();
+    const {
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      freshBaselineResult,
+      freshDetailResult,
+      scaledHourlyConsumption,
+      paths,
+      scaleFactor,
+    } = await computeFunnelPaths(baseline, 48_000, stubSolarLoader);
+    const persisted = buildPersonalisedReport(
+      baseline,
+      scaleFactor,
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      paths,
+      freshBaselineResult,
+      freshDetailResult,
+      scaledHourlyConsumption
+    );
+
+    // Re-run from inputs alone — no baseline, no scaleFactor, no detail-pick.
+    const recomputed = await rebuildResultFromSavedReport(persisted, stubSolarLoader);
+
+    const persistedResult = persisted.result as CalculationResult;
+    expect(recomputed.annualSavings).toBeCloseTo(persistedResult.annualSavings, 1);
+    expect(recomputed.annualSolarToLoadSavings ?? 0).toBeCloseTo(
+      persistedResult.annualSolarToLoadSavings ?? 0,
+      1
+    );
+    expect(recomputed.annualBatteryToLoadSavings ?? 0).toBeCloseTo(
+      persistedResult.annualBatteryToLoadSavings ?? 0,
+      1
+    );
+    expect(recomputed.annualExportRevenue ?? 0).toBeCloseTo(
+      persistedResult.annualExportRevenue ?? 0,
+      1
+    );
+    expect(recomputed.systemCost).toBeCloseTo(persistedResult.systemCost, 1);
+    expect(recomputed.netCost).toBeCloseTo(persistedResult.netCost, 1);
+  });
+
+  it('round-trip is deterministic — does not depend on system clock', async () => {
+    // runCalculation uses solarTimeseriesData.year (or new Date().getFullYear()
+    // as fallback). Every persisted report has selectedYear, so round-trip
+    // must produce the same numbers regardless of when the test runs.
+    const baseline = baselineWithHourly();
+    const {
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      freshBaselineResult,
+      freshDetailResult,
+      scaledHourlyConsumption,
+      paths,
+      scaleFactor,
+    } = await computeFunnelPaths(baseline, 48_000, stubSolarLoader);
+    const persisted = buildPersonalisedReport(
+      baseline,
+      scaleFactor,
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      paths,
+      freshBaselineResult,
+      freshDetailResult,
+      scaledHourlyConsumption
+    );
+
+    const a = await rebuildResultFromSavedReport(persisted, stubSolarLoader);
+    const b = await rebuildResultFromSavedReport(persisted, stubSolarLoader);
+    expect(a.annualSavings).toBe(b.annualSavings);
+  });
+
+  it('produces a JSON-serializable payload well under 250KB so Cloudflare accepts the POST', async () => {
+    // Mirror the production submitFunnelLead call: pass freshDetailResult and
+    // scaledHourlyConsumption so the persisted size reflects what actually
+    // goes over the wire (with ~17,520 floats taking realistic space).
+    const baseline = baselineWithHourly();
+    const {
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      freshBaselineResult,
+      freshDetailResult,
+      scaledHourlyConsumption,
+      paths,
+    } = await computeFunnelPaths(baseline, 48_000, stubSolarLoader);
+    const out = buildPersonalisedReport(
+      baseline,
+      2.0,
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      paths,
+      freshBaselineResult,
+      freshDetailResult,
+      scaledHourlyConsumption
     );
     const size = JSON.stringify(out).length;
-    expect(size).toBeLessThan(100_000);
+    expect(size).toBeLessThan(250_000);
   });
 });

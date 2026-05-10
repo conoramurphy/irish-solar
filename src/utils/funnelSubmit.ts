@@ -113,15 +113,103 @@ interface ComputeResult {
   paths: PathRecommendation[];
   scaledSensitivity: SensitivityAnalysis;
   /**
-   * Result of running the engine on the user's *scaled* hourly consumption.
-   * Set when the re-run path was used (the default). Null when we fell back to
-   * linear scaling because the baseline lacks hourly consumption.
+   * Result of running the engine on the user's *scaled* hourly consumption
+   * with the *baseline's* config (200 kWp + 50 kWh for the hotel baseline).
+   * Used when persisting reports for which the detail-pick re-run wasn't
+   * possible (no hourly profile on baseline, very rare).
    *
-   * `buildPersonalisedReport` must use this in place of `baseline.result` so
-   * the persisted breakdown fields reflect actual user-load physics, not the
-   * baseline's load.
+   * Null when we fell back entirely to linear scaling.
    */
   freshBaselineResult: CalculationResult | null;
+  /**
+   * Result of running the engine for the **detail-pick's exact config** on
+   * the user's scaled consumption. This is what `buildPersonalisedReport`
+   * persists as the report's `result` — every field (annualSavings, the
+   * three-way component breakdown, year1TaxSavings, equityAmount) reflects
+   * real physics for the picked system size.
+   *
+   * Null when no detail-pick was picked (empty sensitivity) or when the
+   * baseline lacked an hourly profile.
+   */
+  freshDetailResult: CalculationResult | null;
+  /**
+   * The user's scaled hourly consumption. Persisted alongside the report so
+   * it can be re-run later via `rebuildResultFromSavedReport` after engine
+   * updates. Null on the linear-scaling fallback path.
+   */
+  scaledHourlyConsumption: number[] | null;
+}
+
+/** Default solar loader: fetches the CSV asset by location + year. */
+type SolarLoader = (location: string, year: number) => Promise<ParsedSolarData>;
+
+/**
+ * Build the engine inputs that a SavedReport implies. Pure mapping — saved
+ * fields → static-data lookups → typed parameters. Throws clearly when an
+ * input is missing.
+ *
+ * Used by `rebuildResultFromSavedReport` (the "rerun any saved report from
+ * its inputs" entry point) and by the funnel's pre-persistence re-runs.
+ */
+function extractEngineInputs(saved: SavedReport): {
+  tariff: Tariff;
+  grants: Grant[];
+  hourly: number[];
+} {
+  const hourly = saved.hourlyConsumptionOverride;
+  if (!hourly || hourly.length === 0) {
+    throw new Error(
+      'SavedReport has no hourlyConsumptionOverride — rerun requires an hourly profile'
+    );
+  }
+
+  const tariff = findTariff(saved.tariffId);
+  if (!tariff) {
+    throw new Error(`Tariff ${saved.tariffId} not found in tariffs.json`);
+  }
+
+  const allGrants = grantsJson as unknown as Grant[];
+  const selectedGrantIds = saved.selectedGrantIds ?? [];
+  const grants = allGrants.filter((g) => selectedGrantIds.includes(g.id));
+
+  return { tariff, grants, hourly };
+}
+
+/**
+ * The migration-friendly entry point: take any persisted SavedReport that has
+ * its full inputs (config, financing, tariff id, hourly consumption, selected
+ * year/location), load the matching solar CSV, and re-run `runCalculation` to
+ * produce a fresh result.
+ *
+ * This is what the user wants for "I update the calcs, all reports refresh
+ * cleanly." Future callers: a one-off prod migration, a "Refresh report"
+ * button, server-side regeneration at GET time.
+ *
+ * `solarLoader` is dependency-injected so tests can stub the network fetch.
+ */
+export async function rebuildResultFromSavedReport(
+  saved: SavedReport,
+  solarLoader: SolarLoader = loadSolarData
+): Promise<CalculationResult> {
+  const { tariff, grants, hourly } = extractEngineInputs(saved);
+  const year = saved.selectedYear ?? new Date().getFullYear();
+  const solarData = await solarLoader(saved.config.location, year);
+
+  return runCalculation(
+    saved.config,
+    grants,
+    saved.financing,
+    tariff,
+    saved.trading,
+    // historicalSolar / historicalTariffs are unused by the engine.
+    {} as never,
+    [],
+    25,
+    undefined,
+    solarData,
+    undefined,
+    hourly
+  );
 }
 
 /**
@@ -130,34 +218,15 @@ interface ComputeResult {
  * physics of the user's actual load — variants don't over-state savings the
  * way linear scaling does.
  *
- * Throws if the baseline doesn't have hourly consumption (some legacy
- * baselines may only have monthly aggregates). Caller can catch and fall back
- * to linear scaling if appropriate.
- *
- * Exported for tests so they can inject pre-loaded solar data without going
- * through the network fetch.
+ * Thin wrapper over `runCalculation`; callers pre-load solar so this stays
+ * synchronous and testable.
  */
 export function recomputeForScaledConsumption(
   baseline: SavedReport,
   scaleFactor: number,
   solarData: ParsedSolarData
 ): CalculationResult {
-  const hourly = baseline.hourlyConsumptionOverride;
-  if (!hourly || hourly.length === 0) {
-    throw new Error(
-      'Baseline has no hourlyConsumptionOverride — re-run requires an hourly profile'
-    );
-  }
-
-  const tariff = findTariff(baseline.tariffId);
-  if (!tariff) {
-    throw new Error(`Tariff ${baseline.tariffId} not found in tariffs.json`);
-  }
-
-  const allGrants = grantsJson as unknown as Grant[];
-  const selectedGrantIds = baseline.selectedGrantIds ?? [];
-  const grants = allGrants.filter((g) => selectedGrantIds.includes(g.id));
-
+  const { tariff, grants, hourly } = extractEngineInputs(baseline);
   const scaledHourly = hourly.map((k) => k * scaleFactor);
 
   return runCalculation(
@@ -166,7 +235,6 @@ export function recomputeForScaledConsumption(
     baseline.financing,
     tariff,
     baseline.trading,
-    // historicalSolar / historicalTariffs are unused by the engine.
     {} as never,
     [],
     25,
@@ -177,8 +245,59 @@ export function recomputeForScaledConsumption(
   );
 }
 
-/** Default solar loader: fetches the CSV asset by location + year. */
-type SolarLoader = (location: string, year: number) => Promise<ParsedSolarData>;
+/**
+ * Run the engine for a specific cell from the sensitivity grid (e.g. the 50%
+ * detail-pick). The output is a *real* result for that exact config — no
+ * "scale baseline by ratio" approximation — so its component breakdown,
+ * tax savings, and equity reflect the picked system size.
+ */
+function runForDetailPick(
+  baseline: SavedReport,
+  detailPick: PathRecommendation,
+  scaledHourly: number[],
+  solarData: ParsedSolarData
+): CalculationResult {
+  const { tariff, grants } = extractEngineInputs(baseline);
+
+  // Linear: generation scales with kWp.
+  const baseKwp = baseline.config.systemSizeKwp ?? 0;
+  const scaledAnnualProduction =
+    baseKwp > 0
+      ? baseline.config.annualProductionKwh * (detailPick.systemSizeKwp / baseKwp)
+      : baseline.config.annualProductionKwh;
+
+  const detailConfig = {
+    ...baseline.config,
+    systemSizeKwp: detailPick.systemSizeKwp,
+    batterySizeKwh: detailPick.batterySizeKwh,
+    annualProductionKwh: scaledAnnualProduction,
+    installationCost: detailPick.capexGross,
+  };
+
+  // Avoid showing "overfunded equity" — the baseline's financing.equity is set
+  // to its own (much larger) net cost. Clamp it down so the picked system
+  // displays sensible numbers; the rest of financing (rate, term, taxRate)
+  // carries over unchanged.
+  const detailFinancing = {
+    ...baseline.financing,
+    equity: Math.min(baseline.financing.equity, detailPick.capexNet),
+  };
+
+  return runCalculation(
+    detailConfig,
+    grants,
+    detailFinancing,
+    tariff,
+    baseline.trading,
+    {} as never,
+    [],
+    25,
+    undefined,
+    solarData,
+    undefined,
+    scaledHourly
+  );
+}
 
 /**
  * Pure computation: take a baseline SavedReport + user spend, produce three paths.
@@ -227,14 +346,17 @@ export async function computeFunnelPaths(
   // than the baseline's, which is why this re-run exists.
   let scaledSensitivity: SensitivityAnalysis;
   let freshBaselineResult: CalculationResult | null = null;
+  let scaledHourlyConsumption: number[] | null = null;
+  let solarData: ParsedSolarData | null = null;
   if (baseline.hourlyConsumptionOverride && baseline.hourlyConsumptionOverride.length > 0) {
     const year = baseline.selectedYear ?? new Date().getFullYear();
-    const solarData = await solarLoader(baseline.config.location, year);
+    solarData = await solarLoader(baseline.config.location, year);
     freshBaselineResult = recomputeForScaledConsumption(baseline, scaleFactor, solarData);
     if (!freshBaselineResult.sensitivityAnalysis) {
       throw new Error('Re-run produced no sensitivityAnalysis — engine bug');
     }
     scaledSensitivity = freshBaselineResult.sensitivityAnalysis;
+    scaledHourlyConsumption = baseline.hourlyConsumptionOverride.map((k) => k * scaleFactor);
   } else {
     scaledSensitivity = scaleSensitivity(result.sensitivityAnalysis, scaleFactor);
   }
@@ -244,6 +366,21 @@ export async function computeFunnelPaths(
 
   const paths = pickPathsFromSensitivity(scaledSensitivity, scaledBaselineAnnualBill);
 
+  // Second engine run for the detail-pick's exact config, on the same scaled
+  // consumption. The output goes straight onto the persisted SavedReport with
+  // no further scaling — every displayed number is real physics for that
+  // system size, not a "baseline × ratio" approximation.
+  let freshDetailResult: CalculationResult | null = null;
+  const detailPick = findDefaultDetailPick(paths);
+  if (detailPick && solarData && scaledHourlyConsumption) {
+    freshDetailResult = runForDetailPick(
+      baseline,
+      detailPick,
+      scaledHourlyConsumption,
+      solarData
+    );
+  }
+
   return {
     baselineAnnualBill,
     scaledBaselineAnnualBill,
@@ -251,6 +388,8 @@ export async function computeFunnelPaths(
     paths,
     scaledSensitivity,
     freshBaselineResult,
+    freshDetailResult,
+    scaledHourlyConsumption,
   };
 }
 
@@ -268,16 +407,22 @@ export function findDefaultDetailPick(
 
 /**
  * Build a personalised SavedReport-shaped object to persist alongside the lead.
- * Scales consumption arrays and the result.sensitivityAnalysis. The persisted
- * `result` and `config` are pinned to the **50% pick** (or the closest
- * available path) so the funnel report's detail tab shows numbers consistent
- * with the highlighted card.
  *
- * When `freshBaselineResult` is supplied (the re-run path), its component
- * fields are used as the source of truth for the persisted breakdown — those
- * already reflect the user's scaled physics, so we don't need to apply
- * `scaleFactor` to them. The legacy linear-scaling path is kept for baselines
- * that can't be re-run (no hourly profile).
+ * Three sources of truth, in order of preference:
+ * 1. **`freshDetailResult`** (default) — `runCalculation` ran with the
+ *    detail-pick's exact config + the user's scaled consumption. Every field
+ *    is real physics; we copy it verbatim onto the persisted result.
+ * 2. **`freshBaselineResult`** — `runCalculation` ran with the *baseline's*
+ *    config on user's scaled consumption. Used when no detail-pick exists
+ *    (empty sensitivity). Component fields scale by `detailRatio` to project
+ *    onto whatever pick was made.
+ * 3. **`baseline.result`** — pre-baked baseline result. Linear-scaled by
+ *    `scaleFactor`. Only used when the baseline lacks an hourly consumption
+ *    profile (legacy baselines). Over-states savings 2-4× for big-bill users.
+ *
+ * Persists `hourlyConsumptionOverride` (the user's scaled consumption) on the
+ * returned SavedReport so future engine updates can re-render the report from
+ * inputs alone via `rebuildResultFromSavedReport`.
  */
 export function buildPersonalisedReport(
   baseline: SavedReport,
@@ -285,87 +430,125 @@ export function buildPersonalisedReport(
   scaledSensitivity: SensitivityAnalysis,
   scaledBaselineAnnualBill: number,
   paths: PathRecommendation[] = [],
-  freshBaselineResult: CalculationResult | null = null
+  freshBaselineResult: CalculationResult | null = null,
+  freshDetailResult: CalculationResult | null = null,
+  scaledHourlyConsumption: number[] | null = null
 ): SavedReport {
   const scaledMonthly = baseline.curvedMonthlyKwh.map((k) => k * scaleFactor);
   const scaledBills = baseline.estimatedMonthlyBills.map((b) => b * scaleFactor);
-
-  // Prefer the fresh result (engine re-run on user-scaled consumption) over
-  // the baseline's pre-baked result. The fresh one's component fields don't
-  // need a `× scaleFactor` because the engine already saw the scaled load.
-  const sourceResult = freshBaselineResult ?? (baseline.result as CalculationResult | undefined);
-  const componentScaleFactor = freshBaselineResult ? 1 : scaleFactor;
   const detailPick = findDefaultDetailPick(paths);
 
-  // Compute the proportional ratio between the detail-pick's annualSavings
-  // and the source-result's annualSavings. Used to project the breakdown
-  // fields (solar-to-load, battery-to-load, export revenue, audit.monthly
-  // savings rows) onto the detail pick's system size. With the re-run path,
-  // sourceResult.annualSavings is already in user units, so componentScaleFactor
-  // is 1; with the linear-scale fallback, sourceResult is the unscaled baseline
-  // so we apply scaleFactor here.
-  const sourceScaledAnnualSavings =
-    (sourceResult?.annualSavings ?? 0) * componentScaleFactor;
-  const detailRatio =
-    detailPick && sourceScaledAnnualSavings > 0
-      ? detailPick.annualSavings / sourceScaledAnnualSavings
-      : 1;
+  let scaledResult: CalculationResult | undefined;
 
-  // Trim heavy fields from the persisted payload before POSTing to /api/leads
-  // (~6.6MB → ~50KB). See earlier commit for context.
-  const scaledResult: CalculationResult | undefined = sourceResult
-    ? {
-        ...sourceResult,
-        annualGeneration: sourceResult.annualGeneration,
-        annualSavings: detailPick
-          ? detailPick.annualSavings
-          : sourceResult.annualSavings * componentScaleFactor,
-        annualSolarToLoadSavings:
-          (sourceResult.annualSolarToLoadSavings ?? 0) * componentScaleFactor * detailRatio,
-        annualBatteryToLoadSavings:
-          (sourceResult.annualBatteryToLoadSavings ?? 0) * componentScaleFactor * detailRatio,
-        annualExportRevenue:
-          (sourceResult.annualExportRevenue ?? 0) * componentScaleFactor * detailRatio,
-        systemCost: detailPick ? detailPick.capexGross : sourceResult.systemCost,
-        netCost: detailPick ? detailPick.capexNet : sourceResult.netCost,
-        simplePayback: detailPick
-          ? detailPick.simplePaybackYears
-          : sourceResult.simplePayback,
-        sensitivityAnalysis: scaledSensitivity,
-        audit: sourceResult.audit
-          ? {
-              ...sourceResult.audit,
-              hourly: [],
-              monthly: sourceResult.audit.monthly.map((m) => ({
-                ...m,
-                consumption: m.consumption * componentScaleFactor,
-                baselineCost: (m.baselineCost ?? 0) * componentScaleFactor,
-                // System-size-dependent fields project to the detail pick.
-                savings: (m.savings ?? 0) * componentScaleFactor * detailRatio,
-                exportRevenue: (m.exportRevenue ?? 0) * componentScaleFactor * detailRatio,
-                importCost: (m.importCost ?? 0) * componentScaleFactor * detailRatio,
-              })),
-            }
-          : undefined,
-      }
-    : undefined;
+  if (freshDetailResult) {
+    // Path 1 — pure input-driven. Every field on the persisted result was
+    // computed by the engine for the detail-pick's exact config. Just trim
+    // audit.hourly for size; everything else gets persisted verbatim with
+    // the scaled sensitivity grid swapped in.
+    scaledResult = {
+      ...freshDetailResult,
+      sensitivityAnalysis: scaledSensitivity,
+      audit: freshDetailResult.audit
+        ? {
+            ...freshDetailResult.audit,
+            hourly: [],
+          }
+        : undefined,
+    };
+  } else {
+    // Paths 2 and 3 — fall back to the older "scale baseline by ratio"
+    // approximation. Only reached for baselines without an hourly profile.
+    const sourceResult = freshBaselineResult ?? (baseline.result as CalculationResult | undefined);
+    const componentScaleFactor = freshBaselineResult ? 1 : scaleFactor;
+    const sourceScaledAnnualSavings =
+      (sourceResult?.annualSavings ?? 0) * componentScaleFactor;
+    const detailRatio =
+      detailPick && sourceScaledAnnualSavings > 0
+        ? detailPick.annualSavings / sourceScaledAnnualSavings
+        : 1;
+
+    scaledResult = sourceResult
+      ? {
+          ...sourceResult,
+          annualGeneration: sourceResult.annualGeneration,
+          annualSavings: detailPick
+            ? detailPick.annualSavings
+            : sourceResult.annualSavings * componentScaleFactor,
+          annualSolarToLoadSavings:
+            (sourceResult.annualSolarToLoadSavings ?? 0) * componentScaleFactor * detailRatio,
+          annualBatteryToLoadSavings:
+            (sourceResult.annualBatteryToLoadSavings ?? 0) * componentScaleFactor * detailRatio,
+          annualExportRevenue:
+            (sourceResult.annualExportRevenue ?? 0) * componentScaleFactor * detailRatio,
+          systemCost: detailPick ? detailPick.capexGross : sourceResult.systemCost,
+          netCost: detailPick ? detailPick.capexNet : sourceResult.netCost,
+          simplePayback: detailPick
+            ? detailPick.simplePaybackYears
+            : sourceResult.simplePayback,
+          sensitivityAnalysis: scaledSensitivity,
+          audit: sourceResult.audit
+            ? {
+                ...sourceResult.audit,
+                hourly: [],
+                monthly: sourceResult.audit.monthly.map((m) => ({
+                  ...m,
+                  consumption: m.consumption * componentScaleFactor,
+                  baselineCost: (m.baselineCost ?? 0) * componentScaleFactor,
+                  savings: (m.savings ?? 0) * componentScaleFactor * detailRatio,
+                  exportRevenue: (m.exportRevenue ?? 0) * componentScaleFactor * detailRatio,
+                  importCost: (m.importCost ?? 0) * componentScaleFactor * detailRatio,
+                })),
+              }
+            : undefined,
+        }
+      : undefined;
+  }
 
   // Override config to reflect the detail pick. The clarifier banner in
   // ResultsSection reads config.systemSizeKwp / batterySizeKwh, so this
-  // makes the banner copy match the highlighted card.
+  // makes the banner copy match the highlighted card. The engine inputs we
+  // persist (annualProductionKwh, installationCost) are also patched so a
+  // future re-run via rebuildResultFromSavedReport produces detail-pick
+  // numbers, not baseline ones.
   const scaledConfig = baseline.config && detailPick
     ? {
         ...baseline.config,
         systemSizeKwp: detailPick.systemSizeKwp,
         batterySizeKwh: detailPick.batterySizeKwh,
+        annualProductionKwh:
+          baseline.config.systemSizeKwp && baseline.config.systemSizeKwp > 0
+            ? baseline.config.annualProductionKwh *
+              (detailPick.systemSizeKwp / baseline.config.systemSizeKwp)
+            : baseline.config.annualProductionKwh,
+        installationCost: detailPick.capexGross,
       }
     : baseline.config;
+
+  // Persist the user's scaled financing too, so the equity field on the
+  // saved report matches what the engine actually used (avoids the
+  // "overfunded equity" display).
+  const scaledFinancing = detailPick
+    ? {
+        ...baseline.financing,
+        equity: Math.min(baseline.financing.equity, detailPick.capexNet),
+      }
+    : baseline.financing;
+
+  // Round to 4 decimal places (0.1 Wh, far below any meter resolution) to
+  // strip the float-noise digits introduced by scaling — keeps the persisted
+  // payload compact without losing meaningful precision.
+  const persistedHourly = scaledHourlyConsumption
+    ? scaledHourlyConsumption.map((k) => Math.round(k * 10000) / 10000)
+    : baseline.hourlyConsumptionOverride;
 
   return {
     ...baseline,
     config: scaledConfig,
+    financing: scaledFinancing,
     curvedMonthlyKwh: scaledMonthly,
-    hourlyConsumptionOverride: undefined,
+    // Persist the user's scaled hourly consumption so the report can be
+    // re-rendered later via rebuildResultFromSavedReport after engine updates.
+    hourlyConsumptionOverride: persistedHourly,
     estimatedMonthlyBills: scaledBills,
     result: scaledResult,
     name: `funnel-${baseline.config?.businessType ?? 'segment'}-${Math.round(scaledBaselineAnnualBill)}`,
@@ -403,6 +586,8 @@ export async function submitFunnelLead(fields: LeadFields): Promise<FunnelSubmit
         scaleFactor,
         scaledBaselineAnnualBill,
         freshBaselineResult,
+        freshDetailResult,
+        scaledHourlyConsumption,
       } = await computeFunnelPaths(baseline, fields.annualSpendEur);
       scaledReport = buildPersonalisedReport(
         baseline,
@@ -410,7 +595,9 @@ export async function submitFunnelLead(fields: LeadFields): Promise<FunnelSubmit
         scaledSensitivity,
         scaledBaselineAnnualBill,
         p,
-        freshBaselineResult
+        freshBaselineResult,
+        freshDetailResult,
+        scaledHourlyConsumption
       );
       paths = p;
     }
