@@ -86,6 +86,47 @@ describe('runCalculation', () => {
     }
   });
 
+  // Algebraic invariant: with no grid charging (commercial AUTO mode, hotel businessType,
+  // no trading), totalSavings = solarToLoad + batteryToLoad + exportRevenue exactly.
+  // The 25-year cash flow projection's Year 1 figure should match too.
+  // If this fails, the four cards on Standard Analysis won't sum to their headline.
+  it('annualSavings should equal solar + battery + export for hotel scenario (no grid charging)', () => {
+    const consumptionProfile = {
+      months: Array.from({ length: 12 }, (_, monthIndex) => ({
+        monthIndex,
+        totalKwh: 20_000, // ~240 MWh/yr — hotel-scale
+        bucketShares: { 'all-day': 1.0 }
+      }))
+    };
+
+    const result = runCalculation(
+      {
+        annualProductionKwh: 180_000, // 200 kWp × ~900 kWh/kWp
+        batterySizeKwh: 50,
+        installationCost: 200_000,
+        location: 'Dublin',
+        businessType: 'hotel',
+        systemSizeKwp: 200
+      },
+      [],
+      { equity: 200_000, interestRate: 0, termYears: 0 },
+      tariffsData[0], // ei-business-24hr
+      { enabled: false },
+      historicalSolarData as any,
+      historicalTariffData as any,
+      25,
+      consumptionProfile as any,
+      makeSolar()
+    );
+
+    const componentSum =
+      (result.annualSolarToLoadSavings ?? 0) +
+      (result.annualBatteryToLoadSavings ?? 0) +
+      (result.annualExportRevenue ?? 0);
+
+    expect(result.annualSavings).toBeCloseTo(componentSum, 0);
+  });
+
   it('clamps negative installation cost to 0', () => {
     const result = runCalculation(
       {

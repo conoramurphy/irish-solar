@@ -7,6 +7,42 @@ import type {
   SensitivityScenario,
   SensitivityVariant,
 } from '../../src/types';
+import type { ParsedSolarData } from '../../src/utils/solarTimeseriesParser';
+
+/** Synthesise solar data for tests so we don't hit the network. */
+function makeSolarData(year = 2024, halfHourly = true): ParsedSolarData {
+  const slotsPerDay = halfHourly ? 48 : 24;
+  const totalSlots = halfHourly ? 17520 : 8760;
+  const timesteps = [];
+  const start = Date.UTC(year, 0, 1, 0, 0, 0);
+  const slotMillis = halfHourly ? 30 * 60 * 1000 : 60 * 60 * 1000;
+  for (let i = 0; i < totalSlots; i++) {
+    const t = new Date(start + i * slotMillis);
+    const hourOfDay = t.getUTCHours();
+    const monthIndex = t.getUTCMonth();
+    const day = t.getUTCDate();
+    timesteps.push({
+      timestamp: t,
+      stamp: { year, monthIndex, day, hour: hourOfDay },
+      hourKey: `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hourOfDay).padStart(2, '0')}`,
+      irradianceWm2: hourOfDay >= 8 && hourOfDay < 18 ? 100 : 0,
+      sourceIndex: i,
+    });
+  }
+  return {
+    location: 'Test',
+    latitude: 0,
+    longitude: 0,
+    elevation: 0,
+    year,
+    timesteps,
+    totalIrradiance: timesteps.reduce((s, ts) => s + ts.irradianceWm2, 0),
+    slotsPerDay,
+  } as unknown as ParsedSolarData;
+}
+
+/** A solar-loader stub for `computeFunnelPaths` tests. */
+const stubSolarLoader = async () => makeSolarData();
 
 function makeVariant(netCost: number, savings: number, batteryKwh: number, batteryFactor: 0 | 0.5 | 1.0 | 2.0): SensitivityVariant {
   return {
@@ -101,41 +137,41 @@ function makeBaseline(annualBill: number): SavedReport {
 }
 
 describe('computeFunnelPaths', () => {
-  it('scales sensitivity savings linearly with the commodity-only spend ratio', () => {
+  it('scales sensitivity savings linearly with the commodity-only spend ratio', async () => {
     // ei-business-24hr standing charge is 0.822 €/day = 300.03 €/year.
     const STANDING_ANNUAL = 0.822 * 365;
     const baselineBill = 24_000; // commodity = 23,700ish
     const baseline = makeBaseline(baselineBill);
 
     // User spend exactly equal to baseline — scaleFactor should be ~1.0
-    const sameSpend = computeFunnelPaths(baseline, baselineBill);
+    const sameSpend = await computeFunnelPaths(baseline, baselineBill, stubSolarLoader);
     expect(sameSpend.scaleFactor).toBeCloseTo(1, 2);
 
     // User spend at half the baseline commodity bill — scaleFactor ~0.5 on the commodity portion only
-    const halfSpend = computeFunnelPaths(baseline, baselineBill * 0.5 + STANDING_ANNUAL);
+    const halfSpend = await computeFunnelPaths(baseline, baselineBill * 0.5 + STANDING_ANNUAL, stubSolarLoader);
     expect(halfSpend.scaleFactor).toBeCloseTo(0.5, 1);
 
     // User spend at double the baseline commodity bill
-    const doubleSpend = computeFunnelPaths(baseline, baselineBill * 2 - STANDING_ANNUAL);
+    const doubleSpend = await computeFunnelPaths(baseline, baselineBill * 2 - STANDING_ANNUAL, stubSolarLoader);
     expect(doubleSpend.scaleFactor).toBeGreaterThan(1.5);
     expect(doubleSpend.scaleFactor).toBeLessThan(2.5);
   });
 
-  it('throws a user-facing error when spend is below the standing-charge floor', () => {
+  it('throws a user-facing error when spend is below the standing-charge floor', async () => {
     const baseline = makeBaseline(24_000);
-    expect(() => computeFunnelPaths(baseline, 200)).toThrow(/standing charges/);
+    await expect(computeFunnelPaths(baseline, 200, stubSolarLoader)).rejects.toThrow(/standing charges/);
   });
 
-  it('returns three paths in ascending target order', () => {
+  it('returns three paths in ascending target order', async () => {
     const baseline = makeBaseline(24_000);
-    const { paths } = computeFunnelPaths(baseline, 24_000);
+    const { paths } = await computeFunnelPaths(baseline, 24_000, stubSolarLoader);
     expect(paths.map((p) => p.targetReductionPct)).toEqual([33, 50, 100]);
   });
 
-  it('throws when the baseline has no sensitivityAnalysis snapshot', () => {
+  it('throws when the baseline has no sensitivityAnalysis snapshot', async () => {
     const baseline = makeBaseline(24_000);
     const broken = { ...baseline, result: undefined };
-    expect(() => computeFunnelPaths(broken, 24_000)).toThrow(/sensitivityAnalysis/);
+    await expect(computeFunnelPaths(broken, 24_000, stubSolarLoader)).rejects.toThrow(/sensitivityAnalysis/);
   });
 });
 
@@ -158,11 +194,12 @@ describe('buildPersonalisedReport — payload trimming', () => {
     };
   }
 
-  it('drops result.audit.hourly so the persisted payload stays small', () => {
+  it('drops result.audit.hourly so the persisted payload stays small', async () => {
     const baseline = baselineWithHourly();
-    const { scaledSensitivity, scaledBaselineAnnualBill } = computeFunnelPaths(
+    const { scaledSensitivity, scaledBaselineAnnualBill } = await computeFunnelPaths(
       baseline,
-      24_000
+      24_000,
+      stubSolarLoader
     );
     const out = buildPersonalisedReport(
       baseline,
@@ -173,11 +210,12 @@ describe('buildPersonalisedReport — payload trimming', () => {
     expect(out.result?.audit?.hourly).toEqual([]);
   });
 
-  it('drops hourlyConsumptionOverride so the persisted payload stays small', () => {
+  it('drops hourlyConsumptionOverride so the persisted payload stays small', async () => {
     const baseline = baselineWithHourly();
-    const { scaledSensitivity, scaledBaselineAnnualBill } = computeFunnelPaths(
+    const { scaledSensitivity, scaledBaselineAnnualBill } = await computeFunnelPaths(
       baseline,
-      24_000
+      24_000,
+      stubSolarLoader
     );
     const out = buildPersonalisedReport(
       baseline,
@@ -188,11 +226,12 @@ describe('buildPersonalisedReport — payload trimming', () => {
     expect(out.hourlyConsumptionOverride).toBeUndefined();
   });
 
-  it('still scales monthly consumption, savings, and bills by the scale factor', () => {
+  it('still scales monthly consumption, savings, and bills by the scale factor', async () => {
     const baseline = baselineWithHourly();
-    const { scaledSensitivity, scaledBaselineAnnualBill } = computeFunnelPaths(
+    const { scaledSensitivity, scaledBaselineAnnualBill } = await computeFunnelPaths(
       baseline,
-      48_000 // ~2x scale
+      48_000, // ~2x scale
+      stubSolarLoader
     );
     const out = buildPersonalisedReport(
       baseline,
@@ -209,11 +248,112 @@ describe('buildPersonalisedReport — payload trimming', () => {
     expect(out.result?.annualSavings).toBeCloseTo(before * 2, 5);
   });
 
-  it('produces a JSON-serializable payload well under 100KB so Cloudflare accepts the POST', () => {
+  it('preserves the annualSavings = solar + battery + export invariant on the persisted result', async () => {
+    // Mirror the screenshot: baseline is a hotel (200 kWp + 50 kWh) where
+    // components algebraically sum to total. Build a personalised report
+    // pinned to the 50% pick (a smaller config) and assert the persisted
+    // result's components still sum to its annualSavings.
+    //
+    // If they don't, the report renders with a "Total Annual Savings" card
+    // that doesn't match its own breakdown — which is exactly the symptom
+    // we're chasing.
+    const baseline = makeBaseline(24_000);
+    const baselineResult = baseline.result as CalculationResult;
+
+    // Set realistic baseline component values that sum to a known total.
+    // Pretend the baseline simulation produced these for 200 kWp + 50 kWh.
+    const baselineSolar = 8_000;
+    const baselineBattery = 3_500;
+    const baselineExport = 4_500;
+    const baselineTotal = baselineSolar + baselineBattery + baselineExport; // 16,000
+
+    const fixedBaseline: SavedReport = {
+      ...baseline,
+      result: {
+        ...baselineResult,
+        annualSavings: baselineTotal,
+        annualSolarToLoadSavings: baselineSolar,
+        annualBatteryToLoadSavings: baselineBattery,
+        annualExportRevenue: baselineExport,
+      } as unknown as CalculationResult,
+    };
+
+    // Use the linear-scaling fallback for this test (no hourly profile),
+    // because the baseline uses synthetic component values that don't
+    // correspond to a runnable simulation.
+    const { paths, scaledSensitivity, scaledBaselineAnnualBill, scaleFactor } =
+      await computeFunnelPaths(fixedBaseline, 24_000, stubSolarLoader);
+
+    const out = buildPersonalisedReport(
+      fixedBaseline,
+      scaleFactor,
+      scaledSensitivity,
+      scaledBaselineAnnualBill,
+      paths
+    );
+
+    const r = out.result as CalculationResult;
+    const componentSum =
+      (r.annualSolarToLoadSavings ?? 0) +
+      (r.annualBatteryToLoadSavings ?? 0) +
+      (r.annualExportRevenue ?? 0);
+
+    // This is what the screenshot violates — total ≠ sum of components.
+    expect(r.annualSavings).toBeCloseTo(componentSum, 0);
+  });
+
+  it('re-run path produces lower savings than linear-scaling fallback for big-bill users', async () => {
+    // Linear-scaling overstates savings because solar generation is bounded
+    // by physical capacity, not by user spend. For a baseline with 100% solar
+    // generation already self-consumed at small bills, scaling the bill 4×
+    // doesn't 4× the savings — the system is already saturated.
+    //
+    // Build a fixture where the baseline's solar output is small relative to
+    // a 4× scaled load, so the re-run "self-consumes more, exports less"
+    // physics produces materially different (lower) savings than naive
+    // linear scaling.
+    //
+    // The exact magnitudes here are sensitive to the synthetic solar profile,
+    // but the *direction* — re-run < linear scaling — is the contract that
+    // protects the user from inflated IRRs.
     const baseline = baselineWithHourly();
-    const { scaledSensitivity, scaledBaselineAnnualBill } = computeFunnelPaths(
+    const SCALE = 4; // 4× spend ratio
+
+    // Re-run path (current default behaviour)
+    const rerun = await computeFunnelPaths(
       baseline,
-      24_000
+      24_000 * SCALE,
+      stubSolarLoader
+    );
+    expect(rerun.freshBaselineResult).not.toBeNull();
+
+    // Linear-scaling fallback (legacy path, still used when baseline has no
+    // hourly profile)
+    const linearOnly = { ...baseline, hourlyConsumptionOverride: undefined };
+    const linear = await computeFunnelPaths(
+      linearOnly,
+      24_000 * SCALE,
+      stubSolarLoader
+    );
+    expect(linear.freshBaselineResult).toBeNull();
+
+    // Compare scaled per-cell annualSavings between paths.
+    const rerunNoBatt = rerun.scaledSensitivity.rows[0]?.noBattery.annualSavings ?? 0;
+    const linearNoBatt = linear.scaledSensitivity.rows[0]?.noBattery.annualSavings ?? 0;
+
+    // Linear scaling multiplies by ~SCALE; re-run is bounded by physics.
+    // The contract: linear must be at least as large as re-run for big bills.
+    // (Equality can hold only when the system is small enough that linear and
+    // physical agree.)
+    expect(linearNoBatt).toBeGreaterThanOrEqual(rerunNoBatt - 1);
+  });
+
+  it('produces a JSON-serializable payload well under 100KB so Cloudflare accepts the POST', async () => {
+    const baseline = baselineWithHourly();
+    const { scaledSensitivity, scaledBaselineAnnualBill } = await computeFunnelPaths(
+      baseline,
+      24_000,
+      stubSolarLoader
     );
     const out = buildPersonalisedReport(
       baseline,

@@ -104,6 +104,66 @@ describe('hourlyEnergyFlow', () => {
       // Savings should be positive
       expect(result.totalSavings).toBeGreaterThan(0);
     });
+
+    // Energy-conservation invariant: with no battery (so no grid-charging),
+    // totalSavings = solarSavings + batterySavings + exportRevenue exactly.
+    // Standing charges cancel, so they must sum.
+    it('totalSavings should equal sum of components for no-battery flat tariff', () => {
+      const generation = Array(8760).fill(5);
+      const consumption = Array(8760).fill(10);
+
+      const result = simulateHourlyEnergyFlow(generation, consumption, flatTariff);
+
+      const componentSum =
+        result.totalSolarToLoadSavings +
+        result.totalBatteryToLoadSavings +
+        result.totalExportRevenue;
+
+      expect(result.totalSavings).toBeCloseTo(componentSum, 2);
+    });
+
+    it('totalSavings should equal sum of components for no-battery TOU tariff', () => {
+      // TOU tariff exposes any day-of-week or hour-bucket asymmetries between
+      // calculateBaselineCost and the in-loop rate accumulator.
+      const generation: number[] = [];
+      const consumption: number[] = [];
+      // Vary hourly so daytime generation interacts with day/peak rates differently.
+      for (let i = 0; i < 8760; i++) {
+        const hour = i % 24;
+        // Solar peaks midday
+        const gen = hour >= 9 && hour <= 17 ? 8 : 0;
+        const cons = hour >= 7 && hour <= 22 ? 6 : 2;
+        generation.push(gen);
+        consumption.push(cons);
+      }
+
+      const result = simulateHourlyEnergyFlow(generation, consumption, touTariff);
+
+      const componentSum =
+        result.totalSolarToLoadSavings +
+        result.totalBatteryToLoadSavings +
+        result.totalExportRevenue;
+
+      expect(result.totalSavings).toBeCloseTo(componentSum, 2);
+    });
+
+    it('totalSavings - exportRevenue should equal solar+battery savings (load-displacement only)', () => {
+      // Even with battery (which can grid-charge in TOU mode), the load-displacement
+      // identity should hold relative to baseline-import. This isolates the export
+      // revenue from the displacement math.
+      const generation = Array(8760).fill(8);
+      const consumption = Array(8760).fill(5);
+
+      const result = simulateHourlyEnergyFlow(generation, consumption, flatTariff);
+
+      const loadDisplacement = result.totalSolarToLoadSavings + result.totalBatteryToLoadSavings;
+      const baselineMinusImport = result.totalSavings - result.totalExportRevenue;
+
+      // For no-battery and battery-from-solar-only, these should be equal.
+      // For battery-from-grid (TOU optimization), baselineMinusImport could be smaller.
+      // Flat tariff disables grid-charging, so equality should hold.
+      expect(baselineMinusImport).toBeCloseTo(loadDisplacement, 2);
+    });
   });
 
   describe('simulateHourlyEnergyFlow - with battery', () => {
