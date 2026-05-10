@@ -187,7 +187,7 @@ export function ResultsSection({
   const isEditMode = reportMode === 'edit';
   // Edit/save/share buttons only shown in wizard (undefined) or admin-edit mode
   const showEditButtons = reportMode === undefined || isEditMode;
-  const [activeTab, setActiveTab] = useState<'standard' | 'tariff-comparison' | 'financial'>('standard');
+  const [activeTab, setActiveTab] = useState<'standard' | 'heatmap' | 'tariff-comparison' | 'financial'>('standard');
   const [auditOpen, setAuditOpen] = useState(false);
   const [applyFutureRateChanges, setApplyFutureRateChanges] = useState(true);
   const [ratesInfoOpen, setRatesInfoOpen] = useState(false);
@@ -516,6 +516,19 @@ export function ResultsSection({
           >
             Standard Analysis
           </button>
+          {projectedSensitivity && projectedSensitivity.rows.length > 0 && (
+            <button
+              onClick={() => setActiveTab('heatmap')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'heatmap'
+                  ? 'border-emerald-700 text-emerald-800'
+                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}
+            >
+              {projectedSensitivity.rows.length * 4} options
+              {isLockedMode && <span className="ml-1.5" aria-label="locked">🔒</span>}
+            </button>
+          )}
           {tariffComparisonResults && tariffComparisonResults.length > 0 && (
             <button
               onClick={() => setActiveTab('tariff-comparison')}
@@ -696,6 +709,15 @@ export function ResultsSection({
             <div className="relative">
             {isLockedMode && <LockedOverlay onContact={() => setCtaOpen(true)} />}
             <div className={isLockedMode ? 'pointer-events-none select-none blur-sm' : ''}>
+            {/* Clarifier banner — the detail below models the reference system in
+                `config`, not any of the picks above. Without this label users wonder
+                which of the three the numbers belong to. */}
+            {config && (config.systemSizeKwp ?? 0) > 0 && (
+              <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <span className="font-semibold text-slate-900">Detail below models a {(config.systemSizeKwp ?? 0).toFixed(0)} kWp{config.batterySizeKwh > 0 ? ` · ${config.batterySizeKwh.toFixed(0)} kWh battery` : ''} reference system.</span>{' '}
+                Each card above is a different size pulled from the same sweep. Switch to the &ldquo;{(projectedSensitivity?.rows.length ?? 8) * 4} options&rdquo; tab to explore the full grid.
+              </div>
+            )}
             {/* Savings Breakdown Compact Section */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-emerald-50 rounded-xl p-5 border border-emerald-100">
@@ -876,6 +898,71 @@ export function ResultsSection({
               </div>
             )}
 
+
+            {/* Legacy Solar Spillage Sensitivity Analysis (Fallback) */}
+            {activeResult && !activeResult.sensitivityAnalysis && activeResult.solarSpillageAnalysis && (
+              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
+                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Click a row to simulate that system size.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
+                      <tr>
+                        <th className="px-6 py-3">PV Size (Annual kWh)</th>
+                        <th className="px-6 py-3 text-right">Scale Factor</th>
+                        <th className="px-6 py-3 text-right">Exported</th>
+                        <th className="px-6 py-3 text-right">Export %</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {activeResult.solarSpillageAnalysis.curve.map((p) => {
+                        const isCurrent = Math.abs(p.scaleFactor - 1.0) < 0.01;
+                        const isHighExport = p.spillageFraction > 0.3;
+                        
+                        return (
+                          <tr 
+                            key={p.scaleFactor} 
+                            onClick={() => !isCurrent && onSelectSimulation?.(p.annualGenerationKwh)}
+                            className={`transition-colors ${
+                              isCurrent 
+                                ? 'bg-slate-50/80 font-medium cursor-default' 
+                                : 'hover:bg-emerald-50 cursor-pointer group'
+                            }`}
+                          >
+                            <td className="px-6 py-3 tabular-nums text-slate-700 group-hover:text-emerald-800">
+                              {formatNumber(p.annualGenerationKwh)}
+                              {isCurrent && <span className="ml-2 text-xs font-normal text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Current</span>}
+                            </td>
+                            <td className="px-6 py-3 text-right tabular-nums text-slate-600">{p.scaleFactor.toFixed(2)}×</td>
+                            <td className="px-6 py-3 text-right tabular-nums text-slate-600">{formatNumber(p.exportKwh)} kWh</td>
+                            <td className={`px-6 py-3 text-right tabular-nums font-medium ${isHighExport ? 'text-amber-600' : 'text-slate-700'}`}>
+                              {formatPercentFraction(p.spillageFraction)}
+                              {isHighExport && <span className="ml-2 text-xs font-normal text-amber-600">⚠️</span>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            </div>{/* end blur wrapper */}
+            </div>{/* end relative locked section */}
+          </div>
+        )}
+        {/* --- HEATMAP / SIZING-OPTIONS TAB --- */}
+        {activeTab === 'heatmap' && activeResult && projectedSensitivity && (
+          <div className="animate-in fade-in duration-300 relative">
+            {isLockedMode && <LockedOverlay onContact={() => setCtaOpen(true)} />}
+            <div className={isLockedMode ? 'pointer-events-none select-none blur-sm' : ''}>
             {/* Solar Sizing Sensitivity — Heat-Map Grid */}
             {activeResult && projectedSensitivity && (() => {
               const sens = projectedSensitivity;
@@ -1062,66 +1149,10 @@ export function ResultsSection({
                 </div>
               );
             })()}
-
-            {/* Legacy Solar Spillage Sensitivity Analysis (Fallback) */}
-            {activeResult && !activeResult.sensitivityAnalysis && activeResult.solarSpillageAnalysis && (
-              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden mb-8">
-                <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-bold tracking-wider text-slate-500 uppercase">Solar Sizing Sensitivity</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Click a row to simulate that system size.
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-xs text-slate-500 uppercase font-semibold">
-                      <tr>
-                        <th className="px-6 py-3">PV Size (Annual kWh)</th>
-                        <th className="px-6 py-3 text-right">Scale Factor</th>
-                        <th className="px-6 py-3 text-right">Exported</th>
-                        <th className="px-6 py-3 text-right">Export %</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {activeResult.solarSpillageAnalysis.curve.map((p) => {
-                        const isCurrent = Math.abs(p.scaleFactor - 1.0) < 0.01;
-                        const isHighExport = p.spillageFraction > 0.3;
-                        
-                        return (
-                          <tr 
-                            key={p.scaleFactor} 
-                            onClick={() => !isCurrent && onSelectSimulation?.(p.annualGenerationKwh)}
-                            className={`transition-colors ${
-                              isCurrent 
-                                ? 'bg-slate-50/80 font-medium cursor-default' 
-                                : 'hover:bg-emerald-50 cursor-pointer group'
-                            }`}
-                          >
-                            <td className="px-6 py-3 tabular-nums text-slate-700 group-hover:text-emerald-800">
-                              {formatNumber(p.annualGenerationKwh)}
-                              {isCurrent && <span className="ml-2 text-xs font-normal text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Current</span>}
-                            </td>
-                            <td className="px-6 py-3 text-right tabular-nums text-slate-600">{p.scaleFactor.toFixed(2)}×</td>
-                            <td className="px-6 py-3 text-right tabular-nums text-slate-600">{formatNumber(p.exportKwh)} kWh</td>
-                            <td className={`px-6 py-3 text-right tabular-nums font-medium ${isHighExport ? 'text-amber-600' : 'text-slate-700'}`}>
-                              {formatPercentFraction(p.spillageFraction)}
-                              {isHighExport && <span className="ml-2 text-xs font-normal text-amber-600">⚠️</span>}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
             </div>{/* end blur wrapper */}
-            </div>{/* end relative locked section */}
           </div>
         )}
+
 
         {/* --- TARIFF COMPARISON TAB --- */}
         {activeTab === 'tariff-comparison' && tariffComparisonResults && tariffComparisonResults.length > 0 && (
