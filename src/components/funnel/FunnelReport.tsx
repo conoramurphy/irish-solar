@@ -3,10 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { usePostHog } from '@posthog/react';
 import { AccuracyBar } from './AccuracyBar';
 import { PathCard } from './PathCard';
+import { ResultsSection } from '../ResultsSection';
+import { migrateReport } from '../../utils/migrateReport';
 import type { PathRecommendation } from '../../utils/pickPathsFromSensitivity';
 import type { FunnelSegment } from '../landings/funnelConstants';
+import type { SavedReport } from '../../types/savedReports';
+import type { CalculationResult } from '../../types';
 
-// Funnel reports stash lead details + the three picked paths in `description`
+// Funnel reports stash lead details + the picked paths in `description`
 // as JSON so the existing reports API can serve them without schema changes.
 interface FunnelDescription {
   leadName: string;
@@ -19,10 +23,15 @@ interface FunnelReportProps {
   segment: FunnelSegment;
 }
 
+interface ReadyData {
+  funnel: FunnelDescription;
+  report: SavedReport;
+}
+
 type LoadState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; data: FunnelDescription };
+  | { status: 'ready'; data: ReadyData };
 
 const PHONE_HREF =
   'https://wa.me/353858082080?text=Hey%2C%20I%20just%20got%20my%20Watt%20Profit%20independent%20ROI%20and%20want%20to%20chat%20through%20it.%20What%20time%20works%3F';
@@ -66,6 +75,13 @@ function CallCTA({ source }: { source: 'top' | 'mid' | 'bottom' }) {
   );
 }
 
+// Tailwind needs the literal class names present at build time, so map count → grid class.
+const CARD_GRID_BY_COUNT: Record<number, string> = {
+  1: 'grid grid-cols-1 gap-4 md:gap-5 max-w-md mx-auto',
+  2: 'grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 max-w-3xl mx-auto',
+  3: 'grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5',
+};
+
 export function FunnelReport({ segment }: FunnelReportProps) {
   const { id } = useParams<{ id: string }>();
   const [state, setState] = useState<LoadState>(() =>
@@ -82,7 +98,7 @@ export function FunnelReport({ segment }: FunnelReportProps) {
         }
         return res.json() as Promise<{
           description?: string | null;
-          payload: { config?: { businessType?: string } };
+          payload: Record<string, unknown>;
         }>;
       })
       .then((body) => {
@@ -90,16 +106,20 @@ export function FunnelReport({ segment }: FunnelReportProps) {
         if (!body.description) {
           throw new Error('Report is missing personalisation data. Please call us.');
         }
-        let parsed: FunnelDescription;
+        if (!body.payload) {
+          throw new Error('Report payload not found. Please call us.');
+        }
+        let funnel: FunnelDescription;
         try {
-          parsed = JSON.parse(body.description) as FunnelDescription;
+          funnel = JSON.parse(body.description) as FunnelDescription;
         } catch {
           throw new Error('Report personalisation data is corrupt. Please call us.');
         }
-        if (!parsed.paths || parsed.paths.length === 0) {
+        if (!funnel.paths || funnel.paths.length === 0) {
           throw new Error('Report has no recommended paths. Please call us.');
         }
-        setState({ status: 'ready', data: parsed });
+        const report = migrateReport(body.payload);
+        setState({ status: 'ready', data: { funnel, report } });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -151,8 +171,11 @@ export function FunnelReport({ segment }: FunnelReportProps) {
     );
   }
 
-  const { leadName, leadEircode, paths } = state.data;
+  const { funnel, report } = state.data;
+  const { leadName, leadEircode, paths } = funnel;
   const segmentNoun = segment === 'hotel' ? 'hotel' : 'dairy farm';
+  const standardResult = report.result as CalculationResult | undefined;
+  const cardGridClass = CARD_GRID_BY_COUNT[paths.length] ?? CARD_GRID_BY_COUNT[3];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -178,44 +201,63 @@ export function FunnelReport({ segment }: FunnelReportProps) {
         </Link>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-5 md:px-8 py-10 md:py-14">
-        <header className="mb-10 md:mb-12">
-          <h1 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 leading-tight tracking-tight mb-3">
-            {leadName}, here&rsquo;s your{' '}
-            <span className="text-green-800">independent</span> ROI.
-          </h1>
-          <p className="text-sm text-slate-500 mb-3">
-            {segment === 'hotel' ? 'Hotel' : 'Dairy farm'} · {leadEircode}
-          </p>
-          <p className="text-sm md:text-base text-slate-700 leading-relaxed">
-            Your usage patterns <span className="underline decoration-amber-500 decoration-2 underline-offset-2 font-semibold">will</span> differ from this {segmentNoun}&rsquo;s.
-          </p>
-        </header>
+      <main>
+        <div className="max-w-5xl mx-auto px-5 md:px-8 pt-10 md:pt-14 pb-10">
+          <header className="mb-10 md:mb-12">
+            <h1 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 leading-tight tracking-tight mb-3">
+              {leadName}, here&rsquo;s your{' '}
+              <span className="text-green-800">independent</span> ROI.
+            </h1>
+            <p className="text-sm text-slate-500 mb-3">
+              {segment === 'hotel' ? 'Hotel' : 'Dairy farm'} · {leadEircode}
+            </p>
+            <p className="text-sm md:text-base text-slate-700 leading-relaxed">
+              Your usage patterns{' '}
+              <span className="underline decoration-amber-500 decoration-2 underline-offset-2 font-semibold">
+                will
+              </span>{' '}
+              differ from this {segmentNoun}&rsquo;s.
+            </p>
+          </header>
 
-        <div className="mb-8">
-          <CallCTA source="top" />
-        </div>
-
-        <section aria-labelledby="paths-heading" className="mb-10 md:mb-12">
-          <h2 id="paths-heading" className="sr-only">
-            Three paths to lower bills
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
-            {paths.map((path) => (
-              <PathCard key={path.targetReductionPct} path={path} />
-            ))}
+          <div className="mb-8">
+            <CallCTA source="top" />
           </div>
-        </section>
 
-        <div className="text-center mb-10">
-          <CallCTA source="mid" />
+          <section aria-labelledby="paths-heading" className="mb-10 md:mb-12">
+            <h2 id="paths-heading" className="sr-only">
+              Recommended paths
+            </h2>
+            <div className={cardGridClass}>
+              {paths.map((path) => (
+                <PathCard key={path.targetReductionPct} path={path} />
+              ))}
+            </div>
+          </section>
+
+          <div className="text-center mb-10 md:mb-12">
+            <CallCTA source="mid" />
+          </div>
         </div>
 
-        <footer className="border-t border-slate-100 pt-8 md:pt-10 text-center">
+        {standardResult && (
+          <section aria-label="Full ROI report" className="border-t border-slate-100 bg-slate-50">
+            <ResultsSection
+              standardResult={standardResult}
+              config={report.config}
+              reportMode="view"
+              reportLocked={false}
+              reportTitle={null}
+              reportDescription={null}
+            />
+          </section>
+        )}
+
+        <footer className="border-t border-slate-100 pt-10 md:pt-14 pb-14 text-center px-5">
           <p className="text-sm md:text-base text-slate-700 leading-relaxed mb-5 max-w-xl mx-auto">
-            These three paths come from a real model of an Irish {segmentNoun}, scaled to
-            your bill. The call sharpens it: your real load shape, your real tariff, your
-            real site. ±5% accurate, free, no sales pressure.
+            These paths come from a real model of an Irish {segmentNoun}, scaled to your
+            bill. The call sharpens it: your real load shape, your real tariff, your real
+            site. ±5% accurate, free, no sales pressure.
           </p>
           <CallCTA source="bottom" />
         </footer>

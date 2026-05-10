@@ -21,6 +21,8 @@ interface FlatCell {
   variant: SensitivityVariant;
 }
 
+const REDUCTION_EPSILON_PCT = 0.5;
+
 function flatten(analysis: SensitivityAnalysis): FlatCell[] {
   const cells: FlatCell[] = [];
   for (const row of analysis.rows) {
@@ -57,15 +59,38 @@ function toRecommendation(
   };
 }
 
+function reductionPct(cell: FlatCell, baselineAnnualBill: number): number {
+  return (cell.variant.annualSavings / baselineAnnualBill) * 100;
+}
+
+function lowestCost(cells: FlatCell[]): FlatCell {
+  // Caller guarantees non-empty. Tiebreak: smaller battery (cleaner install).
+  return [...cells].sort(
+    (a, b) =>
+      a.variant.netCost - b.variant.netCost ||
+      a.variant.batterySizeKwh - b.variant.batterySizeKwh
+  )[0];
+}
+
 /**
- * Pick the lowest-net-CapEx cell from an existing sensitivity sweep that meets
- * each of three reduction targets (33%, 50%, 100%). If no cell meets a target,
- * return the highest-reduction cell available with `targetMet: false` so the
- * UI can surface that honestly (per CLAUDE.md no-silent-failure).
+ * Pick recommendations from an existing sensitivity sweep with two rules:
  *
- * Battery presence is incidental — the rule is simply lowest netCost. A
- * battery-bearing cell only wins when it's actually the cheapest way to hit
- * the target.
+ *   1. **Lowest net CapEx** at or above each reduction target (33%, 50%, 100%).
+ *      Battery presence is incidental — a battery-bearing cell only wins when
+ *      it is the cheapest way to hit the target.
+ *
+ *   2. **Strictly-increasing reduction** across picks. The 50% pick must have
+ *      strictly more reduction than the 33% pick (else the cards would
+ *      duplicate, since the sensitivity sweep is coarse — 8 scale factors —
+ *      and the cheapest cell meeting 33% often also meets 50% at the same
+ *      reduction). If no cell satisfies both "meets target" and "more reduction
+ *      than previous," fall back to "more reduction than previous" alone and
+ *      mark `targetMet=false`. If no cell has more reduction at all (the
+ *      previous pick was already the max), **drop the card** — return fewer
+ *      than `targets.length` items.
+ *
+ * So the output length is anywhere from 0 (empty sweep) to `targets.length`
+ * (typically 3). Caller renders a responsive grid based on the actual count.
  */
 export function pickPathsFromSensitivity(
   analysis: SensitivityAnalysis,
@@ -83,26 +108,38 @@ export function pickPathsFromSensitivity(
     throw new Error('pickPathsFromSensitivity: empty sensitivity analysis');
   }
 
-  return targets.map((target) => {
-    const meeting = cells.filter((c) => {
-      const pct = (c.variant.annualSavings / baselineAnnualBill) * 100;
-      return pct >= target;
-    });
+  const picks: PathRecommendation[] = [];
+  let previousReductionPct = -Infinity;
 
-    if (meeting.length > 0) {
-      // Lowest net CapEx wins. Tiebreak: smaller battery (cleaner install).
-      meeting.sort(
-        (a, b) =>
-          a.variant.netCost - b.variant.netCost ||
-          a.variant.batterySizeKwh - b.variant.batterySizeKwh
-      );
-      return toRecommendation(target, meeting[0], baselineAnnualBill, true);
+  for (const target of targets) {
+    const moreReduction = cells.filter(
+      (c) => reductionPct(c, baselineAnnualBill) > previousReductionPct + REDUCTION_EPSILON_PCT
+    );
+
+    if (moreReduction.length === 0) {
+      // No cell improves on the previous pick — drop this card.
+      continue;
     }
 
-    // No cell hit the target — pick the highest-reduction one available.
-    const fallback = cells.reduce((best, c) =>
-      c.variant.annualSavings > best.variant.annualSavings ? c : best
+    const meetingTarget = moreReduction.filter(
+      (c) => reductionPct(c, baselineAnnualBill) >= target
     );
-    return toRecommendation(target, fallback, baselineAnnualBill, false);
-  });
+
+    let pick: FlatCell;
+    let targetMet: boolean;
+    if (meetingTarget.length > 0) {
+      pick = lowestCost(meetingTarget);
+      targetMet = true;
+    } else {
+      // Target unreachable but we can still show meaningfully more reduction
+      // than the previous pick — surface honestly via targetMet=false.
+      pick = lowestCost(moreReduction);
+      targetMet = false;
+    }
+
+    picks.push(toRecommendation(target, pick, baselineAnnualBill, targetMet));
+    previousReductionPct = pick.variant.annualSavings / baselineAnnualBill * 100;
+  }
+
+  return picks;
 }
