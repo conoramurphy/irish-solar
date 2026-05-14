@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { LeadFormModal } from './landings/LeadFormModal';
 import { Faq } from './landings/Faq';
 import { CTAModal } from './CTAModal';
-import type { FunnelSegment } from './landings/funnelConstants';
 import { usePostHog } from '@posthog/react';
 
 // Grid overlay styles — white lines for dark sections, dark lines for light sections
@@ -76,7 +75,6 @@ const EXAMPLE_MODELS: ReadonlyArray<{
   saving: string;
   reportId: string;
   cta: string;
-  segment: FunnelSegment;
   theme: {
     cardBg: string;
     titleColor: string;
@@ -94,8 +92,7 @@ const EXAMPLE_MODELS: ReadonlyArray<{
     savingLabel: '10-yr return',
     saving: '+€82,400',
     reportId: 'GXz4-_lMwsjVbgc3GzBww',
-    cta: 'Get your free ROI calc',
-    segment: 'hotel',
+    cta: 'See the real ROI',
     // Navy scheme, matches the old tariff section
     theme: {
       cardBg: '#1B3A72',
@@ -114,8 +111,7 @@ const EXAMPLE_MODELS: ReadonlyArray<{
     savingLabel: '10-yr return',
     saving: '+€122,887',
     reportId: 'WZ9EWvHnXsJsk8gH7GUQN',
-    cta: 'Get your free ROI calc',
-    segment: 'dairy',
+    cta: 'See the real ROI',
     // Amber scheme, matches the old heat pump section
     theme: {
       cardBg: '#FEF3C7',
@@ -136,14 +132,13 @@ const ARROW = (
 );
 
 export function Landing() {
+  const navigate = useNavigate();
   const posthog = usePostHog();
   const [ctaOpen, setCtaOpen] = useState(false);
-  const [ctaSegment, setCtaSegment] = useState<FunnelSegment | undefined>(undefined);
   const [contactOpen, setContactOpen] = useState(false);
 
-  function openCta(source: string, segment?: FunnelSegment) {
-    posthog?.capture('cta_modal_opened', { source, segment });
-    setCtaSegment(segment);
+  function openCta(source: string) {
+    posthog?.capture('cta_modal_opened', { source });
     setCtaOpen(true);
   }
 
@@ -154,7 +149,7 @@ export function Landing() {
 
   return (
     <>
-      <LeadFormModal open={ctaOpen} onClose={() => setCtaOpen(false)} fixedSegment={ctaSegment} />
+      <LeadFormModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
       <CTAModal open={contactOpen} onClose={() => setContactOpen(false)} />
 
       {/* Floating CTA — hidden on mobile */}
@@ -241,12 +236,16 @@ export function Landing() {
                   key={m.type}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. Get your free ROI calc.`}
-                  onClick={() => openCta(`example_card_${m.segment}`, m.segment)}
+                  aria-label={`${m.type}: ${m.spec}, payback ${m.payback}, 10-yr return ${m.saving}. See the real ROI.`}
+                  onClick={() => {
+                    posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
+                    navigate(`/r/${m.reportId}`);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      openCta(`example_card_${m.segment}`, m.segment);
+                      posthog?.capture('example_model_opened', { report_id: m.reportId, model_name: m.type });
+                      navigate(`/r/${m.reportId}`);
                     }
                   }}
                   className="group rounded-2xl p-5 cursor-pointer hover:-translate-y-1 active:translate-y-0 transition-all duration-200 shadow-xl hover:shadow-2xl flex flex-col"
