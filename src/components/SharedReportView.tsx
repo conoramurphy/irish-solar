@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { usePostHog } from '@posthog/react';
 import { migrateReport } from '../utils/migrateReport';
+import { LEAD_CONVERSION_VALUE_EUR } from '../utils/conversionValue';
 import { ResultsSection } from './ResultsSection';
 import { CTAModal } from './CTAModal';
 import { ReportGateModal } from './ReportGateModal';
@@ -197,7 +198,7 @@ export function SharedReportView() {
             if (typeof window !== 'undefined' && window.gtag) {
               window.gtag('event', 'conversion', {
                 send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
-                value: 25.0,
+                value: LEAD_CONVERSION_VALUE_EUR,
                 currency: 'EUR',
               });
             }

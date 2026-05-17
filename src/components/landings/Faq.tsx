@@ -138,7 +138,7 @@ export function Faq({ bgClassName = 'bg-white' }: FaqProps) {
       <div className="max-w-3xl mx-auto">
         <h2
           id="faq-heading"
-          className="text-3xl md:text-4xl font-serif font-bold text-slate-900 leading-tight tracking-tight mb-8 md:mb-10"
+          className="text-3xl md:text-5xl font-serif font-bold text-slate-900 leading-tight tracking-tight mb-8 md:mb-10"
         >
           Common questions.
         </h2>

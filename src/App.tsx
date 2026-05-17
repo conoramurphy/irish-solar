@@ -44,6 +44,7 @@ import { CookieConsent } from './components/CookieConsent';
 import { UnifiedWizardBar } from './components/UnifiedWizardBar';
 
 import { TariffModeller } from './components/TariffModeller';
+import { fireCalculatorStarted, fireCalculatorCompleted } from './utils/conversionEvents';
 import { Step0BuildingType } from './components/steps/Step0BuildingType';
 import { Step1DigitalTwin } from './components/steps/Step1DigitalTwin';
 import { Step2Solar } from './components/steps/Step2Solar';
@@ -70,6 +71,14 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
   const navigate = useNavigate();
   const posthog = usePostHog();
   const appMode: AppMode = defaultMode;
+
+  // Mid-funnel quality signals for Smart Bidding (audit §2.3, Tier 2 / Tier 3).
+  // Fire once per wizard mount; firing on every render would over-count.
+  useEffect(() => {
+    fireCalculatorStarted(posthog, {
+      source: defaultMode === 'tariff' ? 'wizard_tariff' : 'wizard_solar_battery',
+    });
+  }, [posthog, defaultMode]);
 
   // Building type selection (Step 0)
   const [, setBuildingTypeSelection] = useState<BuildingTypeSelection | null>(null);
@@ -235,6 +244,19 @@ function WizardApp({ defaultMode }: { defaultMode: 'solar-battery' | 'tariff' })
   const [tariffComparisonResults, setTariffComparisonResults] = useState<Array<{ tariff: Tariff; result: CalculationResult }> | null>(null);
   const [calculationError, setCalculationError] = useState<string | null>(null);
   const [reportGenerating, setReportGenerating] = useState(false);
+  const [calculatorCompletedFired, setCalculatorCompletedFired] = useState(false);
+
+  // First time the engine produces a usable result, fire calculator_completed
+  // (audit §2.3, Tier 3). Subsequent re-runs don't re-fire; that would inflate
+  // the signal Smart Bidding learns from.
+  useEffect(() => {
+    if (standardResult && !calculatorCompletedFired) {
+      fireCalculatorCompleted(posthog, {
+        source: defaultMode === 'tariff' ? 'wizard_tariff' : 'wizard_solar_battery',
+      });
+      setCalculatorCompletedFired(true);
+    }
+  }, [standardResult, calculatorCompletedFired, posthog, defaultMode]);
 
   // Step management - starts at 0 (building type)
   const [currentStep, setCurrentStep] = useState<number>(0);

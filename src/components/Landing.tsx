@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LeadFormModal } from './landings/LeadFormModal';
 import { Faq } from './landings/Faq';
+import { LoadGenerationDay } from './landings/LoadGenerationDay';
+import { SEGMENT_CHART_DATA } from './landings/segmentChartData';
 import { CTAModal } from './CTAModal';
 import { usePostHog } from '@posthog/react';
+import { usePageMeta } from '../hooks/usePageMeta';
+import { HOME_META } from '../data/routeMeta';
 
-// Grid overlay styles — white lines for dark sections, dark lines for light sections
+// Grid overlay styles, white lines for dark sections, dark lines for light sections
 const GRID_LIGHT: React.CSSProperties = {
   backgroundImage: [
     'linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)',
@@ -87,7 +91,7 @@ const EXAMPLE_MODELS: ReadonlyArray<{
 }> = [
   {
     type: 'Hotel, 20 beds',
-    spec: '50–250 kWp · SEAI grant',
+    spec: '50 kWp · SEAI grant',
     payback: '4.5 yrs',
     savingLabel: '10-yr return',
     saving: '+€82,400',
@@ -106,10 +110,10 @@ const EXAMPLE_MODELS: ReadonlyArray<{
   },
   {
     type: 'Dairy Farm',
-    spec: '65–97.5 kWp · TAMS 3 grant',
-    payback: '4.4 yrs',
+    spec: '65 kWp + 15 kWh battery · TAMS 3',
+    payback: '2.6 yrs',
     savingLabel: '10-yr return',
-    saving: '+€122,887',
+    saving: '+€141,379',
     reportId: 'WZ9EWvHnXsJsk8gH7GUQN',
     cta: 'See the real ROI',
     // Amber scheme, matches the old heat pump section
@@ -132,6 +136,7 @@ const ARROW = (
 );
 
 export function Landing() {
+  usePageMeta(HOME_META);
   const navigate = useNavigate();
   const posthog = usePostHog();
   const [ctaOpen, setCtaOpen] = useState(false);
@@ -152,7 +157,7 @@ export function Landing() {
       <LeadFormModal open={ctaOpen} onClose={() => setCtaOpen(false)} />
       <CTAModal open={contactOpen} onClose={() => setContactOpen(false)} />
 
-      {/* Floating CTA — hidden on mobile */}
+      {/* Floating CTA, hidden on mobile */}
       <button
         type="button"
         onClick={() => openCta('floating_button')}
@@ -166,7 +171,7 @@ export function Landing() {
       <div>
 
         {/* ─────────────────────────────────────────────
-            SECTION 1 — HERO + PROCESS  (green)
+            SECTION 1, HERO + PROCESS  (green)
         ───────────────────────────────────────────── */}
         <section aria-labelledby="hero-heading" className="relative" style={{ backgroundColor: '#3A7A5C' }}>
 
@@ -206,7 +211,7 @@ export function Landing() {
 
             </div>
 
-            {/* CTA — above the example cards so the form is the first action */}
+            {/* CTA, above the example cards so the form is the first action */}
             <div className="flex flex-wrap items-center gap-4 mb-3">
               <button
                 type="button"
@@ -278,7 +283,7 @@ export function Landing() {
               ))}
             </div>
 
-            {/* ── Process steps — merged into hero, compressed ── */}
+            {/* ── Process steps, merged into hero, compressed ── */}
             <div className="mt-8 pb-14 border-t" style={{ borderColor: 'rgba(255,255,255,0.2)' }}>
               <p className="text-xs font-medium tracking-widest uppercase mt-10 mb-8" style={{ color: 'rgba(255,255,255,0.6)' }}>
                 The process
@@ -325,10 +330,35 @@ export function Landing() {
           </div>
         </section>
 
+        {/* Real-customer chart preview, ported from /dairy. Demonstrates what
+            "the full report" looks like in shape, using real Longford 100-head
+            data. Click the example card above for the full saved report. */}
+        <section
+          className="bg-white pt-14 md:pt-20 pb-0 px-5 md:px-8"
+          aria-labelledby="real-chart-heading"
+        >
+          <div className="max-w-3xl mx-auto text-center">
+            <h2
+              id="real-chart-heading"
+              className="text-3xl md:text-5xl font-serif font-bold text-slate-900 leading-tight tracking-tight mb-4"
+            >
+              What one of these reports looks like.
+            </h2>
+            <p className="text-base md:text-lg text-slate-600 leading-relaxed">
+              The chart below is the 100-head Longford dairy farm from the card above,
+              modelled in detail. Real half-hourly meter data on the longest day of the
+              year, charted against the PV and battery configuration we recommended.
+              The full report goes way deeper than one day. Click the card above to open it.
+            </p>
+          </div>
+        </section>
+
+        <LoadGenerationDay data={SEGMENT_CHART_DATA.dairy} />
+
         <Faq bgClassName="bg-slate-50" />
 
         {/* ─────────────────────────────────────────────
-            CONTACT BAND — opens the CTAModal (email + WhatsApp)
+            CONTACT BAND, opens the CTAModal (email + WhatsApp)
         ───────────────────────────────────────────── */}
         <section className="bg-white py-14 md:py-20 border-t border-slate-100" aria-labelledby="contact-heading">
           <div className="max-w-3xl mx-auto px-5 md:px-8 text-center">
@@ -339,7 +369,7 @@ export function Landing() {
               Want to chat first?
             </h2>
             <p className="text-base text-slate-600 mb-7">
-              Email or WhatsApp — we&rsquo;ll come back to you.
+              Email or WhatsApp, we&rsquo;ll come back to you.
             </p>
             <button
               type="button"

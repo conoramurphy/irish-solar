@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePostHog } from '@posthog/react';
+import { LEAD_CONVERSION_VALUE_EUR } from '../../utils/conversionValue';
 import { PhoneInput } from 'react-international-phone';
 import 'react-international-phone/style.css';
 import { sha256Hex } from '../../utils/sha256';
@@ -110,7 +111,7 @@ export function LeadForm({
       window.gtag('event', 'generate_lead', { segment, form: source });
       window.gtag('event', 'conversion', {
         send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
-        value: 25.0,
+        value: LEAD_CONVERSION_VALUE_EUR,
         currency: 'EUR',
         user_data: { sha256_email_address: hashedEmail },
       });

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePostHog } from '@posthog/react';
 import { sha256Hex } from '../utils/sha256';
+import { LEAD_CONVERSION_VALUE_EUR } from '../utils/conversionValue';
 
 const SPEND_OPTIONS = [
   { value: 'lt100k', label: 'Under €100k / year' },
@@ -51,7 +52,7 @@ export function ReportGateModal({ reportId, onComplete }: ReportGateModalProps) 
       window.gtag('event', 'generate_lead', { form: 'report_gate' });
       window.gtag('event', 'conversion', {
         send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
-        value: 25.0,
+        value: LEAD_CONVERSION_VALUE_EUR,
         currency: 'EUR',
         user_data: { sha256_email_address: hashedEmail },
       });

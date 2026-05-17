@@ -4,18 +4,24 @@ import { usePostHog } from '@posthog/react';
 import { LeadFormModal } from './LeadFormModal';
 import { FiveWaysGrid } from './FiveWaysGrid';
 import { Faq } from './Faq';
+import { LoadGenerationDay } from './LoadGenerationDay';
+import { SEGMENT_CHART_DATA } from './segmentChartData';
 import { CTAModal } from '../CTAModal';
+import { usePageMeta } from '../../hooks/usePageMeta';
+import { DAIRY_META, HOTEL_META } from '../../data/routeMeta';
 import type { FunnelSegment } from './funnelConstants';
 
 interface SegmentCopy {
   /** "{Irish hotels|Irish dairy farms} make half what they should from solar." */
   headlineLead: string;
-  /** First paragraph of the subhead — the positioning. */
+  /** First paragraph of the subhead, the positioning. */
   subheadIntro: string;
-  /** Second paragraph of the subhead — the methodology. */
+  /** Second paragraph of the subhead, the methodology. */
   subheadBody: string;
   /** Small credibility line just before the CTA. */
   baselineLine: string;
+  /** First-person CTA label, segment-specific. */
+  ctaLabel: string;
 }
 
 const COPY: Record<FunnelSegment, SegmentCopy> = {
@@ -24,18 +30,20 @@ const COPY: Record<FunnelSegment, SegmentCopy> = {
     subheadIntro:
       'We don\'t sell panels. We\'re independent solar advice, brokerage and management for Irish hotels.',
     subheadBody:
-      'We model your hotel properly using your real consumption profile, daytime occupancy patterns, real sunlight, real export rates through 2033, and every grant and capital allowance you\'re entitled to. Then we manage the installer process end to end so you don\'t have to. Most quotes oversell batteries and undersize panels. We fix that before you spend a euro.',
+      'We model your hotel using your real consumption profile, daytime occupancy, real sunlight, real export rates through 2033, and every grant and capital allowance you\'re entitled to. Most quotes oversell batteries and undersize panels. We fix that before you spend a euro.',
     baselineLine:
-      'Built on a real 20-bed Cavan hotel model, scaled to your bill. Not a brochure.',
+      'Built on a real 20-bed Cavan hotel, scaled to your bill. Not a brochure.',
+    ctaLabel: 'Get my hotel\'s payback year',
   },
   dairy: {
     headlineLead: 'Irish dairy farms make half what they should from solar.',
     subheadIntro:
       'We don\'t sell panels. We\'re independent solar advice, brokerage and management for Irish dairy farms.',
     subheadBody:
-      'We model your farm properly using your real milking parlour load, real sunlight, real export rates through 2033, and the full TAMS 3 grant treatment. Then we manage the installer process end to end so you don\'t have to. Most quotes oversell batteries and undersize panels. We fix that before you spend a euro.',
+      'We model your farm using your real milking parlour load, real sunlight, real export rates through 2033, and full TAMS 3 grant treatment. Most quotes oversell batteries and undersize panels. We fix that before you spend a euro.',
     baselineLine:
-      'Built on a real 100-head Longford dairy farm model, scaled to your bill. Not a brochure.',
+      'Built on a real 100-head Longford dairy farm, scaled to your bill. Not a brochure.',
+    ctaLabel: 'Get my dairy\'s payback year',
   },
 };
 
@@ -72,6 +80,7 @@ interface SegmentLandingProps {
 }
 
 export function SegmentLanding({ segment }: SegmentLandingProps) {
+  usePageMeta(segment === 'hotel' ? HOTEL_META : DAIRY_META);
   const copy = COPY[segment];
   const posthog = usePostHog();
   const [ctaOpen, setCtaOpen] = useState(false);
@@ -127,7 +136,7 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
             </span>
           </header>
 
-          {/* Hero copy + CTA — single column to mirror the homepage */}
+          {/* Hero copy + CTA, single column to mirror the homepage */}
           <div className="pt-10 pb-14 md:pt-14 md:pb-20 max-w-3xl">
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif font-bold text-white leading-[1.08] tracking-tight mb-7">
               {copy.headlineLead}{' '}
@@ -135,13 +144,13 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
             </h1>
 
             <p
-              className="text-base sm:text-xl font-light leading-relaxed mb-4"
+              className="text-lg sm:text-xl font-light leading-relaxed mb-4"
               style={{ color: 'rgba(255,255,255,0.92)' }}
             >
               {copy.subheadIntro}
             </p>
             <p
-              className="text-base sm:text-xl font-light leading-relaxed"
+              className="text-lg sm:text-xl font-light leading-relaxed"
               style={{ color: 'rgba(255,255,255,0.92)' }}
             >
               {copy.subheadBody}
@@ -158,21 +167,39 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
               <button
                 type="button"
                 onClick={() => openCta('hero_button')}
-                className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+                className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base sm:text-lg font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
                 style={{ backgroundColor: '#1A4A35' }}
-                aria-label="Get your free Solar ROI"
+                aria-label={copy.ctaLabel}
               >
-                Get your free Solar ROI {ARROW}
+                {copy.ctaLabel} {ARROW}
               </button>
             </div>
           </div>
         </div>
       </section>
 
+      <LoadGenerationDay data={SEGMENT_CHART_DATA[segment]} />
+
+      {/* Mid-page CTA so visitors who read the chart can act without scrolling
+          all the way to the bottom contact band. */}
+      <section className="bg-white pb-12 md:pb-16 px-5 md:px-8">
+        <div className="max-w-3xl mx-auto text-center">
+          <button
+            type="button"
+            onClick={() => openCta('post_chart')}
+            className="inline-flex items-center gap-2.5 rounded-2xl px-7 py-4 text-base sm:text-lg font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+            style={{ backgroundColor: '#1A4A35' }}
+            aria-label={copy.ctaLabel}
+          >
+            {copy.ctaLabel} {ARROW}
+          </button>
+        </div>
+      </section>
+
       <FiveWaysGrid />
       <Faq />
 
-      {/* Contact band — opens the CTAModal (email + WhatsApp) for visitors who
+      {/* Contact band, opens the CTAModal (email + WhatsApp) for visitors who
           want to chat without going through the lead form. */}
       <section className="bg-white py-14 md:py-20 border-t border-slate-100" aria-labelledby="contact-heading">
         <div className="max-w-3xl mx-auto px-5 md:px-8 text-center">
@@ -183,7 +210,7 @@ export function SegmentLanding({ segment }: SegmentLandingProps) {
             Want to chat first?
           </h2>
           <p className="text-base text-slate-600 mb-7">
-            Email or WhatsApp — we&rsquo;ll come back to you.
+            Email or WhatsApp. We&rsquo;ll come back to you.
           </p>
           <button
             type="button"

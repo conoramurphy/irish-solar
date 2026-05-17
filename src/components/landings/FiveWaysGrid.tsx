@@ -1,4 +1,4 @@
-// "Five ways this makes you money" — copy ported verbatim from the marketing
+// "Five ways this makes you money": copy ported verbatim from the marketing
 // asset shared via screenshot. Three of the five points (#1, #3, #4) reinforce
 // the "independent of installer" wedge for free.
 
@@ -16,7 +16,7 @@ const TILES: readonly FiveWayTile[] = [
     title: 'Sized for your site, not the average.',
     body: 'We use your real half-hourly load data and check local grid export capacity, so the system is sized correctly the first time and you have leverage in installer negotiation.',
     metricLabel: 'Avoidable return loss',
-    metricValue: '50%',
+    metricValue: '20–40%',
   },
   {
     number: '02',

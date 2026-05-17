@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { usePostHog } from '@posthog/react';
+import { LEAD_CONVERSION_VALUE_EUR } from '../../utils/conversionValue';
 import { AccuracyBar } from './AccuracyBar';
 import { PathCard } from './PathCard';
 import { ResultsSection } from '../ResultsSection';
@@ -94,7 +95,7 @@ function ContactCTAs({ source, onEmailClick }: ContactCTAsProps) {
           if (typeof window !== 'undefined' && window.gtag) {
             window.gtag('event', 'conversion', {
               send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
-              value: 25.0,
+              value: LEAD_CONVERSION_VALUE_EUR,
               currency: 'EUR',
             });
           }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePostHog } from '@posthog/react';
 import { sha256Hex } from '../utils/sha256';
+import { LEAD_CONVERSION_VALUE_EUR } from '../utils/conversionValue';
 
 const WHATSAPP_NUMBER = '353858082080';
 
@@ -111,7 +112,7 @@ export function CTAModal({ open, onClose, leadContext }: CTAModalProps) {
       });
       window.gtag('event', 'conversion', {
         send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
-        value: 25.0,
+        value: LEAD_CONVERSION_VALUE_EUR,
         currency: 'EUR',
         user_data: { sha256_email_address: hashedEmail },
       });
@@ -134,7 +135,7 @@ export function CTAModal({ open, onClose, leadContext }: CTAModalProps) {
         if (typeof window !== 'undefined' && window.gtag) {
           window.gtag('event', 'conversion', {
             send_to: 'AW-18091029484/zYnrCKi2xKMcEOznvLJD',
-            value: 25.0,
+            value: LEAD_CONVERSION_VALUE_EUR,
             currency: 'EUR',
           });
         }

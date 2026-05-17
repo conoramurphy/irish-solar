@@ -16,6 +16,11 @@ A task is complete when **all** of the following pass:
 2. `npm run test:run` exits 0 with no failures
 3. Changes are committed with a descriptive message (one commit per logical chunk)
 
+## Style rules
+
+### No em-dashes
+The em-dash character (codepoint U+2014, often appearing between spaces between two clauses) is banned anywhere in this repo. That includes user-facing copy, JSX text, code comments, commit messages, and Markdown documentation. Use a period, comma, colon, or parentheses instead. En-dashes (codepoint U+2013) for numeric ranges (e.g. `08:00`–`23:00`) are fine; only the long em-dash is forbidden. Em-dashes read as AI-generated writing and are off-brand for WattProfit. If you find one, remove it. Grep for the character with `grep -rnP "\x{2014}" src/` (Perl regex; works with GNU grep and macOS `ggrep`).
+
 ## When writing code
 - Run `npm run test:run` after every change — all tests must pass before committing
 - Every new function needs tests: unit (happy path + edge cases), integration for new flows
